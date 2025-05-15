@@ -1,0 +1,23 @@
+html, body {
+    height: 100%; /* S'assure que body prend toute la hauteur de la fenêtre */
+    margin: 0; /* Retirer les marges par défaut */
+}
+
+/* Le conteneur principal de l'application doit occuper toute la hauteur */
+#app {
+    display: flex;
+    flex-direction: column; /* Colonne : le contenu prend l'espace restant */
+    min-height: 100vh; /* Cela garantit que l'app occupe toute la hauteur de la fenêtre */
+}
+
+/* Le wrapper principal va occuper l'espace restant */
+.main-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+/* Forcer le footer à rester en bas */
+.main-footer {
+    margin-top: auto; /* Pousse le footer vers le bas */
+}

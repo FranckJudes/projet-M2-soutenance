@@ -1,0 +1,613 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card } from '../../../components/Card.jsx';
+import { styles } from '../../../utils/styles.jsx';
+import { useTranslation } from 'react-i18next';
+import NormalTabs from "../../../components/Tabs.jsx";
+import InformationGeneral from './SubTabParametres/InformationGeneral.jsx';
+import Habilitation from '../../Configuration/Tabs/SubTabParametres/Habilitation.jsx';
+import Planification from './SubTabParametres/Planification.jsx';
+import Condition from '../../Configuration/Tabs/SubTabParametres/Condition.jsx';
+import Ressource from './SubTabParametres/Ressource.jsx';
+import Notifications from './SubTabParametres/Notification.jsx';
+import { ReactFlow, Controls, Background } from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import dagre from '@dagrejs/dagre';
+
+// Utilitaires pour la gestion du BPMN
+const isElementInSubProcess = (elementId, subProcess) => {
+  if (!subProcess) return false;
+  
+  if (Array.isArray(subProcess.tasks) && subProcess.tasks.some(task => task.id === elementId)) {
+    return true;
+  }
+  if (Array.isArray(subProcess.events) && subProcess.events.some(event => event.id === elementId)) {
+    return true;
+  }
+  if (Array.isArray(subProcess.gateways) && subProcess.gateways.some(gateway => gateway.id === elementId)) {
+    return true;
+  }
+  if (Array.isArray(subProcess.subProcesses)) {
+    for (const nestedSubProcess of subProcess.subProcesses) {
+      if (isElementInSubProcess(elementId, nestedSubProcess)) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
+// Composant Breadcrumb pour la navigation dans les sous-processus
+const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
+  const { t } = useTranslation();
+
+  return (
+    <div style={{ marginBottom: "15px", display: "flex", alignItems: "center", flexWrap: "wrap", fontSize: "14px" }}>
+      <span 
+        onClick={() => navigateToBreadcrumbLevel(0)}
+        style={{ cursor: "pointer", color: "#0066cc" }}
+      >
+        {t("__diag__principal")}
+      </span>
+      
+      {breadcrumb.map((item, index) => (
+        <React.Fragment key={item.id}>
+          <span style={{ margin: "0 5px" }}> &gt; </span>
+          <span 
+            onClick={() => navigateToBreadcrumbLevel(index + 1)}
+            style={{ 
+              cursor: "pointer", 
+              color: "#0066cc",
+              fontWeight: index === breadcrumb.length - 1 ? "bold" : "normal"
+            }}
+          >
+            {item.name}
+          </span>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
+function Parametres({ sharedData }) {
+  const { t } = useTranslation();
+  
+  const [activities, setActivities] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  // États pour le diagramme BPMN
+  const [bpmnData, setBpmnData] = useState(null);
+  const [nodes, setNodes] = useState([]);
+  const [edges, setEdges] = useState([]);
+  const [error, setError] = useState(null);
+  const [direction, setDirection] = useState("TB");
+  const [breadcrumb, setBreadcrumb] = useState([]);
+  const [currentSubProcessNodes, setCurrentSubProcessNodes] = useState([]);
+  const [currentSubProcessEdges, setCurrentSubProcessEdges] = useState([]);
+  
+  // États pour le diagramme en bas
+  const [lowerBreadcrumb, setLowerBreadcrumb] = useState([]);
+  const [lowerNodes, setLowerNodes] = useState([]);
+  const [lowerEdges, setLowerEdges] = useState([]);
+
+  // Configuration pour le layout du diagramme
+  const nodeWidth = 172;
+  const nodeHeight = 36;
+
+  // Fonction pour calculer les positions des nœuds avec dagre
+  const calculateLayout = useCallback((nodes, edges, direction) => {
+    const dagreGraph = new dagre.graphlib.Graph();
+    dagreGraph.setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setGraph({ rankdir: direction });
+
+    nodes.forEach((node) => {
+      dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    });
+
+    edges.forEach((edge) => {
+      dagreGraph.setEdge(edge.source, edge.target);
+    });
+
+    dagre.layout(dagreGraph);
+
+    const updatedNodes = nodes.map((node) => {
+      const nodeWithPosition = dagreGraph.node(node.id);
+      return {
+        ...node,
+        position: {
+          x: nodeWithPosition.x - nodeWidth / 2,
+          y: nodeWithPosition.y - nodeHeight / 2,
+        },
+      };
+    });
+
+    return { nodes: updatedNodes, edges };
+  }, []);
+
+  // Vérifier si un élément appartient à un sous-processus
+  const isInSubProcess = useCallback((elementId) => {
+    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return false;
+
+    for (const subProcess of bpmnData.subProcesses) {
+      if (isElementInSubProcess(elementId, subProcess)) {
+        return true;
+      }
+    }
+    return false;
+  }, [bpmnData]);
+
+  // Transformer les données BPMN en nœuds et arêtes pour le diagramme principal
+  const transformBpmnToXyflow = useCallback((data, direction) => {
+    if (!data) return { nodes: [], edges: [] };
+    
+    const nodes = [];
+    const edges = [];
+
+    // Ajouter les tâches qui ne sont pas dans un sous-processus
+    if (Array.isArray(data.tasks)) {
+      data.tasks.forEach((task) => {
+        if (!isInSubProcess(task.id)) {
+          nodes.push({
+            id: task.id,
+            type: "task",
+            data: { label: task.name || "Tâche sans nom" },
+            position: { x: 0, y: 0 },
+          });
+        }
+      });
+    }
+
+    // Ajouter les événements qui ne sont pas dans un sous-processus
+    if (Array.isArray(data.events)) {
+      data.events.forEach((event) => {
+        if (!isInSubProcess(event.id)) {
+          nodes.push({
+            id: event.id,
+            type: "event",
+            data: { label: event.typeEvent || "Événement" },
+            position: { x: 0, y: 0 },
+          });
+        }
+      });
+    }
+
+    // Ajouter les passerelles qui ne sont pas dans un sous-processus
+    if (Array.isArray(data.gateways)) {
+      data.gateways.forEach((gateway) => {
+        if (!isInSubProcess(gateway.id)) {
+          nodes.push({
+            id: gateway.id,
+            type: "gateway",
+            data: { label: gateway.name || gateway.typeGateway || "Passerelle" },
+            position: { x: 0, y: 0 },
+          });
+        }
+      });
+    }
+
+    // Ajouter les sous-processus de premier niveau
+    if (Array.isArray(data.subProcesses)) {
+      data.subProcesses.forEach((subProcess) => {
+        nodes.push({
+          id: subProcess.id,
+          type: "subProcess",
+          data: { 
+            label: subProcess.name || "Sous-processus",
+            hasSubProcesses: Array.isArray(subProcess.subProcesses) && subProcess.subProcesses.length > 0
+          },
+          position: { x: 0, y: 0 },
+          style: { backgroundColor: "#f0f0f0", border: "2px solid #ccc", padding: "10px" },
+        });
+      });
+    }
+
+    // Ajouter les flux de séquence entre les éléments du diagramme principal
+    if (Array.isArray(data.sequenceFlows)) {
+      data.sequenceFlows.forEach((flow) => {
+        if (flow.source && flow.target && !isInSubProcess(flow.source.id) && !isInSubProcess(flow.target.id)) {
+          edges.push({
+            id: flow.id,
+            source: flow.source.id,
+            target: flow.target.id,
+            label: flow.name || "",
+            markerEnd: {
+              type: "arrow",
+              color: "#000",
+            },
+          });
+        }
+      });
+    }
+
+    return calculateLayout(nodes, edges, direction);
+  }, [isInSubProcess, calculateLayout]);
+
+  // Fonction pour créer les nœuds et arêtes d'un sous-processus
+  const createSubProcessElements = useCallback((subProcess) => {
+    if (!subProcess) return { nodes: [], edges: [] };
+    
+    const nodes = [];
+    const edges = [];
+
+    if (Array.isArray(subProcess.tasks)) {
+      subProcess.tasks.forEach((task) => {
+        nodes.push({
+          id: task.id,
+          type: "task",
+          data: { label: task.name || "Tâche" },
+          position: { x: 0, y: 0 },
+        });
+      });
+    }
+
+    if (Array.isArray(subProcess.events)) {
+      subProcess.events.forEach((event) => {
+        nodes.push({
+          id: event.id,
+          type: "event",
+          data: { label: event.typeEvent || "Événement" },
+          position: { x: 0, y: 0 },
+        });
+      });
+    }
+
+    if (Array.isArray(subProcess.gateways)) {
+      subProcess.gateways.forEach((gateway) => {
+        nodes.push({
+          id: gateway.id,
+          type: "gateway",
+          data: { label: gateway.name || gateway.typeGateway || "Passerelle" },
+          position: { x: 0, y: 0 },
+        });
+      });
+    }
+
+    if (Array.isArray(subProcess.subProcesses)) {
+      subProcess.subProcesses.forEach((nestedSubProcess) => {
+        nodes.push({
+          id: nestedSubProcess.id,
+          type: "subProcess",
+          data: { 
+            label: nestedSubProcess.name || "Sous-processus",
+            hasSubProcesses: Array.isArray(nestedSubProcess.subProcesses) && nestedSubProcess.subProcesses.length > 0
+          },
+          position: { x: 0, y: 0 },
+          style: { backgroundColor: "#e6f7ff", border: "2px solid #1890ff", padding: "10px" },
+        });
+      });
+    }
+
+    if (Array.isArray(subProcess.sequenceFlows)) {
+      subProcess.sequenceFlows.forEach((flow) => {
+        if (flow.source && flow.target) {
+          edges.push({
+            id: flow.id,
+            source: flow.source.id,
+            target: flow.target.id,
+            label: flow.name || "",
+            markerEnd: {
+              type: "arrow",
+              color: "#000",
+            },
+          });
+        }
+      });
+    }
+
+    return calculateLayout(nodes, edges, direction);
+  }, [direction, calculateLayout]);
+
+  // Fonction pour obtenir le sous-processus actuel à partir du fil d'Ariane
+  const getCurrentSubProcessFromBreadcrumb = useCallback((breadcrumbArray) => {
+    if (breadcrumbArray.length === 0 || !bpmnData || !Array.isArray(bpmnData.subProcesses)) return null;
+    
+    let currentProcess = null;
+    let processes = bpmnData.subProcesses;
+    
+    for (const item of breadcrumbArray) {
+      if (!Array.isArray(processes)) return null;
+      
+      currentProcess = processes.find(p => p.id === item.id);
+      if (!currentProcess) return null;
+      
+      processes = currentProcess.subProcesses;
+    }
+    
+    return currentProcess;
+  }, [bpmnData]);
+
+  // Fonction pour basculer entre l'orientation horizontale et verticale
+  const toggleDirection = useCallback(() => {
+    setDirection(prev => prev === "TB" ? "LR" : "TB");
+  }, []);
+
+  // Fonction pour gérer le clic sur un sous-processus dans le diagramme principal
+  const handleMainDiagramSubProcessClick = useCallback((subProcessId) => {
+    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return;
+    
+    const subProcess = bpmnData.subProcesses.find(sp => sp.id === subProcessId);
+    if (!subProcess) return;
+    
+    setBreadcrumb([{
+      id: subProcess.id,
+      name: subProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(subProcess);
+    setCurrentSubProcessNodes(nodes);
+    setCurrentSubProcessEdges(edges);
+    
+    setNodes(prevNodes => 
+      prevNodes.map(node => ({
+        ...node,
+        style: node.id === subProcessId ? 
+          { backgroundColor: "#ffcc00", border: "2px solid #ff9900", padding: "10px" } : 
+          node.style
+      }))
+    );
+  }, [bpmnData, createSubProcessElements]);
+
+  // Fonction pour gérer le clic sur un sous-processus imbriqué dans le panneau de droite
+  const handleNestedSubProcessClick = useCallback((subProcessId) => {
+    const currentSubProcess = getCurrentSubProcessFromBreadcrumb(breadcrumb);
+    if (!currentSubProcess || !Array.isArray(currentSubProcess.subProcesses)) return;
+    
+    const nestedSubProcess = currentSubProcess.subProcesses.find(sp => sp.id === subProcessId);
+    if (!nestedSubProcess) return;
+    
+    setBreadcrumb(prev => [...prev, {
+      id: nestedSubProcess.id,
+      name: nestedSubProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(nestedSubProcess);
+    setCurrentSubProcessNodes(nodes);
+    setCurrentSubProcessEdges(edges);
+  }, [getCurrentSubProcessFromBreadcrumb, breadcrumb, createSubProcessElements]);
+
+  // Fonction pour naviguer via le fil d'Ariane
+  const navigateToBreadcrumbLevel = useCallback((level) => {
+    if (level === 0) {
+      setBreadcrumb([]);
+      setCurrentSubProcessNodes([]);
+      setCurrentSubProcessEdges([]);
+      
+      setNodes(prevNodes => 
+        prevNodes.map(node => ({
+          ...node,
+          style: node.type === "subProcess" ? 
+            { backgroundColor: "#f0f0f0", border: "3px solid #ccc", padding: "10px" } : 
+            node.style
+        }))
+      );
+      
+      return;
+    }
+    
+    const newBreadcrumb = breadcrumb.slice(0, level);
+    setBreadcrumb(newBreadcrumb);
+    
+    let currentProcess = null;
+    let processes = bpmnData?.subProcesses || [];
+    
+    for (const item of newBreadcrumb) {
+      currentProcess = processes.find(p => p.id === item.id);
+      if (!currentProcess) return;
+      processes = currentProcess.subProcesses || [];
+    }
+    
+    if (currentProcess) {
+      const { nodes, edges } = createSubProcessElements(currentProcess);
+      setCurrentSubProcessNodes(nodes);
+      setCurrentSubProcessEdges(edges);
+    }
+  }, [breadcrumb, bpmnData, createSubProcessElements]);
+
+  // Fonctions pour le diagramme du bas
+  const handleLowerDiagramSubProcessClick = useCallback((subProcessId) => {
+    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return;
+    
+    const subProcess = bpmnData.subProcesses.find(sp => sp.id === subProcessId);
+    if (!subProcess) return;
+    
+    setLowerBreadcrumb([{
+      id: subProcess.id,
+      name: subProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(subProcess);
+    setLowerNodes(nodes);
+    setLowerEdges(edges);
+    
+    // Sélectionner le sous-processus
+    setSelectedEvent({
+      id: subProcess.id,
+      name: subProcess.name || "Sous-processus",
+      type: "subProcess"
+    });
+  }, [bpmnData, createSubProcessElements]);
+
+  const handleLowerNestedSubProcessClick = useCallback((subProcessId) => {
+    const currentSubProcess = getCurrentSubProcessFromBreadcrumb(lowerBreadcrumb);
+    if (!currentSubProcess || !Array.isArray(currentSubProcess.subProcesses)) return;
+    
+    const nestedSubProcess = currentSubProcess.subProcesses.find(sp => sp.id === subProcessId);
+    if (!nestedSubProcess) return;
+    
+    setLowerBreadcrumb(prev => [...prev, {
+      id: nestedSubProcess.id,
+      name: nestedSubProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(nestedSubProcess);
+    setLowerNodes(nodes);
+    setLowerEdges(edges);
+    
+    // Sélectionner le sous-processus
+    setSelectedEvent({
+      id: nestedSubProcess.id,
+      name: nestedSubProcess.name || "Sous-processus",
+      type: "subProcess"
+    });
+  }, [getCurrentSubProcessFromBreadcrumb, lowerBreadcrumb, createSubProcessElements]);
+
+  const navigateToLowerBreadcrumbLevel = useCallback((level) => {
+    if (level === 0) {
+      setLowerBreadcrumb([]);
+      setLowerNodes([]);
+      setLowerEdges([]);
+      
+      // Réinitialiser le diagramme du bas avec les nœuds principaux
+      const { nodes, edges } = transformBpmnToXyflow(bpmnData, direction);
+      setLowerNodes(nodes);
+      setLowerEdges(edges);
+      
+      return;
+    }
+    
+    const newBreadcrumb = lowerBreadcrumb.slice(0, level);
+    setLowerBreadcrumb(newBreadcrumb);
+    
+    let currentProcess = null;
+    let processes = bpmnData?.subProcesses || [];
+    
+    for (const item of newBreadcrumb) {
+      currentProcess = processes.find(p => p.id === item.id);
+      if (!currentProcess) return;
+      processes = currentProcess.subProcesses || [];
+    }
+    
+    if (currentProcess) {
+      const { nodes, edges } = createSubProcessElements(currentProcess);
+      setLowerNodes(nodes);
+      setLowerEdges(edges);
+      
+      // Sélectionner le sous-processus
+      setSelectedEvent({
+        id: currentProcess.id,
+        name: currentProcess.name || "Sous-processus",
+        type: "subProcess"
+      });
+    }
+  }, [lowerBreadcrumb, bpmnData, direction, transformBpmnToXyflow, createSubProcessElements]);
+
+  // Initialiser les données BPMN
+  useEffect(() => {
+    if (sharedData && sharedData.processElements) {
+      console.log("Données du diagramme chargées:", sharedData.processElements);
+      setBpmnData(sharedData.processElements);
+    }
+  }, [sharedData]);
+
+  // Mettre à jour le diagramme lorsque les données BPMN ou la direction changent
+  useEffect(() => {
+    if (bpmnData) {
+      const { nodes, edges } = transformBpmnToXyflow(bpmnData, direction);
+      setNodes(nodes);
+      setEdges(edges);
+      
+      // Initialiser également le diagramme du bas
+      setLowerNodes(nodes);
+      setLowerEdges(edges);
+      
+      if (breadcrumb.length > 0) {
+        const currentSubProcess = getCurrentSubProcessFromBreadcrumb(breadcrumb);
+        if (currentSubProcess) {
+          const { nodes, edges } = createSubProcessElements(currentSubProcess);
+          setCurrentSubProcessNodes(nodes);
+          setCurrentSubProcessEdges(edges);
+        }
+      }
+      
+      if (lowerBreadcrumb.length > 0) {
+        const currentSubProcess = getCurrentSubProcessFromBreadcrumb(lowerBreadcrumb);
+        if (currentSubProcess) {
+          const { nodes, edges } = createSubProcessElements(currentSubProcess);
+          setLowerNodes(nodes);
+          setLowerEdges(edges);
+        }
+      }
+    }
+  }, [bpmnData, direction, breadcrumb, lowerBreadcrumb, transformBpmnToXyflow, getCurrentSubProcessFromBreadcrumb, createSubProcessElements]);
+
+  // Mettre à jour les activités
+  useEffect(() => {
+    if (bpmnData && Array.isArray(bpmnData.tasks)) {
+      // Créer des activités à partir des tâches du processus
+      const activitiesFromTasks = bpmnData.tasks.map(task => ({
+        id: task.id,
+        title: task.name || "Tâche sans nom",
+        date: new Date().toISOString(), // Date fictive
+        type: "task"
+      }));
+      setActivities(activitiesFromTasks);
+    }
+  }, [bpmnData]);
+
+  const tabItems = [
+    { id: "InformationGeneral", title: t("__inf_gen_tabs_"), content: <InformationGeneral /> },
+    { id: "Habilitation", title: t("__habi_tabs__"), content: <Habilitation /> },
+    { id: "Planification", title: t("__planf_tabs__"), content: <Planification /> },
+    { id: "ressource", title: t("__ressour_tabs__"), content: <Ressource /> },
+    { id: "condition", title: t("__condition_tabs_"), content: <Condition /> },
+    { id: "notification", title: t("__notifi_tabs_"), content: <Notifications /> },
+  ];
+  const connectionLineStyle = { stroke: "white" };
+
+  return (
+    <>
+      <div className="row">
+        <div className="col-6">
+            <Card title={t("__diag__activite")} style={styles.card}>
+              {/* Fil d'Ariane pour le diagramme du bas */}
+              {lowerBreadcrumb.length > 0 && (
+                <BpmnBreadcrumb 
+                  breadcrumb={lowerBreadcrumb} 
+                  navigateToBreadcrumbLevel={navigateToLowerBreadcrumbLevel} 
+                />
+              )}
+              
+              {/* Diagramme du bas */}
+              <div style={{ height: "1050px", width: "100%"  }}>
+                <ReactFlow
+                  nodes={lowerBreadcrumb.length > 0 ? lowerNodes : nodes}
+                  edges={lowerBreadcrumb.length > 0 ? lowerEdges : edges}
+                  fitView
+                  minZoom={0.1}
+                  connectionLineStyle={connectionLineStyle}
+                  maxZoom={1.5}
+                  onNodeClick={(event, node) => {
+                    // Gérer le clic sur un nœud
+                    if (node.type === "subProcess") {
+                      if (lowerBreadcrumb.length > 0) {
+                        handleLowerNestedSubProcessClick(node.id);
+                      } else {
+                        handleLowerDiagramSubProcessClick(node.id);
+                      }
+                    } else {
+                      // Sélectionner d'autres types de nœuds
+                      setSelectedEvent({
+                        id: node.id,
+                        name: node.data.label,
+                        type: node.type
+                      });
+                    }
+                  }}
+                >
+                  <Controls />
+                  <Background color="#f8f8f8" gap={16} />
+                </ReactFlow>
+              </div>
+            </Card>
+        </div>
+        <div className="col-6">
+          <NormalTabs
+            items={tabItems}
+            title={t("parametrage_des_activites")}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default Parametres;
