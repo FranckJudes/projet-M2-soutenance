@@ -1,3 +1,4 @@
+//// filepath: /home/gallagher/Documents/GitHub/Kairos/FrontEnd/front-app/src/pages/Auth/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../api/authService';

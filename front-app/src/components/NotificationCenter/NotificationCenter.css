@@ -1,0 +1,258 @@
+/* Styles pour le centre de notifications */
+.notification-center {
+  position: relative;
+}
+
+.notification-bell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.notification-bell:hover {
+  opacity: 0.8;
+}
+
+.notification-bell svg {
+  font-size: 20px;
+  color: #fff;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background-color: #e53935;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.notification-panel {
+  position: absolute;
+  top: 45px;
+  right: 0;
+  width: 350px;
+  max-height: 500px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-header {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.notification-header h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.notification-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.notification-filters {
+  display: flex;
+  gap: 5px;
+}
+
+.btn-filter {
+  background: none;
+  border: none;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #777;
+}
+
+.btn-filter.active {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  font-weight: 500;
+}
+
+.notification-list {
+  flex-grow: 1;
+  overflow-y: auto;
+  max-height: 350px;
+}
+
+.notification-item {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.notification-item:hover {
+  background-color: #f9f9f9;
+}
+
+.notification-item.unread {
+  background-color: #f0f7ff;
+}
+
+.notification-item.unread:hover {
+  background-color: #e3f2fd;
+}
+
+.notification-content {
+  display: flex;
+  flex-grow: 1;
+  gap: 12px;
+}
+
+.notification-icon {
+  font-size: 16px;
+  color: #757575;
+  margin-top: 3px;
+}
+
+.notification-icon.task-assigned {
+  color: #1976d2;
+}
+
+.notification-icon.task-completed {
+  color: #43a047;
+}
+
+.notification-icon.task-overdue {
+  color: #e53935;
+}
+
+.notification-icon.task-reminder {
+  color: #fb8c00;
+}
+
+.notification-icon.process {
+  color: #7b1fa2;
+}
+
+.notification-details {
+  flex-grow: 1;
+}
+
+.notification-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+  font-size: 14px;
+}
+
+.notification-message {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.notification-date {
+  font-size: 11px;
+  color: #999;
+}
+
+.btn-delete {
+  background: none;
+  border: none;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+.btn-delete:hover {
+  opacity: 1;
+  color: #e53935;
+}
+
+.notification-footer {
+  padding: 10px 15px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.view-all {
+  color: #1976d2;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.view-all:hover {
+  text-decoration: underline;
+}
+
+.no-notifications {
+  padding: 30px 15px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Styles pour les priorités */
+.priority-urgent {
+  border-left: 3px solid #e53935;
+}
+
+.priority-high {
+  border-left: 3px solid #fb8c00;
+}
+
+.priority-normal {
+  border-left: 3px solid #43a047;
+}
+
+.priority-low {
+  border-left: 3px solid #757575;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notification-panel {
+  animation: fadeIn 0.2s ease-out;
+}

@@ -1,52 +1,96 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import $ from "jquery";
 import "jstree/dist/themes/default/style.min.css";
 import "jstree";
 
-const ZtreeComponent = ({ data, plugins = [], onNodeSelect }) => {
+const ZtreeComponent = ({ data, plugins = [], onNodeSelect, selectedNodes = [] }) => {
   const treeRef = useRef(null);
+  const treeInstance = useRef(null);
+  const initialized = useRef(false);
+
+  // Fonction pour formater les données une seule fois
+  const formatData = useCallback((nodes) => {
+    return nodes.map((node) => ({
+      ...node,
+      icon: node.type === 1 ? "jstree-file" : "jstree-folder",
+    }));
+  }, []);
+
+  // Initialisation de l'arbre
+  const initTree = useCallback(() => {
+    if (!treeRef.current || initialized.current) return;
+
+    try {
+      $(treeRef.current).jstree({
+        core: {
+          data: formatData(data),
+          check_callback: true,
+          themes: {
+            responsive: true
+          }
+        },
+        plugins: plugins
+      });
+
+      treeInstance.current = $(treeRef.current).jstree(true);
+      initialized.current = true;
+
+      // Gestionnaire d'événement pour la sélection
+      $(treeRef.current).on("select_node.jstree", (e, selected) => {
+        if (onNodeSelect) {
+          onNodeSelect(selected.node);
+        }
+      });
+
+      // Sélection des nœuds initiaux
+      if (selectedNodes.length > 0) {
+        setTimeout(() => {
+          selectedNodes.forEach(nodeId => {
+            $(treeRef.current).jstree('select_node', nodeId);
+          });
+        }, 100);
+      }
+
+    } catch (error) {
+      console.error("Erreur d'initialisation jsTree:", error);
+    }
+  }, [data, plugins, onNodeSelect, selectedNodes, formatData]);
+
+  // Mise à jour des données
+  const updateTreeData = useCallback(() => {
+    if (treeInstance.current && initialized.current) {
+      try {
+        treeInstance.current.settings.core.data = formatData(data);
+        treeInstance.current.refresh();
+      } catch (error) {
+        console.error("Erreur de mise à jour jsTree:", error);
+      }
+    }
+  }, [data, formatData]);
 
   useEffect(() => {
-    const formattedData = data.map((node) => ({
-      ...node,
-      icon: node.type === 1 ? "jstree-file" : "jstree-folder", // Icône dynamique
-    }));
-
-    const $tree = $(treeRef.current).jstree({
-      core: {
-        data: formattedData || [],
-      },
-      plugins: plugins,
-    });
-
-    if (onNodeSelect) {
-      $tree.on("select_node.jstree", (e, selected) => {
-        onNodeSelect(selected.node); // Appel du gestionnaire d'événements
-      });
+    if (!initialized.current) {
+      initTree();
+    } else {
+      updateTreeData();
     }
 
+    // Nettoyage
     return () => {
-      $(treeRef.current).jstree("destroy");
+      if (treeRef.current && initialized.current) {
+        try {
+          $(treeRef.current).off("select_node.jstree");
+          $(treeRef.current).jstree("destroy");
+          initialized.current = false;
+          treeInstance.current = null;
+        } catch (error) {
+          console.error("Erreur de nettoyage jsTree:", error);
+        }
+      }
     };
-  }, [data, plugins, onNodeSelect]);
+  }, [initTree, updateTreeData]);
 
-  return <div ref={treeRef}></div>;
+  return <div ref={treeRef} className="jstree-container" />;
 };
 
-export default ZtreeComponent;
-
-/**
- * Manuel d'utilisation
- * <ZtreeComponent
- *   data={[
- *     { id: "1", text: "Élément 1", parent: "#", type: 0 }, // Dossier
- *     { id: "1.1", text: "Élément 1.1", parent: "1", type: 1 }, // Document
- *     { id: "1.2", text: "Élément 1.2", parent: "1", type: 1 }, // Document
- *     { id: "2", text: "Élément 2", parent: "#", type: 0 }, // Dossier
- *     { id: "3", text: "Élément 3", parent: "#", type: 0 }, // Dossier
- *     { id: "3.1", text: "Élément 3.1", parent: "3", type: 1 }, // Document
- *   ]}
- *   plugins={["checkbox"]}
- *   onNodeSelect={(node) => console.log("Nœud sélectionné :", node)}
- * />;
- */
+export default React.memo(ZtreeComponent);

@@ -26,8 +26,8 @@ function Configuration() {
         { id: "General", title: t("_general_config"), content: <General /> },
         { id: "Model", title: t("__Conception_config_"), content: <Model /> },
         { id: "Parametres", title: t("setting_sidebar_title"), content: <Parametres /> },
-        { id: "Taches", title: t("__task_bord_"), content: <Taches /> },
-        { id: "Acteur", title: t("_actor_"), content: <Acteur /> }
+        // { id: "Taches", title: t("__task_bord_"), content: <Taches /> },
+        // { id: "Acteur", title: t("_actor_"), content: <Acteur /> }
     ];
 
 

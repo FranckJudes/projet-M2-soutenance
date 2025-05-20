@@ -4,9 +4,65 @@ import Select from 'react-select';
 import {Radio,RadioButton } from '../../../../components/Input';
 
 
-export default function Notifications (){
+export default function Notifications ({ selectedTask }){
   const { t } = useTranslation();
   const [selectedPriority, setSelectedPriority] = useState(1);
+  const [taskConfig, setTaskConfig] = useState(null);
+  const [selectedReminders, setSelectedReminders] = useState([]);
+  
+  // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
+  useEffect(() => {
+    if (selectedTask) {
+      console.log('Tâche sélectionnée dans Notifications:', selectedTask);
+      
+      // Charger la configuration existante depuis le localStorage
+      const savedConfig = localStorage.getItem(`task_notification_config_${selectedTask.id}`);
+      
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        setTaskConfig(config);
+        setSelectedPriority(config.selectedPriority || 1);
+        setSelectedReminders(config.selectedReminders || []);
+      } else {
+        // Initialiser une nouvelle configuration
+        setTaskConfig({
+          taskId: selectedTask.id,
+          taskName: selectedTask.name,
+          taskType: selectedTask.type,
+          notificationByAttribution: false,
+          alertEscalade: false,
+          selectedReminders: [],
+          selectedPriority: 1
+        });
+        setSelectedReminders([]);
+      }
+    } else {
+      // Réinitialiser l'état si aucune tâche n'est sélectionnée
+      setTaskConfig(null);
+      setSelectedPriority(1);
+      setSelectedReminders([]);
+    }
+  }, [selectedTask]);
+  
+  // Fonction pour sauvegarder la configuration de la tâche
+  const saveTaskConfig = (config) => {
+    if (selectedTask && config) {
+      localStorage.setItem(`task_notification_config_${selectedTask.id}`, JSON.stringify(config));
+      console.log('Configuration sauvegardée pour la tâche:', selectedTask.id);
+    }
+  };
+  
+  // Fonction pour gérer les changements dans les champs
+  const handleConfigChange = (field, value) => {
+    if (taskConfig) {
+      const updatedConfig = {
+        ...taskConfig,
+        [field]: value
+      };
+      setTaskConfig(updatedConfig);
+      saveTaskConfig(updatedConfig);
+    }
+  };
   
   const optionsRappel = [
     { value: t("minutesBefore"), label: t("minutesBefore") },
@@ -24,7 +80,17 @@ export default function Notifications (){
   ]
 
   const handlePriorityChange = (event) => {
-        setSelectedPriority(parseInt(event.target.value));
+        const newValue = parseInt(event.target.value);
+        setSelectedPriority(newValue);
+        
+        if (taskConfig) {
+          const updatedConfig = {
+            ...taskConfig,
+            selectedPriority: newValue
+          };
+          setTaskConfig(updatedConfig);
+          saveTaskConfig(updatedConfig);
+        }
     };
     return <>
             <div className="d-flex py-2">
@@ -33,7 +99,13 @@ export default function Notifications (){
                 </div>
                 <div className="col-8">
                   <div className="form-group">
-                    <Radio  name="script_regle_metier" label={t('__notf_par_attrib_details_')} />
+                    <Radio  
+                      name="script_regle_metier" 
+                      label={t('__notf_par_attrib_details_')} 
+                      checked={taskConfig && taskConfig.notificationByAttribution || false}
+                      onChange={(e) => handleConfigChange('notificationByAttribution', e.target.checked)}
+                      disabled={!selectedTask}
+                    />
                   </div>
                 </div>
             </div>
@@ -44,7 +116,13 @@ export default function Notifications (){
                 </div>
                 <div className="col-8">
                   <div className="form-group">
-                    <Radio  name="alert_escalade" label={t('__detail_messag_alert__')} />
+                    <Radio  
+                      name="alert_escalade" 
+                      label={t('__detail_messag_alert__')} 
+                      checked={taskConfig && taskConfig.alertEscalade || false}
+                      onChange={(e) => handleConfigChange('alertEscalade', e.target.checked)}
+                      disabled={!selectedTask}
+                    />
                   </div>
                 </div>
             </div>
@@ -53,7 +131,16 @@ export default function Notifications (){
                   <label>{t('Reminder')} :</label>
                 </div>
                 <div className="col-8">
-                     <Select options={optionsRappel} isMulti />
+                     <Select 
+                       options={optionsRappel} 
+                       isMulti 
+                       value={taskConfig && taskConfig.selectedReminders ? taskConfig.selectedReminders : []}
+                       onChange={(options) => {
+                         setSelectedReminders(options);
+                         handleConfigChange('selectedReminders', options);
+                       }}
+                       isDisabled={!selectedTask}
+                     />
                 </div>
             </div>
             <div className="d-flex py-2">
@@ -69,6 +156,7 @@ export default function Notifications (){
                             name="sensibilite"
                             checked={selectedPriority === 1}
                             onChange={handlePriorityChange}
+                            disabled={!selectedTask}
                         />
                         <RadioButton
                             label={t('__confidentitial__')}
@@ -76,6 +164,7 @@ export default function Notifications (){
                             name="sensibilite"
                             checked={selectedPriority === 2}
                             onChange={handlePriorityChange}
+                            disabled={!selectedTask}
                         />
                     </div>
                   </div>

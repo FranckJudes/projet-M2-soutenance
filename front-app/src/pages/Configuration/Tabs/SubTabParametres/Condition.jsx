@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {Radio} from '../../../../components/Input';
 import { useTranslation } from 'react-i18next';
 import DataTable from "datatables.net-react";
@@ -7,11 +7,53 @@ import "datatables.net-select-dt";
 import "datatables.net-responsive-dt";
 import DT from "datatables.net-dt";
 
-export default function Condition(){
+export default function Condition({ selectedTask }){
   
     const { t } = useTranslation();
     const [showEntryTable, setShowEntryTable] = useState(false);
     const [showOutputTable, setShowOutputTable] = useState(false);
+    const [taskConfig, setTaskConfig] = useState(null);
+    
+    // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
+    useEffect(() => {
+      if (selectedTask) {
+        console.log('Tâche sélectionnée dans Condition:', selectedTask);
+        
+        // Charger la configuration existante depuis le localStorage
+        const savedConfig = localStorage.getItem(`task_condition_config_${selectedTask.id}`);
+        
+        if (savedConfig) {
+          const config = JSON.parse(savedConfig);
+          setTaskConfig(config);
+          setShowEntryTable(config.showEntryTable || false);
+          setShowOutputTable(config.showOutputTable || false);
+        } else {
+          // Initialiser une nouvelle configuration
+          setTaskConfig({
+            taskId: selectedTask.id,
+            taskName: selectedTask.name,
+            taskType: selectedTask.type,
+            showEntryTable: false,
+            showOutputTable: false,
+            entryConditions: [],
+            outputConditions: []
+          });
+        }
+      } else {
+        // Réinitialiser l'état si aucune tâche n'est sélectionnée
+        setTaskConfig(null);
+        setShowEntryTable(false);
+        setShowOutputTable(false);
+      }
+    }, [selectedTask]);
+    
+    // Fonction pour sauvegarder la configuration de la tâche
+    const saveTaskConfig = (config) => {
+      if (selectedTask && config) {
+        localStorage.setItem(`task_condition_config_${selectedTask.id}`, JSON.stringify(config));
+        console.log('Configuration sauvegardée pour la tâche:', selectedTask.id);
+      }
+    };
   
     const [tableData] = useState([
       { id: 1, name: "Type", position: "Condition", value: "Definir resultat" },
@@ -19,11 +61,31 @@ export default function Condition(){
     ]);
   
     const handlePriorityChange = (event) => {
-      setShowEntryTable(event.target.checked);
+      const newValue = event.target.checked;
+      setShowEntryTable(newValue);
+      
+      if (taskConfig) {
+        const updatedConfig = {
+          ...taskConfig,
+          showEntryTable: newValue
+        };
+        setTaskConfig(updatedConfig);
+        saveTaskConfig(updatedConfig);
+      }
     };
   
     const handlePriorityOutput = (event) => {
-      setShowOutputTable(event.target.checked);
+      const newValue = event.target.checked;
+      setShowOutputTable(newValue);
+      
+      if (taskConfig) {
+        const updatedConfig = {
+          ...taskConfig,
+          showOutputTable: newValue
+        };
+        setTaskConfig(updatedConfig);
+        saveTaskConfig(updatedConfig);
+      }
     };
   
     const columns = [
@@ -44,6 +106,8 @@ export default function Condition(){
                 <Radio
                   name="entry_condition"
                   onChange={handlePriorityChange}
+                  checked={showEntryTable}
+                  disabled={!selectedTask}
                 />
               </div>
             </div>
@@ -79,6 +143,8 @@ export default function Condition(){
               <Radio
                   name="output_condition"
                   onChange={handlePriorityOutput}
+                  checked={showOutputTable}
+                  disabled={!selectedTask}
                 />
               </div>
             </div>

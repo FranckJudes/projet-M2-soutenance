@@ -3,13 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Définir global pour éviter l'erreur "ReferenceError: global is not defined"
+      window.global = window;
+    </script>
       <link rel="stylesheet" href="assets/css/app.min.css">
       <link rel="stylesheet" href="assets/bundles/pretty-checkbox/pretty-checkbox.min.css">
       <link rel="stylesheet" href="assets/css/style.css">
       <link rel="stylesheet" href="assets/css/components.css">
       <link rel="stylesheet" href="assets/css/custom.css">
       <title>Harmoni</title>
-      <script src="src/pages/Dashboard.jsx"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -46,12 +46,12 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5) !important; /* S'assure que le fond sombre couvre tout */
-  z-index: 1050; /* Ajuste pour qu'il soit au-dessus des autres éléments */
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1050;
 }
 
 .modal-dialog {
-  z-index: 1100; /* Plus élevé pour la fenêtre de la modale */
+  z-index: 1100;
 }
 
 .tree-container {

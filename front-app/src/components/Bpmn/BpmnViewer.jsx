@@ -1,12 +1,11 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { ReactFlow, Controls } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { calculateLayout } from "./layoutUtils";
-import { isInSubProcess, saveTaskMetadata } from "./bpmnUtils";
+import { isInSubProcess } from "./bpmnUtils";
 import Breadcrumb from "./Breadcrumb";
 import FileUpload from "./FileUpload";
 import SubProcessViewer from "./SubProcessViewer";
-import TaskConfigModal from "./TaskConfigModal";
 
 const BpmnViewer = () => {
   const [bpmnData, setBpmnData] = useState(null);
@@ -17,9 +16,6 @@ const BpmnViewer = () => {
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [currentSubProcessNodes, setCurrentSubProcessNodes] = useState([]);
   const [currentSubProcessEdges, setCurrentSubProcessEdges] = useState([]);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [isTaskConfigModalVisible, setIsTaskConfigModalVisible] = useState(false);
-  const [bpmnXml, setBpmnXml] = useState(null);
 
   // Transformer les données BPMN en nœuds et arêtes pour le diagramme principal
   const transformBpmnToXyflow = (bpmnData, direction) => {
@@ -181,14 +177,7 @@ const BpmnViewer = () => {
     formData.append("file", file);
 
     try {
-      // Store the original XML for later use
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setBpmnXml(e.target.result);
-      };
-      reader.readAsText(file);
-
-      const response = await fetch("http://localhost:8100/bpmn/upload", {
+      const response = await fetch("http://localhost:8200/bpmn/upload", {
         method: "POST",
         body: formData,
       });
@@ -344,69 +333,6 @@ const BpmnViewer = () => {
     }
   };
 
-  // Handle node double click to open task configuration
-  const handleNodeDoubleClick = useCallback((event, node) => {
-    event.preventDefault();
-    
-    // Only open config modal for task nodes
-    if (node.type === "task") {
-      // Find the task in the bpmnData
-      const taskData = bpmnData.tasks.find(task => task.id === node.id);
-      if (taskData) {
-        setSelectedTask(taskData);
-        setIsTaskConfigModalVisible(true);
-      }
-    }
-  }, [bpmnData]);
-
-  // Handle task configuration save
-  const handleTaskConfigSave = useCallback(async (updatedTask) => {
-    if (!bpmnXml || !selectedTask) return;
-
-    try {
-      // Update the task in the bpmnData
-      const updatedBpmnData = {
-        ...bpmnData,
-        tasks: bpmnData.tasks.map(task => 
-          task.id === selectedTask.id ? { ...task, ...updatedTask } : task
-        )
-      };
-      setBpmnData(updatedBpmnData);
-
-      // Update the node label in the diagram
-      setNodes(prevNodes => 
-        prevNodes.map(node => 
-          node.id === selectedTask.id 
-            ? { ...node, data: { ...node.data, label: updatedTask.name } } 
-            : node
-        )
-      );
-
-      // Save metadata to BPMN XML
-      const updatedXml = await saveTaskMetadata(bpmnXml, selectedTask.id, updatedTask);
-      setBpmnXml(updatedXml);
-
-      // Upload updated XML to server
-      const formData = new FormData();
-      const blob = new Blob([updatedXml], { type: 'text/xml' });
-      formData.append("file", blob, "updated.bpmn");
-
-      const response = await fetch("http://localhost:8100/bpmn/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Error updating BPMN on server");
-      }
-
-      setIsTaskConfigModalVisible(false);
-    } catch (err) {
-      console.error("Error saving task configuration:", err);
-      setError("Failed to save task configuration: " + err.message);
-    }
-  }, [bpmnXml, selectedTask, bpmnData]);
-
   return (
     <div style={{ height: "100vh", width: "100%", display: "flex", flexDirection: "row" }}>
       <FileUpload handleFileUpload={handleFileUpload} toggleDirection={toggleDirection} direction={direction} error={error} />
@@ -420,7 +346,6 @@ const BpmnViewer = () => {
               handleMainDiagramSubProcessClick(node.id);
             }
           }}
-          onNodeDoubleClick={handleNodeDoubleClick}
         >
           <Controls />
         </ReactFlow>
@@ -430,22 +355,9 @@ const BpmnViewer = () => {
         <div style={{ width: "40%", borderLeft: "1px solid #ccc", padding: "20px", display: "flex", flexDirection: "column" }}>
           <Breadcrumb breadcrumb={breadcrumb} navigateToBreadcrumbLevel={navigateToBreadcrumbLevel} />
           <h3>{breadcrumb[breadcrumb.length - 1]?.name || "Sous-processus"}</h3>
-          <SubProcessViewer 
-            nodes={currentSubProcessNodes} 
-            edges={currentSubProcessEdges} 
-            handleNestedSubProcessClick={handleNestedSubProcessClick}
-            onNodeDoubleClick={handleNodeDoubleClick}
-          />
+          <SubProcessViewer nodes={currentSubProcessNodes} edges={currentSubProcessEdges} handleNestedSubProcessClick={handleNestedSubProcessClick} />
         </div>
       )}
-
-      {/* Task Configuration Modal */}
-      <TaskConfigModal
-        visible={isTaskConfigModalVisible}
-        task={selectedTask}
-        onClose={() => setIsTaskConfigModalVisible(false)}
-        onSave={handleTaskConfigSave}
-      />
     </div>
   );
 };

@@ -12,6 +12,8 @@ import Notifications from './SubTabParametres/Notification.jsx';
 import { ReactFlow, Controls, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
+import toast from 'react-hot-toast';
+
 
 // Utilitaires pour la gestion du BPMN
 const isElementInSubProcess = (elementId, subProcess) => {
@@ -35,7 +37,7 @@ const isElementInSubProcess = (elementId, subProcess) => {
   }
   return false;
 };
-
+  
 // Composant Breadcrumb pour la navigation dans les sous-processus
 const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
   const { t } = useTranslation();
@@ -544,12 +546,12 @@ function Parametres({ sharedData }) {
   }, [bpmnData]);
 
   const tabItems = [
-    { id: "InformationGeneral", title: t("__inf_gen_tabs_"), content: <InformationGeneral /> },
-    { id: "Habilitation", title: t("__habi_tabs__"), content: <Habilitation /> },
-    { id: "Planification", title: t("__planf_tabs__"), content: <Planification /> },
-    { id: "ressource", title: t("__ressour_tabs__"), content: <Ressource /> },
-    { id: "condition", title: t("__condition_tabs_"), content: <Condition /> },
-    { id: "notification", title: t("__notifi_tabs_"), content: <Notifications /> },
+    { id: "InformationGeneral", title: t("__inf_gen_tabs_"), content: <InformationGeneral selectedTask={selectedEvent} /> },
+    { id: "Habilitation", title: t("__habi_tabs__"), content: <Habilitation selectedTask={selectedEvent} /> },
+    { id: "Planification", title: t("__planf_tabs__"), content: <Planification selectedTask={selectedEvent} /> },
+    { id: "ressource", title: t("__ressour_tabs__"), content: <Ressource selectedTask={selectedEvent} /> },
+    { id: "condition", title: t("__condition_tabs_"), content: <Condition selectedTask={selectedEvent} /> },
+    { id: "notification", title: t("__notifi_tabs_"), content: <Notifications selectedTask={selectedEvent} /> },
   ];
   const connectionLineStyle = { stroke: "white" };
 
@@ -585,11 +587,14 @@ function Parametres({ sharedData }) {
                       }
                     } else {
                       // Sélectionner d'autres types de nœuds
-                      setSelectedEvent({
+                      const taskData = {
                         id: node.id,
                         name: node.data.label,
-                        type: node.type
-                      });
+                        type: node.type,
+                        data: node.data || {}
+                      };
+                      console.log('Tâche sélectionnée:', taskData);
+                      setSelectedEvent(taskData);
                     }
                   }}
                 >
@@ -602,8 +607,49 @@ function Parametres({ sharedData }) {
         <div className="col-6">
           <NormalTabs
             items={tabItems}
-            title={t("parametrage_des_activites")}
+            title={selectedEvent ? `${t("parametrage_des_activites")} - ${selectedEvent.name}` : t("parametrage_des_activites")}
           />
+         
+          {selectedEvent && (
+            <div className="d-flex justify-content-end mt-3">
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  const loadingToast = toast.loading(t("Sauvegarde en cours..."));
+                  // Récupérer toutes les configurations de la tâche sélectionnée
+                  const taskId = selectedEvent.id;
+                  const configs = {
+                    taskId: taskId,
+                    taskName: selectedEvent.name,
+                    taskType: selectedEvent.type,
+                    resource: JSON.parse(localStorage.getItem(`task_resource_config_${taskId}`) || '{}'),
+                    information: JSON.parse(localStorage.getItem(`task_information_config_${taskId}`) || '{}'),
+                    habilitation: JSON.parse(localStorage.getItem(`task_habilitation_config_${taskId}`) || '{}'),
+                    planification: JSON.parse(localStorage.getItem(`task_planification_config_${taskId}`) || '{}'),
+                    condition: JSON.parse(localStorage.getItem(`task_condition_config_${taskId}`) || '{}'),
+                    notification: JSON.parse(localStorage.getItem(`task_notification_config_${taskId}`) || '{}')
+                  };
+                  
+                  console.log('Configuration complète de la tâche à envoyer au backend:', configs);
+                  
+                  // Ici, vous pourriez ajouter un appel API pour envoyer les données au backend
+                  // fetch('/api/task-config', {
+                  //   method: 'POST',
+                  //   headers: { 'Content-Type': 'application/json' },
+                  //   body: JSON.stringify(configs)
+                  // })
+                  // .then(response => response.json())
+                  // .then(data => console.log('Réponse du serveur:', data))
+                  // .catch(error => console.error('Erreur lors de l\'envoi des données:', error));
+                  
+                  toast.success(t("Configuration sauvegardée avec succès !"));
+                  toast.dismiss(loadingToast);
+                }}
+              >
+                {t("Valider la configuration")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </>
