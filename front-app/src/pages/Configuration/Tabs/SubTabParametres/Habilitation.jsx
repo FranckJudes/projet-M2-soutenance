@@ -36,6 +36,10 @@ export default function Habilitation ({ selectedTask })  {
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
+    // Réinitialiser les états locaux à chaque changement de tâche
+    setIsChecked(false);
+    setselectPointControl(false);
+    
     if (selectedTask) {
       console.log('Tâche sélectionnée dans Habilitation:', selectedTask);
       
@@ -43,34 +47,49 @@ export default function Habilitation ({ selectedTask })  {
       const savedConfig = localStorage.getItem(`task_habilitation_config_${selectedTask.id}`);
       
       if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        setTaskConfig(config);
-        setIsChecked(config.isChecked || false);
-        setselectPointControl(config.selectPointControl || false);
+        try {
+          const config = JSON.parse(savedConfig);
+          // Mettre à jour l'état de la configuration
+          setTaskConfig(config);
+          // Synchroniser les états locaux avec les valeurs de la configuration
+          setIsChecked(config.isChecked || false);
+          setselectPointControl(config.selectPointControl || false);
+        } catch (error) {
+          console.error('Erreur lors du parsing de la configuration:', error);
+          initializeNewConfig();
+        }
       } else {
         // Initialiser une nouvelle configuration
-        setTaskConfig({
-          taskId: selectedTask.id,
-          taskName: selectedTask.name,
-          taskType: selectedTask.type,
-          isChecked: false,
-          selectPointControl: false,
-          persInteress: false,
-          entity: false,
-          groupUser: false,
-          possReturn: false,
-          selectedUser: null,
-          selectedEntity: null,
-          selectedGroup: null
-        });
+        initializeNewConfig();
       }
     } else {
       // Réinitialiser l'état si aucune tâche n'est sélectionnée
       setTaskConfig(null);
-      setIsChecked(false);
-      setselectPointControl(false);
     }
   }, [selectedTask]);
+  
+  // Fonction pour initialiser une nouvelle configuration
+  const initializeNewConfig = () => {
+    const newConfig = {
+      taskId: selectedTask.id,
+      taskName: selectedTask.name,
+      taskType: selectedTask.type,
+      isChecked: false,
+      selectPointControl: false,
+      persInteress: false,
+      entity: false,
+      groupUser: false,
+      possReturn: false,
+      selectedUser: null,
+      selectedEntity: null,
+      selectedGroup: null
+    };
+    setTaskConfig(newConfig);
+    setIsChecked(false);
+    setselectPointControl(false);
+    // Sauvegarder la nouvelle configuration dans le localStorage
+    saveTaskConfig(newConfig);
+  };
   
   // Fonction pour sauvegarder la configuration de la tâche
   const saveTaskConfig = (config) => {

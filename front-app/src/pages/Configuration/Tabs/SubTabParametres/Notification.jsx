@@ -12,6 +12,10 @@ export default function Notifications ({ selectedTask }){
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
+    // Réinitialiser les états locaux à chaque changement de tâche
+    setSelectedPriority(1);
+    setSelectedReminders([]);
+    
     if (selectedTask) {
       console.log('Tâche sélectionnée dans Notifications:', selectedTask);
       
@@ -19,30 +23,43 @@ export default function Notifications ({ selectedTask }){
       const savedConfig = localStorage.getItem(`task_notification_config_${selectedTask.id}`);
       
       if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        setTaskConfig(config);
-        setSelectedPriority(config.selectedPriority || 1);
-        setSelectedReminders(config.selectedReminders || []);
+        try {
+          const config = JSON.parse(savedConfig);
+          setTaskConfig(config);
+          // Synchroniser les états locaux avec les valeurs de la configuration
+          setSelectedPriority(config.selectedPriority || 1);
+          setSelectedReminders(config.selectedReminders || []);
+        } catch (error) {
+          console.error('Erreur lors du parsing de la configuration:', error);
+          initializeNewConfig();
+        }
       } else {
         // Initialiser une nouvelle configuration
-        setTaskConfig({
-          taskId: selectedTask.id,
-          taskName: selectedTask.name,
-          taskType: selectedTask.type,
-          notificationByAttribution: false,
-          alertEscalade: false,
-          selectedReminders: [],
-          selectedPriority: 1
-        });
-        setSelectedReminders([]);
+        initializeNewConfig();
       }
     } else {
       // Réinitialiser l'état si aucune tâche n'est sélectionnée
       setTaskConfig(null);
-      setSelectedPriority(1);
-      setSelectedReminders([]);
     }
   }, [selectedTask]);
+  
+  // Fonction pour initialiser une nouvelle configuration
+  const initializeNewConfig = () => {
+    const newConfig = {
+      taskId: selectedTask.id,
+      taskName: selectedTask.name,
+      taskType: selectedTask.type,
+      notificationByAttribution: false,
+      alertEscalade: false,
+      selectedReminders: [],
+      selectedPriority: 1
+    };
+    setTaskConfig(newConfig);
+    setSelectedPriority(1);
+    setSelectedReminders([]);
+    // Sauvegarder la nouvelle configuration dans le localStorage
+    saveTaskConfig(newConfig);
+  };
   
   // Fonction pour sauvegarder la configuration de la tâche
   const saveTaskConfig = (config) => {

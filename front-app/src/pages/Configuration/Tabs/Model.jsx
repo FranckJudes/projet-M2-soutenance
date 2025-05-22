@@ -36,7 +36,25 @@ export default function Model({ sharedData, setSharedData }) {
 
         setSharedData((prev) => ({ ...prev, modelerRef }));
 
-        modelerRef.current.createDiagram();
+        // Vérifier si un modèle BPMN existant doit être chargé
+        if (sharedData && sharedData.loadedBpmnXml) {
+            // Charger le modèle BPMN existant
+            modelerRef.current.importXML(sharedData.loadedBpmnXml)
+                .then(({ warnings }) => {
+                    if (warnings.length) {
+                        console.warn('Avertissements lors du chargement du modèle BPMN:', warnings);
+                    }
+                    console.log('Modèle BPMN chargé avec succès');
+                })
+                .catch(err => {
+                    console.error('Erreur lors du chargement du modèle BPMN:', err);
+                    // En cas d'erreur, créer un nouveau diagramme vide
+                    modelerRef.current.createDiagram();
+                });
+        } else {
+            // Créer un nouveau diagramme vide
+            modelerRef.current.createDiagram();
+        }
 
         const modeler = modelerRef.current;
 

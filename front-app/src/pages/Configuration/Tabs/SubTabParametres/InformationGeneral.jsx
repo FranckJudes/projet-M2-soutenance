@@ -17,25 +17,38 @@ export default function InformationGeneral({ selectedTask }) {
       const savedConfig = localStorage.getItem(`task_information_config_${selectedTask.id}`);
       
       if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        setTaskConfig(config);
+        try {
+          const config = JSON.parse(savedConfig);
+          setTaskConfig(config);
+        } catch (error) {
+          console.error('Erreur lors du parsing de la configuration:', error);
+          initializeNewConfig();
+        }
       } else {
         // Initialiser une nouvelle configuration
-        setTaskConfig({
-          taskId: selectedTask.id,
-          taskName: selectedTask.name,
-          taskType: selectedTask.type,
-          category: null,
-          board: '',
-          instructions: '',
-          results: ''
-        });
+        initializeNewConfig();
       }
     } else {
       // Réinitialiser l'état si aucune tâche n'est sélectionnée
       setTaskConfig(null);
     }
   }, [selectedTask]);
+  
+  // Fonction pour initialiser une nouvelle configuration
+  const initializeNewConfig = () => {
+    const newConfig = {
+      taskId: selectedTask.id,
+      taskName: selectedTask.name,
+      taskType: selectedTask.type,
+      category: null,
+      board: '',
+      instructions: '',
+      results: ''
+    };
+    setTaskConfig(newConfig);
+    // Sauvegarder la nouvelle configuration dans le localStorage
+    saveTaskConfig(newConfig);
+  };
   
   // Fonction pour sauvegarder la configuration de la tâche
   const saveTaskConfig = (config) => {

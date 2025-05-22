@@ -15,6 +15,12 @@ export default function Ressource ({ selectedTask }){
     
     // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
     useEffect(() => {
+        // Réinitialiser les états locaux à chaque changement de tâche
+        setIsCheckedAttachement(false);
+        setIsDisplayDoc(false);
+        setIsDisplayFol(false);
+        selectedNodeRef.current = null;
+        
         if (selectedTask) {
             console.log('Tâche sélectionnée dans Ressource:', selectedTask);
             
@@ -22,69 +28,84 @@ export default function Ressource ({ selectedTask }){
             const savedConfig = localStorage.getItem(`task_resource_config_${selectedTask.id}`);
             
             if (savedConfig) {
-                const config = JSON.parse(savedConfig);
-                setTaskConfig(config);
-                
-                // Restaurer tous les états locaux à partir du config sauvegardé
-                setIsCheckedAttachement(config.hasAttachement || false);
-                setIsDisplayDoc(config.isDisplayDoc || false);
-                setIsDisplayFol(config.isDisplayFol || false);
-                
-                // Stocker le nœud sélectionné dans la référence
-                if (config.selectedNode) {
-                    selectedNodeRef.current = config.selectedNode;
+                try {
+                    const config = JSON.parse(savedConfig);
+                    setTaskConfig(config);
+                    
+                    // Restaurer tous les états locaux à partir du config sauvegardé
+                    setIsCheckedAttachement(config.hasAttachement || false);
+                    setIsDisplayDoc(config.isDisplayDoc || false);
+                    setIsDisplayFol(config.isDisplayFol || false);
+                    
+                    // Stocker le nœud sélectionné dans la référence
+                    if (config.selectedNode) {
+                        selectedNodeRef.current = config.selectedNode;
+                    }
+                } catch (error) {
+                    console.error('Erreur lors du parsing de la configuration:', error);
+                    initializeNewConfig();
                 }
             } else {
-                // Initialiser une nouvelle configuration avec toutes les valeurs par défaut
-                const initialConfig = {
-                    taskId: selectedTask.id,
-                    taskName: selectedTask.name,
-                    taskType: selectedTask.type,
-                    hasAttachement: false,
-                    isDisplayDoc: false,
-                    isDisplayFol: false,
-                    securityLevel: null,
-                    externalTools: '',
-                    linkToOtherTask: '',
-                    selectedNode: null,
-                    // Options communes pour les documents et dossiers
-                    archiv_attach: false,
-                    share_achiv_pdf: false,
-                    decribe_fol_doc: false,
-                    delete_attach_doc: false,
-                    consulter_attach_doc: false,
-                    download_zip: false,
-                    // Options spécifiques aux documents
-                    import_attach: false,
-                    edit_attach: false,
-                    annoter_doc: false,
-                    verif_attach_doc: false,
-                    rechercher_un_doc: false,
-                    retirer_un_doc: false,
-                    add_new_attach: false,
-                    conver_attach_pdf: false,
-                    download_attach_pdf: false,
-                    download_original_format: false,
-                    // Sections communes supplémentaires
-                    scriptRegleMetier: false,
-                    addFormResource: false
-                };
-                
-                setTaskConfig(initialConfig);
-                saveTaskConfig(initialConfig); // Sauvegarder immédiatement la configuration initiale
+                // Initialiser une nouvelle configuration
+                initializeNewConfig();
             }
         } else {
             // Réinitialiser l'état si aucune tâche n'est sélectionnée
             setTaskConfig(null);
-            setIsCheckedAttachement(false);
-            setIsDisplayDoc(false);
-            setIsDisplayFol(false);
-            selectedNodeRef.current = null;
         }
-        
-        // Marquer le premier rendu comme terminé
-        initialRender.current = false;
     }, [selectedTask]);
+    
+    // Fonction pour initialiser une nouvelle configuration
+    const initializeNewConfig = () => {
+        const initialConfig = {
+            taskId: selectedTask.id,
+            taskName: selectedTask.name,
+            taskType: selectedTask.type,
+            hasAttachement: false,
+            isDisplayDoc: false,
+            isDisplayFol: false,
+            securityLevel: null,
+            externalTools: '',
+            linkToOtherTask: '',
+            selectedNode: null,
+            // Options communes pour les documents et dossiers
+            archiv_attach: false,
+            share_achiv_pdf: false,
+            decribe_fol_doc: false,
+            delete_attach_doc: false,
+            consulter_attach_doc: false,
+            download_zip: false,
+            // Options spécifiques aux documents
+            import_attach: false,
+            edit_attach: false,
+            annoter_doc: false,
+            verif_attach_doc: false,
+            rechercher_un_doc: false,
+            retirer_un_doc: false,
+            add_new_attach: false,
+            conver_attach_pdf: false,
+            download_attach_pdf: false,
+            download_original_format: false,
+            // Sections communes supplémentaires
+            scriptRegleMetier: false,
+            addFormResource: false
+        };
+        
+        setTaskConfig(initialConfig);
+        // Réinitialiser les états locaux
+        setIsCheckedAttachement(false);
+        setIsDisplayDoc(false);
+        setIsDisplayFol(false);
+        selectedNodeRef.current = null;
+        
+        // Sauvegarder immédiatement la configuration initiale
+        saveTaskConfig(initialConfig);
+    };
+    
+    // Marquer le premier rendu comme terminé
+    useEffect(() => {
+        initialRender.current = false;
+    }, []);
 
     const handleCheckAttachement = () => {
         const newValue = !isCheckedAttachement;

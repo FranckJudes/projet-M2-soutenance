@@ -13,6 +13,7 @@ import { ReactFlow, Controls, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import toast from 'react-hot-toast';
+import BpmnModelService from '../../../services/BpmnModelService';
 
 
 // Utilitaires pour la gestion du BPMN
@@ -70,7 +71,7 @@ const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
   );
 };
 
-function Parametres({ sharedData }) {
+function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuccess = null }) {
   const { t } = useTranslation();
   
   const [activities, setActivities] = useState([]);
@@ -492,10 +493,42 @@ function Parametres({ sharedData }) {
     }
   }, [lowerBreadcrumb, bpmnData, direction, transformBpmnToXyflow, createSubProcessElements]);
 
+  // Fonction pour vider le localStorage des configurations de tâches
+  const clearTaskConfigurationsFromLocalStorage = () => {
+    console.log('Nettoyage du localStorage des configurations de tâches');
+    
+    // Récupérer toutes les clés du localStorage
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      keys.push(localStorage.key(i));
+    }
+    
+    // Filtrer les clés liées aux configurations de tâches
+    const taskConfigKeys = keys.filter(key => 
+      key.startsWith('task_information_config_') ||
+      key.startsWith('task_resource_config_') ||
+      key.startsWith('task_habilitation_config_') ||
+      key.startsWith('task_planification_config_') ||
+      key.startsWith('task_condition_config_') ||
+      key.startsWith('task_notification_config_')
+    );
+    
+    // Supprimer toutes les configurations de tâches
+    taskConfigKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+    
+    console.log(`${taskConfigKeys.length} configurations de tâches supprimées du localStorage`);
+  };
+  
   // Initialiser les données BPMN
   useEffect(() => {
     if (sharedData && sharedData.processElements) {
       console.log("Données du diagramme chargées:", sharedData.processElements);
+      
+      // Vider le localStorage avant de charger un nouveau modèle BPMN
+      clearTaskConfigurationsFromLocalStorage();
+      
       setBpmnData(sharedData.processElements);
     }
   }, [sharedData]);
@@ -544,6 +577,40 @@ function Parametres({ sharedData }) {
       setActivities(activitiesFromTasks);
     }
   }, [bpmnData]);
+  
+  // Charger les configurations de tâches existantes en mode mise à jour
+  useEffect(() => {
+    if (isUpdateMode && sharedData && sharedData.loadedTaskConfigurations) {
+      const taskConfigurations = sharedData.loadedTaskConfigurations;
+      
+      // Parcourir toutes les configurations de tâches et les stocker dans le localStorage
+      taskConfigurations.forEach(config => {
+        const taskId = config.taskId;
+        
+        // Stocker les différentes configurations dans le localStorage
+        if (config.resource) {
+          localStorage.setItem(`task_resource_config_${taskId}`, JSON.stringify(config.resource));
+        }
+        if (config.information) {
+          localStorage.setItem(`task_information_config_${taskId}`, JSON.stringify(config.information));
+        }
+        if (config.habilitation) {
+          localStorage.setItem(`task_habilitation_config_${taskId}`, JSON.stringify(config.habilitation));
+        }
+        if (config.planification) {
+          localStorage.setItem(`task_planification_config_${taskId}`, JSON.stringify(config.planification));
+        }
+        if (config.condition) {
+          localStorage.setItem(`task_condition_config_${taskId}`, JSON.stringify(config.condition));
+        }
+        if (config.notification) {
+          localStorage.setItem(`task_notification_config_${taskId}`, JSON.stringify(config.notification));
+        }
+      });
+      
+      console.log('Configurations de tâches chargées avec succès');
+    }
+  }, [isUpdateMode, sharedData]);
 
   const tabItems = [
     { id: "InformationGeneral", title: t("__inf_gen_tabs_"), content: <InformationGeneral selectedTask={selectedEvent} /> },
@@ -613,40 +680,147 @@ function Parametres({ sharedData }) {
           {selectedEvent && (
             <div className="d-flex justify-content-end mt-3">
               <button 
+                className="btn btn-outline-danger mr-2" 
+                onClick={() => {
+                  const loadingToast = toast.loading(t("Réinitialisation en cours..."));
+                  
+                  // Réinitialiser la configuration de la tâche sélectionnée
+                  const taskId = selectedEvent.id;
+                  localStorage.removeItem(`task_resource_config_${taskId}`);
+                  localStorage.removeItem(`task_information_config_${taskId}`);
+                  localStorage.removeItem(`task_habilitation_config_${taskId}`);
+                  localStorage.removeItem(`task_planification_config_${taskId}`);
+                  localStorage.removeItem(`task_condition_config_${taskId}`);
+                  localStorage.removeItem(`task_notification_config_${taskId}`);
+                  
+                  // Forcer la mise à jour du composant en changeant de tâche et en revenant
+                  setSelectedEvent(null);
+                  setTimeout(() => {
+                    setSelectedEvent(selectedEvent);
+                    toast.success(t("Configuration réinitialisée avec succès !"));
+                    toast.dismiss(loadingToast);
+                  }, 100);
+                }}
+              >
+                {t("Réinitialiser la configuration")}
+              </button>
+              <button 
                 className="btn btn-primary" 
                 onClick={() => {
                   const loadingToast = toast.loading(t("Sauvegarde en cours..."));
-                  // Récupérer toutes les configurations de la tâche sélectionnée
-                  const taskId = selectedEvent.id;
-                  const configs = {
-                    taskId: taskId,
-                    taskName: selectedEvent.name,
-                    taskType: selectedEvent.type,
-                    resource: JSON.parse(localStorage.getItem(`task_resource_config_${taskId}`) || '{}'),
-                    information: JSON.parse(localStorage.getItem(`task_information_config_${taskId}`) || '{}'),
-                    habilitation: JSON.parse(localStorage.getItem(`task_habilitation_config_${taskId}`) || '{}'),
-                    planification: JSON.parse(localStorage.getItem(`task_planification_config_${taskId}`) || '{}'),
-                    condition: JSON.parse(localStorage.getItem(`task_condition_config_${taskId}`) || '{}'),
-                    notification: JSON.parse(localStorage.getItem(`task_notification_config_${taskId}`) || '{}')
-                  };
                   
-                  console.log('Configuration complète de la tâche à envoyer au backend:', configs);
+                  // Récupérer toutes les configurations des tâches
+                  const allTaskConfigurations = [];
                   
-                  // Ici, vous pourriez ajouter un appel API pour envoyer les données au backend
-                  // fetch('/api/task-config', {
-                  //   method: 'POST',
-                  //   headers: { 'Content-Type': 'application/json' },
-                  //   body: JSON.stringify(configs)
-                  // })
-                  // .then(response => response.json())
-                  // .then(data => console.log('Réponse du serveur:', data))
-                  // .catch(error => console.error('Erreur lors de l\'envoi des données:', error));
+                  // Si une tâche est sélectionnée, ajouter sa configuration
+                  if (selectedEvent) {
+                    const taskId = selectedEvent.id;
+                    const taskConfig = {
+                      taskId: taskId,
+                      taskName: selectedEvent.name,
+                      taskType: selectedEvent.type,
+                      resource: JSON.parse(localStorage.getItem(`task_resource_config_${taskId}`) || '{}'),
+                      information: JSON.parse(localStorage.getItem(`task_information_config_${taskId}`) || '{}'),
+                      habilitation: JSON.parse(localStorage.getItem(`task_habilitation_config_${taskId}`) || '{}'),
+                      planification: JSON.parse(localStorage.getItem(`task_planification_config_${taskId}`) || '{}'),
+                      condition: JSON.parse(localStorage.getItem(`task_condition_config_${taskId}`) || '{}'),
+                      notification: JSON.parse(localStorage.getItem(`task_notification_config_${taskId}`) || '{}')
+                    };
+                    allTaskConfigurations.push(taskConfig);
+                  }
                   
-                  toast.success(t("Configuration sauvegardée avec succès !"));
-                  toast.dismiss(loadingToast);
+                  // Récupérer toutes les tâches du modèle BPMN
+                  if (bpmnData && bpmnData.tasks) {
+                    bpmnData.tasks.forEach(task => {
+                      // Ne pas ajouter à nouveau la tâche sélectionnée
+                      if (selectedEvent && task.id === selectedEvent.id) return;
+                      
+                      const taskId = task.id;
+                      // Vérifier si des configurations existent pour cette tâche
+                      const hasConfigs = [
+                        localStorage.getItem(`task_resource_config_${taskId}`),
+                        localStorage.getItem(`task_information_config_${taskId}`),
+                        localStorage.getItem(`task_habilitation_config_${taskId}`),
+                        localStorage.getItem(`task_planification_config_${taskId}`),
+                        localStorage.getItem(`task_condition_config_${taskId}`),
+                        localStorage.getItem(`task_notification_config_${taskId}`)
+                      ].some(config => config !== null);
+                      
+                      if (hasConfigs) {
+                        const taskConfig = {
+                          taskId: taskId,
+                          taskName: task.name || taskId,
+                          taskType: task.type || 'unknown',
+                          resource: JSON.parse(localStorage.getItem(`task_resource_config_${taskId}`) || '{}'),
+                          information: JSON.parse(localStorage.getItem(`task_information_config_${taskId}`) || '{}'),
+                          habilitation: JSON.parse(localStorage.getItem(`task_habilitation_config_${taskId}`) || '{}'),
+                          planification: JSON.parse(localStorage.getItem(`task_planification_config_${taskId}`) || '{}'),
+                          condition: JSON.parse(localStorage.getItem(`task_condition_config_${taskId}`) || '{}'),
+                          notification: JSON.parse(localStorage.getItem(`task_notification_config_${taskId}`) || '{}')
+                        };
+                        allTaskConfigurations.push(taskConfig);
+                      }
+                    });
+                  }
+                  console.log(1);
+                  
+                  
+                  console.log('SharedData:', sharedData);
+                  console.log('ModelerRef exists:', sharedData && sharedData.modelerRef);
+                  console.log('ModelerRef.current exists:', sharedData && sharedData.modelerRef && sharedData.modelerRef.current);
+                  
+                  // Récupérer le modèle BPMN depuis le modeler
+                  if (sharedData && sharedData.modelerRef && sharedData.modelerRef.current) {
+                    const modeler = sharedData.modelerRef.current;
+                    
+                    // Exporter le modèle BPMN en XML
+                    modeler.saveXML({ format: true }, (err, xml) => {
+                      if (err) {
+                        console.error('Erreur lors de l\'export du modèle BPMN:', err);
+                        toast.error(t("Erreur lors de l'export du modèle BPMN"));
+                        toast.dismiss(loadingToast);
+                        return;
+                      }
+                  console.log(1);
+                      
+                      const bpmnData = { xml };
+                      console.log('Modèle BPMN exporté avec succès');
+                      
+                      // Envoyer le modèle BPMN et les configurations au backend
+                      const saveOrUpdate = () => {
+                        if (isUpdateMode && bpmnId) {
+                          return BpmnModelService.updateBpmnModel(bpmnId, bpmnData, allTaskConfigurations);
+                        } else {
+                          return BpmnModelService.saveBpmnModel(bpmnData, allTaskConfigurations);
+                        }
+                      };
+                      
+                      saveOrUpdate()
+                        .then(response => {
+                          console.log('Réponse du serveur:', response.data);
+                          toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
+                          
+                          // Appeler le callback de succès si fourni
+                          if (onSaveSuccess) {
+                            onSaveSuccess(response.data);
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Erreur lors de l\'envoi des données:', error);
+                          toast.error(t("Erreur lors de la sauvegarde du modèle BPMN"));
+                        })
+                        .finally(() => {
+                          toast.dismiss(loadingToast);
+                        });
+                    });
+                  } else {
+                    console.error('Modeler BPMN non disponible');
+                    toast.error(t("Modèle BPMN non disponible"));
+                    toast.dismiss(loadingToast);
+                  }
                 }}
               >
-                {t("Valider la configuration")}
+                {t(isUpdateMode ? "Mettre à jour le modèle" : "Valider la configuration")}
               </button>
             </div>
           )}

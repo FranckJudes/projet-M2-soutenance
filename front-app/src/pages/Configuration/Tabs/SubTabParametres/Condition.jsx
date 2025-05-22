@@ -16,6 +16,10 @@ export default function Condition({ selectedTask }){
     
     // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
     useEffect(() => {
+      // Réinitialiser les états locaux à chaque changement de tâche
+      setShowEntryTable(false);
+      setShowOutputTable(false);
+      
       if (selectedTask) {
         console.log('Tâche sélectionnée dans Condition:', selectedTask);
         
@@ -23,29 +27,43 @@ export default function Condition({ selectedTask }){
         const savedConfig = localStorage.getItem(`task_condition_config_${selectedTask.id}`);
         
         if (savedConfig) {
-          const config = JSON.parse(savedConfig);
-          setTaskConfig(config);
-          setShowEntryTable(config.showEntryTable || false);
-          setShowOutputTable(config.showOutputTable || false);
+          try {
+            const config = JSON.parse(savedConfig);
+            setTaskConfig(config);
+            // Synchroniser les états locaux avec les valeurs de la configuration
+            setShowEntryTable(config.showEntryTable || false);
+            setShowOutputTable(config.showOutputTable || false);
+          } catch (error) {
+            console.error('Erreur lors du parsing de la configuration:', error);
+            initializeNewConfig();
+          }
         } else {
           // Initialiser une nouvelle configuration
-          setTaskConfig({
-            taskId: selectedTask.id,
-            taskName: selectedTask.name,
-            taskType: selectedTask.type,
-            showEntryTable: false,
-            showOutputTable: false,
-            entryConditions: [],
-            outputConditions: []
-          });
+          initializeNewConfig();
         }
       } else {
         // Réinitialiser l'état si aucune tâche n'est sélectionnée
         setTaskConfig(null);
-        setShowEntryTable(false);
-        setShowOutputTable(false);
       }
     }, [selectedTask]);
+    
+    // Fonction pour initialiser une nouvelle configuration
+    const initializeNewConfig = () => {
+      const newConfig = {
+        taskId: selectedTask.id,
+        taskName: selectedTask.name,
+        taskType: selectedTask.type,
+        showEntryTable: false,
+        showOutputTable: false,
+        entryConditions: [],
+        outputConditions: []
+      };
+      setTaskConfig(newConfig);
+      setShowEntryTable(false);
+      setShowOutputTable(false);
+      // Sauvegarder la nouvelle configuration dans le localStorage
+      saveTaskConfig(newConfig);
+    };
     
     // Fonction pour sauvegarder la configuration de la tâche
     const saveTaskConfig = (config) => {
