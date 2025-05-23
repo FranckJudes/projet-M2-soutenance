@@ -1,21 +1,34 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8200/api';
+const API_URL = 'http://localhost:8200';
 
 class BpmnModelService {
   /**
-   * Sauvegarde un modèle BPMN avec ses configurations de tâches
-   * @param {Object} bpmnData - Les données du modèle BPMN (XML)
+   * Sauvegarde un modèle BPMN avec ses configurations de tâches et les informations du processus
+   * @param {Object} completeData - Les données complètes (XML, informations du processus)
    * @param {Object} taskConfigurations - Les configurations des tâches
    * @returns {Promise} - Promesse avec la réponse de l'API
    */
-  saveBpmnModel(bpmnData, taskConfigurations) {
+  saveBpmnModel(completeData, taskConfigurations) {
     const formData = new FormData();
     
     // Ajout du fichier BPMN
-    if (bpmnData.xml) {
-      const bpmnBlob = new Blob([bpmnData.xml], { type: 'application/xml' });
+    if (completeData.xml) {
+      const bpmnBlob = new Blob([completeData.xml], { type: 'application/xml' });
       formData.append('bpmnFile', bpmnBlob, 'process.bpmn');
+    }
+    
+    // Ajout des informations du processus
+    if (completeData.processInfo) {
+      formData.append('processInfo', JSON.stringify(completeData.processInfo));
+    }
+    
+    // Ajout de l'image si elle existe
+    if (completeData.imageFormData) {
+      const imageFile = completeData.imageFormData.get('image');
+      if (imageFile) {
+        formData.append('processImage', imageFile);
+      }
     }
     
     // Ajout des configurations de tâches
@@ -29,19 +42,32 @@ class BpmnModelService {
   }
 
   /**
-   * Met à jour un modèle BPMN existant avec ses configurations de tâches
+   * Met à jour un modèle BPMN existant avec ses configurations de tâches et les informations du processus
    * @param {String} bpmnId - L'identifiant du modèle BPMN
-   * @param {Object} bpmnData - Les données du modèle BPMN (XML)
+   * @param {Object} completeData - Les données complètes (XML, informations du processus)
    * @param {Object} taskConfigurations - Les configurations des tâches
    * @returns {Promise} - Promesse avec la réponse de l'API
    */
-  updateBpmnModel(bpmnId, bpmnData, taskConfigurations) {
+  updateBpmnModel(bpmnId, completeData, taskConfigurations) {
     const formData = new FormData();
     
     // Ajout du fichier BPMN
-    if (bpmnData.xml) {
-      const bpmnBlob = new Blob([bpmnData.xml], { type: 'application/xml' });
+    if (completeData.xml) {
+      const bpmnBlob = new Blob([completeData.xml], { type: 'application/xml' });
       formData.append('bpmnFile', bpmnBlob, 'process.bpmn');
+    }
+    
+    // Ajout des informations du processus
+    if (completeData.processInfo) {
+      formData.append('processInfo', JSON.stringify(completeData.processInfo));
+    }
+    
+    // Ajout de l'image si elle existe
+    if (completeData.imageFormData) {
+      const imageFile = completeData.imageFormData.get('image');
+      if (imageFile) {
+        formData.append('processImage', imageFile);
+      }
     }
     
     // Ajout des configurations de tâches

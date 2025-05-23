@@ -25,7 +25,15 @@ function Configuration() {
     const [error, setError] = useState(null);
     const [selectedBpmnId, setSelectedBpmnId] = useState(null);
     const [isUpdateMode, setIsUpdateMode] = useState(false);
-    const [sharedData, setSharedData] = useState({});
+    const [sharedData, setSharedData] = useState({
+        processData: {
+            processName: "",
+            processDescription: "",
+            processTags: [],
+            processImage: null,
+            processId: null
+        }
+    });
     const modelerRef = useRef(null);
     
     // Fonction pour vider le localStorage des configurations de tâches
@@ -63,6 +71,18 @@ function Configuration() {
         };
     }, []);
 
+    // Fonction pour mettre à jour les données du processus depuis le composant General
+    const handleUpdateProcessData = (processData) => {
+        console.log('Mise à jour des données du processus:', processData);
+        setSharedData(prev => ({
+            ...prev,
+            processData: {
+                ...prev.processData,
+                ...processData
+            }
+        }));
+    };
+
     // Fonction pour gérer la sauvegarde réussie du modèle BPMN
     const handleSaveSuccess = (data) => {
         console.log('Modèle BPMN sauvegardé avec succès:', data);
@@ -81,7 +101,7 @@ function Configuration() {
     };
 
     const tabItems = [
-        { id: "General", title: t("_general_config"), content: <General /> },
+        { id: "General", title: t("_general_config"), content: <General sharedData={sharedData} onSaveGeneral={handleUpdateProcessData} /> },
         { id: "Model", title: t("__Conception_config_"), content: <Model sharedData={sharedData} setSharedData={setSharedData} /> },
         { id: "Parametres", title: t("setting_sidebar_title"), content: <Parametres 
             sharedData={sharedData} 

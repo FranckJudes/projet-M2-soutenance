@@ -1,0 +1,252 @@
+.task-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.task-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.task-modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.task-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #666;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.task-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.task-section {
+  margin-bottom: 25px;
+}
+
+.task-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+  color: #444;
+}
+
+.board-info {
+  display: flex;
+  gap: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+}
+
+.board-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.column-name {
+  font-weight: bold;
+}
+
+.task-status {
+  background-color: #e0e0e0;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-top: 5px;
+}
+
+.board-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-label {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.detail-value {
+  font-weight: 500;
+}
+
+.priority-high {
+  color: #e74c3c;
+}
+
+.priority-medium {
+  color: #f39c12;
+}
+
+.priority-low {
+  color: #2ecc71;
+}
+
+.attachments-list {
+  margin-bottom: 15px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.attachment-icon {
+  margin-right: 10px;
+  color: #666;
+}
+
+.attachment-info {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.attachment-name {
+  font-weight: 500;
+}
+
+.attachment-date {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.attachment-delete {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.add-attachment {
+  margin-top: 10px;
+}
+
+.attachment-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.attachment-upload-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.action-btn.danger {
+  color: #e74c3c;
+}
+
+.action-btn.danger:hover {
+  background-color: #fde8e8;
+}
+
+.activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.activity-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 15px;
+}
+
+.activity-user {
+  font-weight: 500;
+}
+
+.activity-action {
+  color: #666;
+}
+
+.activity-date {
+  font-size: 0.8rem;
+  color: #999;
+  width: 100%;
+}
+
+.task-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.copyright {
+  font-size: 0.8rem;
+  color: #999;
+}

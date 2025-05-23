@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "react-dropzone": "^14.3.8",
+    "react-tagsinput": "^3.20.3"
+  }
+}
