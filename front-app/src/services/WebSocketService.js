@@ -1,7 +1,6 @@
 import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
 
-// Définir global pour éviter l'erreur "ReferenceError: global is not defined"
 if (typeof global === 'undefined') {
   window.global = window;
 }

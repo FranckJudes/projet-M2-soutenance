@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8200/api';
+const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 class WorkflowService {
   // Démarrer un processus BPMN

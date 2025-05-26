@@ -1,5 +1,4 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Main from '../layout/Main';
 import Dashboard from '../pages/Dashboard';
 import Office from '../pages/Office';
 import Todo from '../pages/Todo';
@@ -15,27 +14,140 @@ import User from '../pages/User/User';
 import KanbanBoard from '../pages/Kanban/KanbanBoard';
 import NotificationsPage from '../pages/Notifications/NotificationsPage';
 import Workflows from '../pages/Workflows';
+import ProtectedRoute from '../services/ProtectedRoute';
 
 const router = createBrowserRouter([
     {
         path: "/",
         element: <Login />, 
     },
-    { path: "dashboard", element: <Dashboard /> },
-    { path: "office", element: <Office /> },
-    { path: "todo", element: <Todo /> },
-    { path: "configuration", element: <Configuration /> },
-    { path: "settings", element: <Settings /> },
-    { path: "history", element: <History /> },
-    { path: "plan_classement", element: <PlanClassement /> },
-    { path: "domaine_val", element: <Domaine /> },
-    { path: "forms", element: <Form /> },
-    { path: "login", element: <Login /> },
-    { path: "Groups", element: <Groupe /> },
-    { path: "Users", element: <User /> },
-    { path: "kanban", element: <KanbanBoard /> },
-    { path: "notifications", element: <NotificationsPage /> },
-    { path: "workflows", element: <Workflows /> }
+    {
+        path: "/login",
+        element: <Login />
+    },
+    {
+        path: "/dashboard",
+        element: (
+            <ProtectedRoute>
+                <Dashboard />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/office",
+        element: (
+            <ProtectedRoute>
+                <Office />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/todo",
+        element: (
+            <ProtectedRoute>
+                <Todo />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/configuration",
+        element: (
+            <ProtectedRoute>
+                <Configuration />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/settings",
+        element: (
+            <ProtectedRoute>
+                <Settings />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/history",
+        element: (
+            <ProtectedRoute>
+                <History />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/plan_classement",
+        element: (
+            <ProtectedRoute>
+                <PlanClassement />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/domaine_val",
+        element: (
+            <ProtectedRoute>
+                <Domaine />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/forms",
+        element: (
+            <ProtectedRoute>
+                <Form />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/Groups",
+        element: (
+            <ProtectedRoute>
+                <Groupe />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/Users",
+        element: (
+            <ProtectedRoute>
+                <User />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/kanban",
+        element: (
+            <ProtectedRoute>
+                <KanbanBoard />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/notifications",
+        element: (
+            <ProtectedRoute>
+                <NotificationsPage />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/workflows",
+        element: (
+            <ProtectedRoute>
+                <Workflows />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "*",
+        element: (
+            <ProtectedRoute>
+                <div className="text-center mt-5">
+                    <h1>404</h1>
+                    <p>Page non trouvée</p>
+                </div>
+            </ProtectedRoute>
+        )
+    }
 ]);
 
 export default function AppRoutes() {

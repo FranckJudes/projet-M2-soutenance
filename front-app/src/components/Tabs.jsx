@@ -1,59 +1,66 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ButtonSimple } from "./Button";
+import { authService } from '../api/authService';
 
-// URL de base de l'API 
 const SERVICE_HARMONI = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 const Tabs = ({ items, title, footer }) => {
     const [activeIndex, setActiveIndex] = useState(0);
     const [sharedData, setSharedData] = useState({});
+    const [token, setToken] = useState(null);
+    
+    useEffect(() => {
+        const sessionToken = sessionStorage.getItem('token');
+        const localToken = localStorage.getItem('token');
+        const serviceToken = authService.getToken();
+        const isAuth = authService.isAuthenticated();
+        
+        if (serviceToken) {
+            setToken(serviceToken);
+        } else if (sessionToken) {
+            setToken(sessionToken);
+        } else if (localToken) {
+            setToken(localToken);
+            sessionStorage.setItem('token', localToken);
+        }
+    }, []); 
 
     const handleNext = async () => {
         if (activeIndex < items.length - 1) {
             if (activeIndex === 1) {
                 try {
-                    // Exporter le diagramme BPMN en XML
                     const xml = await sharedData.modelerRef.current?.saveXML({ format: true });
 
-                    // Vérifier si le XML est valide
                     if (!xml || !xml.xml) {
-                        console.error("Impossible d'exporter le diagramme : XML invalide.");
                         return;
                     }
 
-                    // Convertir le XML en Blob
                     const xmlBlob = new Blob([xml.xml], { type: "application/xml" });
 
-                    // Créer un FormData et ajouter le Blob
                     const formData = new FormData();
                     formData.append("file", xmlBlob, "diagram.bpmn");
-
-                    // Envoyer la requête POST
+                    
                     const response = await fetch(`${SERVICE_HARMONI}/bpmn/upload`, {
                         method: "POST",
                         body: formData,
+                        headers: {
+                            "Authorization": `Bearer ${token}`
+                        }
                     });
 
-                    // Vérifier si la réponse est OK
                     if (!response.ok) {
                         throw new Error(`Erreur HTTP : ${response.status} - ${response.statusText}`);
                     }
-
-                    // Traiter la réponse JSON
                     const data = await response.json();
-                    console.log("Éléments du diagramme :", data);
 
-                    // Mettre à jour les données partagées
                     setSharedData((prev) => ({
                         ...prev,
-                        processElements: data, // Assurez-vous que `data` contient les éléments attendus
+                        processElements: data,
                     }));
                 } catch (error) {
-                    console.error("Erreur lors de l'envoi du diagramme BPMN :", error);
                 }
             }
 
-            // Passer à l'onglet suivant
             setActiveIndex((prev) => prev + 1);
         }
     };

@@ -6,7 +6,7 @@ class NotificationService {
   // Récupérer toutes les notifications d'un utilisateur
   async getUserNotifications(userId) {
     try {
-      const response = await axios.get(`${API_URL}/notifications/user/${userId}`);
+      const response = await axios.get(`${API_URL}/notifications/ user/${userId}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching user notifications:', error);

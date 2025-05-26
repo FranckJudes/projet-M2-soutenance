@@ -1,8 +1,13 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8200';
+const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 class BpmnModelService {
+
+  getAuthHeaders() {
+    const token = sessionStorage.getItem('token');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }
   /**
    * Sauvegarde un modèle BPMN avec ses configurations de tâches et les informations du processus
    * @param {Object} completeData - Les données complètes (XML, informations du processus)
@@ -36,7 +41,8 @@ class BpmnModelService {
     
     return axios.post(`${API_URL}/bpmn`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
+        ...this.getAuthHeaders()
       }
     });
   }
@@ -75,7 +81,8 @@ class BpmnModelService {
     
     return axios.put(`${API_URL}/bpmn/${bpmnId}`, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
+        ...this.getAuthHeaders()
       }
     });
   }
@@ -86,7 +93,9 @@ class BpmnModelService {
    * @returns {Promise} - Promesse avec la réponse de l'API
    */
   getBpmnModel(bpmnId) {
-    return axios.get(`${API_URL}/bpmn/${bpmnId}`);
+    return axios.get(`${API_URL}/bpmn/${bpmnId}`, {
+      headers: this.getAuthHeaders()
+    });
   }
   
   /**
@@ -94,7 +103,9 @@ class BpmnModelService {
    * @returns {Promise} - Promesse avec la réponse de l'API contenant la liste des modèles BPMN
    */
   getAllBpmnModels() {
-    return axios.get(`${API_URL}/bpmn/all`);
+    return axios.get(`${API_URL}/bpmn/all`, {
+      headers: this.getAuthHeaders()
+    });
   }
   
   /**
@@ -103,7 +114,9 @@ class BpmnModelService {
    * @returns {Promise} - Promesse avec la réponse de l'API
    */
   deleteBpmnModel(bpmnId) {
-    return axios.delete(`${API_URL}/bpmn/${bpmnId}`);
+    return axios.delete(`${API_URL}/bpmn/${bpmnId}`, {
+      headers: this.getAuthHeaders()
+    });
   }
 }
 

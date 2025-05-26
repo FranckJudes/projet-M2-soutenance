@@ -36,17 +36,13 @@ function Configuration() {
     });
     const modelerRef = useRef(null);
     
-    // Fonction pour vider le localStorage des configurations de tâches
     const clearTaskConfigurationsFromLocalStorage = () => {
-        console.log('Nettoyage du localStorage des configurations de tâches');
         
-        // Récupérer toutes les clés du localStorage
         const keys = [];
         for (let i = 0; i < localStorage.length; i++) {
             keys.push(localStorage.key(i));
         }
         
-        // Filtrer les clés liées aux configurations de tâches
         const taskConfigKeys = keys.filter(key => 
             key.startsWith('task_information_config_') ||
             key.startsWith('task_resource_config_') ||
@@ -56,22 +52,18 @@ function Configuration() {
             key.startsWith('task_notification_config_')
         );
         
-        // Supprimer toutes les configurations de tâches
         taskConfigKeys.forEach(key => {
             localStorage.removeItem(key);
         });
         
-        console.log(`${taskConfigKeys.length} configurations de tâches supprimées du localStorage`);
     };
     
-    // Nettoyer le localStorage lorsque l'utilisateur quitte la page
     useEffect(() => {
         return () => {
             clearTaskConfigurationsFromLocalStorage();
         };
     }, []);
 
-    // Fonction pour mettre à jour les données du processus depuis le composant General
     const handleUpdateProcessData = (processData) => {
         console.log('Mise à jour des données du processus:', processData);
         setSharedData(prev => ({
@@ -83,12 +75,8 @@ function Configuration() {
         }));
     };
 
-    // Fonction pour gérer la sauvegarde réussie du modèle BPMN
     const handleSaveSuccess = (data) => {
-        console.log('Modèle BPMN sauvegardé avec succès:', data);
-        // Rafraîchir la liste des modèles BPMN
         fetchBpmnItems();
-        // Revenir à la liste des modèles
         setTimeout(() => {
             setIsTransitioning(true);
             setTimeout(() => {
@@ -150,20 +138,15 @@ function Configuration() {
         setSelectedBpmnId(bpmnId);
         setIsUpdateMode(true);
         
-        // Charger le modèle BPMN existant
         BpmnModelService.getBpmnModel(bpmnId)
             .then(response => {
                 const bpmnData = response.data;
-                console.log('Modèle BPMN chargé:', bpmnData);
-                
-                // Mettre à jour les données partagées
                 setSharedData(prev => ({
                     ...prev,
                     loadedBpmnXml: bpmnData.bpmnXml,
                     loadedTaskConfigurations: bpmnData.taskConfigurations
                 }));
                 
-                // Transition vers l'écran d'édition
                 setIsTransitioning(true);
                 setTimeout(() => {
                     setShowList(false);
@@ -171,7 +154,6 @@ function Configuration() {
                 }, 300);
             })
             .catch(error => {
-                console.error('Erreur lors du chargement du modèle BPMN:', error);
                 toast.error(t("Erreur lors du chargement du modèle BPMN"));
                 setIsUpdateMode(false);
                 setSelectedBpmnId(null);
@@ -203,7 +185,7 @@ function Configuration() {
                 }}>
                     {showList ? (
                         <Card
-                            title={`Processus (${bpmnItems.length})`} // Mise à jour dynamique
+                            title={`Processus (${bpmnItems.length})`}
                             titleAction={
                                 <ButtonWithIcon
                                     className="btn btn-icon icon-left btn-success"
@@ -227,8 +209,8 @@ function Configuration() {
                                                 onClick: () => handleEditClick(item.id)
                                             }
                                         ]
-                                    }))}
-                                    onUpdateItems={handleUpdateItems} // Transmet la fonction de mise à jour
+                                    }))}    
+                                    onUpdateItems={handleUpdateItems}  
                                 />
                             )}
                         </Card>
