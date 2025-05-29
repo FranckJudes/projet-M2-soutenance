@@ -14,7 +14,7 @@ import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import toast from 'react-hot-toast';
 import BpmnModelService from '../../../services/BpmnModelService';
-
+import ProcessExecutionService from '../../../services/ProcessExecutionService';
 
 // Utilitaires pour la gestion du BPMN
 const isElementInSubProcess = (elementId, subProcess) => {
@@ -38,7 +38,7 @@ const isElementInSubProcess = (elementId, subProcess) => {
   }
   return false;
 };
-  
+
 // Composant Breadcrumb pour la navigation dans les sous-processus
 const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
   const { t } = useTranslation();
@@ -92,9 +92,47 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
   const [lowerNodes, setLowerNodes] = useState([]);
   const [lowerEdges, setLowerEdges] = useState([]);
 
+  // États pour l'automatisation
+  const [deploymentStatus, setDeploymentStatus] = useState(null);
+  const [isProcessDeployed, setIsProcessDeployed] = useState(false);
+  const [processDefinitionKey, setProcessDefinitionKey] = useState(null);
+
   // Configuration pour le layout du diagramme
   const nodeWidth = 172;
   const nodeHeight = 36;
+
+  // Fonction de déploiement automatique
+  const deployProcessAfterSave = async (savedProcessData) => {
+    try {
+      console.log("Déploiement automatique du processus...", savedProcessData);
+      
+      // Appeler l'API de déploiement automatique
+      const deploymentResponse = await fetch(`${process.env.VITE_BASE_SERVICE_HARMONI}/api/camunda/deploy/${savedProcessData.id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (deploymentResponse.ok) {
+        const deploymentResult = await deploymentResponse.json();
+        setDeploymentStatus('success');
+        setIsProcessDeployed(true);
+        setProcessDefinitionKey(deploymentResult.processDefinitionKey);
+        
+        toast.success(t("Processus déployé et prêt à l'exécution !"));
+        console.log("Processus déployé avec succès:", deploymentResult);
+      } else {
+        throw new Error("Échec du déploiement");
+      }
+      
+    } catch (error) {
+      console.error("Erreur lors du déploiement:", error);
+      setDeploymentStatus('error');
+      toast.error(t("Erreur lors du déploiement du processus"));
+    }
+  };
 
   // Fonction pour calculer les positions des nœuds avec dagre
   const calculateLayout = useCallback((nodes, edges, direction) => {
@@ -705,140 +743,201 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
                 {t("Réinitialiser la configuration")}
               </button>
               <button 
-  className="btn btn-primary" 
-  onClick={async () => {
-    const loadingToast = toast.loading(t("Sauvegarde en cours..."));
-    
-    try {
-      // 1. Valider que le modeler est disponible
-      if (!sharedData?.modelerRef?.current) {
-        throw new Error("Modeler BPMN non disponible");
-      }
+                className="btn btn-primary" 
+                onClick={async () => {
+                  const loadingToast = toast.loading(t("Sauvegarde en cours..."));
+                  
+                  try {
+                    // 1. Valider que le modeler est disponible
+                    if (!sharedData?.modelerRef?.current) {
+                      throw new Error("Modeler BPMN non disponible");
+                    }
 
-      // 2. Récupérer le XML BPMN en utilisant la même approche que handleDownloadXML
-      console.log("Exportation du XML BPMN...");
-      let xmlContent;
-      try {
-        xmlContent = await sharedData.modelerRef.current.saveXML({ format: true });
-        console.log('XML BPMN exporté avec succès');
-      } catch (err) {
-        console.error('Erreur lors de l\'export XML:', err);
-        throw new Error("Erreur lors de l'export du modèle BPMN");
-      }
+                    // 2. Récupérer le XML BPMN en utilisant la même approche que handleDownloadXML
+                    console.log("Exportation du XML BPMN...");
+                    let xmlContent;
+                    try {
+                      xmlContent = await sharedData.modelerRef.current.saveXML({ format: true });
+                      console.log('XML BPMN exporté avec succès');
+                    } catch (err) {
+                      console.error('Erreur lors de l\'export XML:', err);
+                      throw new Error("Erreur lors de l'export du modèle BPMN");
+                    }
 
-      // Vérifier que le XML est bien récupéré
-      if (!xmlContent || !xmlContent.xml) {
-        console.error('XML non récupéré correctement:', xmlContent);
-        throw new Error("Format XML invalide");
-      }
+                    // Vérifier que le XML est bien récupéré
+                    if (!xmlContent || !xmlContent.xml) {
+                      console.error('XML non récupéré correctement:', xmlContent);
+                      throw new Error("Format XML invalide");
+                    }
 
-      console.log('Début XML récupéré:', xmlContent.xml.substring(0, 100) + '...');
+                    console.log('Début XML récupéré:', xmlContent.xml.substring(0, 100) + '...');
 
-      // 3. Récupérer les configurations des tâches
-      console.log("Récupération des configurations des tâches...");
-      const allTaskConfigurations = [];
-      
-      if (bpmnData?.tasks) {
-        for (const task of bpmnData.tasks) {
-          const taskId = task.id;
-          try {
-            // Fonction sécurisée pour récupérer les données du localStorage
-            const getConfigFromStorage = (key) => {
-              try {
-                const value = localStorage.getItem(key);
-                return value ? JSON.parse(value) : {};
-              } catch (e) {
-                console.warn(`Erreur parsing ${key}:`, e);
-                return {};
-              }
-            };
+                    // 3. Récupérer les configurations des tâches
+                    console.log("Récupération des configurations des tâches...");
+                    const allTaskConfigurations = [];
+                    
+                    if (bpmnData?.tasks) {
+                      for (const task of bpmnData.tasks) {
+                        const taskId = task.id;
+                        try {
+                          // Fonction sécurisée pour récupérer les données du localStorage
+                          const getConfigFromStorage = (key) => {
+                            try {
+                              const value = localStorage.getItem(key);
+                              return value ? JSON.parse(value) : {};
+                            } catch (e) {
+                              console.warn(`Erreur parsing ${key}:`, e);
+                              return {};
+                            }
+                          };
 
-            const taskConfig = {
-              taskId: taskId,
-              taskName: task.name || taskId,
-              taskType: task.type || 'task',
-              resource: getConfigFromStorage(`task_resource_config_${taskId}`),
-              information: getConfigFromStorage(`task_information_config_${taskId}`),
-              habilitation: getConfigFromStorage(`task_habilitation_config_${taskId}`),
-              planification: getConfigFromStorage(`task_planification_config_${taskId}`),
-              condition: getConfigFromStorage(`task_condition_config_${taskId}`),
-              notification: getConfigFromStorage(`task_notification_config_${taskId}`)
-            };
-            allTaskConfigurations.push(taskConfig);
-          } catch (error) {
-            console.error(`Erreur configuration tâche ${taskId}:`, error);
-          }
-        }
-      }
+                          const taskConfig = {
+                            taskId: taskId,
+                            taskName: task.name || taskId,
+                            taskType: task.type || 'task',
+                            resource: getConfigFromStorage(`task_resource_config_${taskId}`),
+                            information: getConfigFromStorage(`task_information_config_${taskId}`),
+                            habilitation: getConfigFromStorage(`task_habilitation_config_${taskId}`),
+                            planification: getConfigFromStorage(`task_planification_config_${taskId}`),
+                            condition: getConfigFromStorage(`task_condition_config_${taskId}`),
+                            notification: getConfigFromStorage(`task_notification_config_${taskId}`)
+                          };
+                          allTaskConfigurations.push(taskConfig);
+                        } catch (error) {
+                          console.error(`Erreur configuration tâche ${taskId}:`, error);
+                        }
+                      }
+                    }
 
-      console.log('Configurations des tâches:', allTaskConfigurations);
+                    console.log('Configurations des tâches:', allTaskConfigurations);
 
-     // 4. Préparer les données du processus depuis sharedData
-      console.log("Récupération des données du processus...");
-      const processData = sharedData?.processData || {};
-      console.log("Données du processus:", processData);
+                   // 4. Préparer les données du processus depuis sharedData
+                    console.log("Récupération des données du processus...");
+                    const processData = sharedData?.processData || {};
+                    console.log("Données du processus:", processData);
 
-      // 5. Préparer les données complètes pour l'envoi
-      const completeData = {
-          xml: xmlContent.xml,
-          processInfo: {
-              name: processData.processName || "",
-              description: processData.processDescription || "",
-              tags: processData.processTags || [],
-              processId: processData.processId || null
-          }
-      };
-      
-      // 6. Préparer l'image si elle existe
-      if (processData.processImage) {
-          try {
-              if (processData.processImage instanceof File) {
-                  // Créer un FormData pour l'image
-                  const imageFormData = new FormData();
-                  imageFormData.append('image', processData.processImage);
-                  completeData.imageFormData = imageFormData;
-              }
-          } catch (error) {
-              console.error('Erreur lors de la préparation de l\'image:', error);
-          }
-      }
-      
-      // 7. Envoyer au backend en utilisant BpmnModelService
-      console.log("completeData",completeData);
-      console.log("allTaskConfigurations",allTaskConfigurations);
-      let response;
-      if (isUpdateMode && bpmnId) {
-        console.log("Mode mise à jour pour BPMN ID:", bpmnId);
-        response = await BpmnModelService.updateBpmnModel(
-          bpmnId, 
-          completeData, 
-          allTaskConfigurations
-        );
-      } else {
-        console.log("Mode création d'un nouveau modèle");
-        response = await BpmnModelService.saveBpmnModel(
-          completeData, 
-          allTaskConfigurations
-        );
-      }
+                    // 5. Préparer les données complètes pour l'envoi
+                    const completeData = {
+                        xml: xmlContent.xml,
+                        processInfo: {
+                            name: processData.processName || "",
+                            description: processData.processDescription || "",
+                            tags: processData.processTags || [],
+                            processId: processData.processId || null
+                        }
+                    };
+                    
+                    // 6. Préparer l'image si elle existe
+                    if (processData.processImage) {
+                        try {
+                            if (processData.processImage instanceof File) {
+                                // Créer un FormData pour l'image
+                                const imageFormData = new FormData();
+                                imageFormData.append('image', processData.processImage);
+                                completeData.imageFormData = imageFormData;
+                            }
+                        } catch (error) {
+                            console.error('Erreur lors de la préparation de l\'image:', error);
+                        }
+                    }
+                    
+                    // 7. Envoyer au backend en utilisant BpmnModelService
+                    console.log("completeData", completeData);
+                    console.log("allTaskConfigurations", allTaskConfigurations);
+                    let response;
+                    if (isUpdateMode && bpmnId) {
+                      console.log("Mode mise à jour pour BPMN ID:", bpmnId);
+                      response = await BpmnModelService.updateBpmnModel(
+                        bpmnId, 
+                        completeData, 
+                        allTaskConfigurations
+                      );
+                    } else {
+                      console.log("Mode création d'un nouveau modèle");
+                      response = await BpmnModelService.saveBpmnModel(
+                        completeData, 
+                        allTaskConfigurations
+                      );
+                    }
 
-      console.log("Réponse du serveur:", response.data);
-      toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
-      
-      // 5. Appeler le callback de succès si fourni
-      if (onSaveSuccess) {
-        onSaveSuccess(response.data);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
-      toast.error(t(error.message || "Erreur lors de la sauvegarde du modèle BPMN"));
-    } finally {
-      toast.dismiss(loadingToast);
-    }
-  }}
->
-  {t(isUpdateMode ? "Mettre à jour le modèle" : "Valider la configuration")}
-</button>
+                    console.log("Réponse du serveur:", response.data);
+                    toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
+                    
+                    // 8. NOUVEAU: Déploiement automatique après sauvegarde réussie
+                    await deployProcessAfterSave(response.data);
+                    
+                    // 9. Appeler le callback de succès si fourni
+                    if (onSaveSuccess) {
+                      onSaveSuccess(response.data);
+                    }
+                  } catch (error) {
+                    console.error('Erreur lors de la sauvegarde:', error);
+                    toast.error(t(error.message || "Erreur lors de la sauvegarde du modèle BPMN"));
+                  } finally {
+                    toast.dismiss(loadingToast);
+                  }
+                }}
+              >
+                {t(isUpdateMode ? "Mettre à jour et déployer" : "Sauvegarder et déployer")}
+              </button>
+
+              {/* NOUVEAU: Bouton pour démarrer le processus si déployé */}
+              {isProcessDeployed && processDefinitionKey && (
+                <button 
+                  className="btn btn-success ml-2"
+                  onClick={async () => {
+                    try {
+                      const processVariables = {
+                        processName: sharedData?.processData?.processName || "Test Process",
+                        initiatedFrom: "WebInterface",
+                        timestamp: new Date().toISOString()
+                      };
+                      
+                      const result = await ProcessExecutionService.startProcess(
+                        processDefinitionKey, 
+                        processVariables
+                      );
+                      
+                      toast.success(t("Instance de processus démarrée avec succès !"));
+                      console.log("Instance créée:", result);
+                      
+                      // Optionnel: rediriger vers la liste des tâches
+                      // navigate('/tasks');
+                      
+                    } catch (error) {
+                      console.error("Erreur lors du démarrage:", error);
+                      toast.error(t("Erreur lors du démarrage du processus"));
+                    }
+                  }}
+                >
+                  <i className="fas fa-play mr-1"></i>
+                  {t("Démarrer le processus")}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* NOUVEAU: Indicateur de statut de déploiement */}
+          {deploymentStatus && (
+            <div className={`alert mt-3 ${deploymentStatus === 'success' ? 'alert-success' : 'alert-danger'}`}>
+              {deploymentStatus === 'success' ? (
+                <>
+                  <i className="fas fa-check-circle mr-2"></i>
+                  {t("Processus déployé avec succès et prêt à l'exécution")}
+                  {processDefinitionKey && (
+                    <div className="mt-2">
+                      <small className="text-muted">
+                        {t("Clé du processus:")} <code>{processDefinitionKey}</code>
+                      </small>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-exclamation-triangle mr-2"></i>
+                  {t("Erreur lors du déploiement du processus")}
+                </>
+              )}
             </div>
           )}
         </div>

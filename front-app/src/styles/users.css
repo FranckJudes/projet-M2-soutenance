@@ -1,0 +1,675 @@
+/* Styles pour la page de gestion des utilisateurs */
+
+/* Avatar circulaire pour les utilisateurs */
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.avatar-circle:hover {
+  transform: scale(1.1);
+}
+
+/* Styles pour les cartes */
+.card {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.card.shadow {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card.shadow-lg {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+.card:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem;
+}
+
+/* Styles pour les tableaux */
+.table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th {
+  font-weight: 600;
+  color: #495057;
+  border-bottom-width: 1px;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table td {
+  vertical-align: middle;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.01);
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Styles pour les badges */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge.bg-success {
+  background-color: #28a745 !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+/* Styles pour les boutons d'action */
+.btn-sm.rounded-circle {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-sm.rounded-circle:hover {
+  transform: translateY(-2px);
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+/* Styles pour le spinner de chargement */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  color: #007bff;
+}
+
+/* Styles pour l'état vide */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: #dee2e6;
+  margin-bottom: 1rem;
+}
+
+.empty-state h5 {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+}
+
+/* Styles pour les modals */
+.modal-content {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-title {
+  font-weight: 600;
+  color: #343a40;
+}
+
+/* Styles pour les formulaires */
+.form-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.form-control, .form-select {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ced4da;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+}
+
+.form-text {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+.form-check-input:checked {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+/* Styles pour la page de gestion des utilisateurs */
+
+/* Avatar circulaire pour les utilisateurs */
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.avatar-circle:hover {
+  transform: scale(1.1);
+}
+
+/* Styles pour les cartes */
+.card {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.card.shadow {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card.shadow-lg {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+.card:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem;
+}
+
+/* Styles pour les tableaux */
+.table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th {
+  font-weight: 600;
+  color: #495057;
+  border-bottom-width: 1px;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table td {
+  vertical-align: middle;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.01);
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Styles pour les badges */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge.bg-success {
+  background-color: #28a745 !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+/* Styles pour les boutons d'action */
+.btn-sm.rounded-circle {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-sm.rounded-circle:hover {
+  transform: translateY(-2px);
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+/* Styles pour le spinner de chargement */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  color: #007bff;
+}
+
+/* Styles pour l'état vide */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: #dee2e6;
+  margin-bottom: 1rem;
+}
+
+.empty-state h5 {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+}
+
+/* Styles pour les modals */
+.modal-content {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-title {
+  font-weight: 600;
+  color: #343a40;
+}
+
+/* Styles pour les formulaires */
+.form-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.form-control, .form-select {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ced4da;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+}
+
+.form-text {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+.form-check-input:checked {
+  background-color: #007bff;
+  border-color: #007bff;
+}
+/* Styles pour la page de gestion des utilisateurs */
+
+/* Avatar circulaire pour les utilisateurs */
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.avatar-circle:hover {
+  transform: scale(1.1);
+}
+
+/* Styles pour les cartes */
+.card {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.card.shadow {
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05) !important;
+}
+
+.card.shadow-lg {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+}
+
+.card:hover {
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-header {
+  padding: 1.25rem 1.5rem;
+}
+
+/* Styles pour les tableaux */
+.table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th {
+  font-weight: 600;
+  color: #495057;
+  border-bottom-width: 1px;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table td {
+  vertical-align: middle;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 0, 0, 0.01);
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Styles pour les badges */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge.bg-success {
+  background-color: #28a745 !important;
+}
+
+.badge.bg-danger {
+  background-color: #dc3545 !important;
+}
+
+.badge.bg-warning {
+  background-color: #ffc107 !important;
+  color: #212529;
+}
+
+.badge.bg-info {
+  background-color: #17a2b8 !important;
+}
+
+.badge.bg-secondary {
+  background-color: #6c757d !important;
+}
+
+/* Styles pour les boutons d'action */
+.btn-sm.rounded-circle {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-sm.rounded-circle:hover {
+  transform: translateY(-2px);
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-outline-danger:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-outline-warning:hover {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+/* Styles pour le spinner de chargement */
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+  color: #007bff;
+}
+
+/* Styles pour l'état vide */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: #dee2e6;
+  margin-bottom: 1rem;
+}
+
+.empty-state h5 {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: #6c757d;
+  margin-bottom: 1.5rem;
+}
+
+/* Styles pour les modals */
+.modal-content {
+  border: none;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  background-color: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-title {
+  font-weight: 600;
+  color: #343a40;
+}
+
+/* Styles pour les formulaires */
+.form-label {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.form-control, .form-select {
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ced4da;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+}
+
+.form-text {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+.form-check-input:checked {
+  background-color: #007bff;
+  border-color: #007bff;
+}
