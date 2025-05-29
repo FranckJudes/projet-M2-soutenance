@@ -4,23 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Table, Button, Badge } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrash } from "@fortawesome/free-solid-svg-icons";
+import DataTable from "datatables.net-react";
+import "datatables.net-dt/css/dataTables.dataTables.css";
+import "datatables.net-select-dt";
+import "datatables.net-responsive-dt";
+import DT from "datatables.net-dt";
+DataTable.use(DT);
 
 export default function ListGroup({ groups = [], onEdit, onDelete }) {
     const { t } = useTranslation();
     
     // Fonction pour obtenir la couleur du badge en fonction du type
-    const getBadgeColor = (type) => {
-        switch (type) {
-            case "TYPE_0":
-                return "primary";
-            case "TYPE_1":
-                return "success";
-            case "TYPE_2":
-                return "warning";
-            default:
-                return "secondary";
-        }
-    };
+  
 
     return (
         <Card
@@ -50,11 +45,6 @@ export default function ListGroup({ groups = [], onEdit, onDelete }) {
                                         {group.descriptionGroupeUtilisateur || 
                                             <span className="text-muted">Aucune description</span>
                                         }
-                                    </td>
-                                    <td>
-                                        <Badge bg={getBadgeColor(group.type)} className="px-3 py-2">
-                                            {group.type}
-                                        </Badge>
                                     </td>
                                     <td>
                                         <div className="d-flex gap-2">

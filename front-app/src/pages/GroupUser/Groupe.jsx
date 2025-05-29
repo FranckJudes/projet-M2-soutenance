@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 import Main from "../../layout/Main";
 import Breadcrumb from "../../components/Breadcrumb";
-import { Card } from "../../components/Card";
-import {Input, RadioButton, Textarea}  from "../../components/Input"
-import { ButtonSimple } from "../../components/Button";
-import { NormalTabs } from "../../components/Tabs";
-import PrivilegeTabs  from "./Tabs/PrivilegeTabs";
-import UserTabP  from "./Tabs/UserTabP";
-import ListGroup  from "./Tabs/ListGroup";
-import ListUserNotGroup  from "./Tabs/ListUserNotGroup";
+import { Card, Form, Button, Spinner, Container, Row, Col, Tabs, Tab } from "react-bootstrap";
+import PrivilegeTabs from "./Tabs/PrivilegeTabs";
+import UserTabP from "./Tabs/UserTabP";
+import ListGroup from "./Tabs/ListGroup";
+import ListUserNotGroup from "./Tabs/ListUserNotGroup";
 import Select from 'react-select';
 import GroupeService from "../../services/GroupeService";
 import { toast, Toaster } from "react-hot-toast";
@@ -26,11 +23,6 @@ export default function Groupe() {
     });
     const [editMode, setEditMode] = useState(false);
 
-    const typeOptions = [
-        { value: "TYPE_0", label: "Type 0" },
-        { value: "TYPE_1", label: "Type 1" },
-        { value: "TYPE_2", label: "Type 2" }
-    ];
 
     // Charger les groupes
     const loadGroups = async () => {
@@ -132,105 +124,126 @@ export default function Groupe() {
         loadGroups();
     }, []);
 
-    const tabItems = [
-        { id: "UserTabP", title: "Utilisateurs", content: <UserTabP /> },
-        { id: "privileges", title: "Privileges", content: <PrivilegeTabs /> }
-    ]; 
-    const tabItems2 = [
-        { id: "LisGroup", title: "Liste de groupe", content: <ListGroup groups={groups} onEdit={editGroup} onDelete={deleteGroup} /> },
-        { id: "ListUserNotGroup", title: "Utilisateur sans groupe", content: <ListUserNotGroup /> }
-    ];
+    // Les onglets seront gérés directement avec les composants React Bootstrap
 
     return (
-            <Main>
-                <Toaster position="top-right" />
-                <Breadcrumb
-                    items={[
-                        { label: "Home", link: "#", icon: "fas fa-tachometer-alt", active: false },
-                        { label: "Security", link: "#", icon: "far fa-file", active: false },
-                        { label: "Groups", icon: "fas fa-list", active: true }
-                    ]}
-                />
-                <Card className="card shadow-lg"
-                    title={"Gérer les groupes"}
-                >
-                    <div className="row">
-                        <div className="col-4">
-                            <Card
-                                title={editMode ? "Modifier un Groupe" : "Ajouter un Groupe"}
-                                className="shadow"
-                            >
-                                <form onSubmit={saveGroup}>
-                                    <Input 
-                                        type="text"
-                                        label="Libellé :"
-                                        name="name"
-                                        placeholder="Nom du groupe"
-                                        value={currentGroup.name}
-                                        onChange={handleInputChange}
-                                        required
-                                    />
-                                    <Textarea
-                                        label="Description :"
-                                        name="description"
-                                        placeholder="Description du groupe"
-                                        value={currentGroup.description}
-                                        onChange={handleInputChange}
-                                    />
-                                    
-                                    <div className="form-group mb-3">
-                                        <label className="form-label">Type de groupe :</label>
-                                        <Select
-                                            options={typeOptions}
-                                            value={typeOptions.find(option => option.value === currentGroup.type)}
-                                            onChange={handleTypeChange}
-                                            className="basic-single"
-                                            classNamePrefix="select"
-                                        />
-                                    </div>
-                                    
-                                    <div className="d-flex justify-content-between mt-4">
-                                        <ButtonSimple
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={resetForm}
-                                        >
-                                            {editMode ? "Annuler" : "Réinitialiser"}
-                                        </ButtonSimple>
-                                        <ButtonSimple
-                                            type="submit"
-                                            className="btn btn-primary"
-                                        >
-                                            {editMode ? "Mettre à jour" : "Ajouter"}
-                                        </ButtonSimple>
-                                    </div>
-                                </form>
+        <Main>
+            <Toaster position="top-right" />
+            <Breadcrumb
+                items={[
+                    { label: "Home", link: "#", icon: "fas fa-tachometer-alt", active: false },
+                    { label: "Security", link: "#", icon: "far fa-file", active: false },
+                    { label: "Groups", icon: "fas fa-list", active: true }
+                ]}
+            />
+            <Card className="shadow-lg">
+                <Card.Header>
+                    <h4 className="mb-0">Gérer les groupes</h4>
+                </Card.Header>
+                <Card.Body>
+                    <Row>
+                        <Col md={4}>
+                            <Card className="shadow">
+                                <Card.Header>
+                                    <h5 className="mb-0">{editMode ? "Modifier un Groupe" : "Ajouter un Groupe"}</h5>
+                                </Card.Header>
+                                <Card.Body>
+                                    <Form onSubmit={saveGroup}>
+                                        <Form.Group className="mb-3">
+                                            <Form.Label>Libellé :</Form.Label>
+                                            <Form.Control
+                                                type="text"
+                                                name="name"
+                                                placeholder="Nom du groupe"
+                                                value={currentGroup.name}
+                                                onChange={handleInputChange}
+                                                required
+                                            />
+                                        </Form.Group>
+                                        <Form.Group className="mb-3">
+                                            <Form.Label>Description :</Form.Label>
+                                            <Form.Control
+                                                as="textarea"
+                                                name="description"
+                                                placeholder="Description du groupe"
+                                                value={currentGroup.description}
+                                                onChange={handleInputChange}
+                                                rows={3}
+                                            />
+                                        </Form.Group>
+                                        
+                                       
+                                        
+                                        <div className="d-flex justify-content-between mt-4">
+                                            <Button
+                                                variant="secondary"
+                                                type="button"
+                                                onClick={resetForm}
+                                            >
+                                                {editMode ? "Annuler" : "Réinitialiser"}
+                                            </Button>
+                                            <Button
+                                                variant="primary"
+                                                type="submit"
+                                            >
+                                                {editMode ? "Mettre à jour" : "Ajouter"}
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </Card.Body>
                             </Card>
-                        </div> 
-                        <div className="col-8">
-                            <NormalTabs items={tabItems} title={"Objet Role"} />
-                        </div>
-                    </div>
-                </Card>
-                {isLoading ? (
-                    <div className="row mt-4">
-                        <div className="col-12">
+                        </Col> 
+                        <Col md={8}>
+                            <Card className="shadow">
+                                <Card.Header>
+                                    <h5 className="mb-0">Objet Role</h5>
+                                </Card.Header>
+                                <Card.Body>
+                                    <Tabs defaultActiveKey="UserTabP" className="mb-3">
+                                        <Tab eventKey="UserTabP" title="Utilisateurs">
+                                            <UserTabP />
+                                        </Tab>
+                                        <Tab eventKey="privileges" title="Privileges">
+                                            <PrivilegeTabs />
+                                        </Tab>
+                                    </Tabs>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
+            
+            {isLoading ? (
+                <div className="mt-4">
+                    <Card className="shadow">
+                        <Card.Body>
                             <div className="d-flex justify-content-center align-items-center p-5">
-                                <div className="spinner-border text-primary" role="status">
-                                    <span className="visually-hidden">Chargement...</span>
-                                </div>
+                                <Spinner animation="border" variant="primary" />
                                 <span className="ms-3">Chargement des données...</span>
                             </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="row mt-4">
-                        <div className="col-12">
-                            <NormalTabs items={tabItems2} title={"Information générale"} />
-                        </div>
-                    </div>
-                )}
-              
-            </Main>
+                        </Card.Body>
+                    </Card>
+                </div>
+            ) : (
+                <div className="mt-4">
+                    <Card className="shadow">
+                        <Card.Header>
+                            <h5 className="mb-0">Information générale</h5>
+                        </Card.Header>
+                        <Card.Body>
+                            <Tabs defaultActiveKey="LisGroup" className="mb-3">
+                                <Tab eventKey="LisGroup" title="Liste de groupe">
+                                    <ListGroup groups={groups} onEdit={editGroup} onDelete={deleteGroup} />
+                                </Tab>
+                                <Tab eventKey="ListUserNotGroup" title="Utilisateur sans groupe">
+                                    <ListUserNotGroup />
+                                </Tab>
+                            </Tabs>
+                        </Card.Body>
+                    </Card>
+                </div>
+            )}
+        </Main>
     )
 }

@@ -44,9 +44,10 @@ class Header extends Component{
                             <Link to="/notifications" className="dropdown-item has-icon">
                                 <i className="fas fa-bell" /> Notifications
                             </Link>
-                            <a href="#" className="dropdown-item has-icon"> <i className="fas fa-cog" />
-                            Settings
-                            </a>
+                           
+                            <Link to="/settings" className="dropdown-item has-icon">
+                                <i className="fas fa-cog" /> Settings
+                            </Link>
                             <div className="dropdown-divider" />
                             <Link className="dropdown-item has-icon text-danger" to="/login">
                                 <i className="fas fa-sign-out-alt" />
