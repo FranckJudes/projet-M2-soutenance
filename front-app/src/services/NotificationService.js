@@ -3,10 +3,18 @@ import axios from 'axios';
 const API_URL = 'http://localhost:8200/api';
 
 class NotificationService {
+  getHeaders() {
+    return {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+    };
+  }
+
   // Récupérer toutes les notifications d'un utilisateur
   async getUserNotifications(userId) {
     try {
-      const response = await axios.get(`${API_URL}/notifications/ user/${userId}`);
+      const response = await axios.get(`${API_URL}/notifications/ user/${userId}`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching user notifications:', error);
@@ -17,7 +25,9 @@ class NotificationService {
   // Récupérer les notifications non lues d'un utilisateur
   async getUnreadNotifications(userId) {
     try {
-      const response = await axios.get(`${API_URL}/notifications/user/${userId}/unread`);
+      const response = await axios.get(`${API_URL}/notifications/user/${userId}/unread`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching unread notifications:', error);
@@ -28,7 +38,9 @@ class NotificationService {
   // Marquer une notification comme lue
   async markAsRead(notificationId, userId) {
     try {
-      const response = await axios.post(`${API_URL}/notifications/${notificationId}/read?userId=${userId}`);
+      const response = await axios.post(`${API_URL}/notifications/${notificationId}/read?userId=${userId}`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error marking notification as read:', error);
@@ -39,7 +51,9 @@ class NotificationService {
   // Marquer toutes les notifications d'un utilisateur comme lues
   async markAllAsRead(userId) {
     try {
-      const response = await axios.post(`${API_URL}/notifications/user/${userId}/read-all`);
+      const response = await axios.post(`${API_URL}/notifications/user/${userId}/read-all`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -50,7 +64,9 @@ class NotificationService {
   // Supprimer une notification
   async deleteNotification(notificationId, userId) {
     try {
-      const response = await axios.delete(`${API_URL}/notifications/${notificationId}?userId=${userId}`);
+      const response = await axios.delete(`${API_URL}/notifications/${notificationId}?userId=${userId}`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -61,7 +77,9 @@ class NotificationService {
   // Compter le nombre de notifications non lues pour un utilisateur
   async countUnreadNotifications(userId) {
     try {
-      const response = await axios.get(`${API_URL}/notifications/user/${userId}/count`);
+      const response = await axios.get(`${API_URL}/notifications/user/${userId}/count`, {
+        headers: this.getHeaders(),
+      });
       return response.data;
     } catch (error) {
       console.error('Error counting unread notifications:', error);

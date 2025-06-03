@@ -14,8 +14,9 @@ import User from '../pages/User/User';
 import KanbanBoard from '../pages/Kanban/KanbanBoard';
 import NotificationsPage from '../pages/Notifications/NotificationsPage';
 import Workflows from '../pages/Workflows';
+import BpmnDeploymentStatus from '../pages/BpmnDeployment/BpmnDeploymentStatus';
 import ProtectedRoute from '../services/ProtectedRoute';
-
+import Organigramme from '../pages/organigramme';
 const router = createBrowserRouter([
     {
         path: "/",
@@ -134,6 +135,22 @@ const router = createBrowserRouter([
         element: (
             <ProtectedRoute>
                 <Workflows />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/bpmn-deployment",
+        element: (
+            <ProtectedRoute>
+                <BpmnDeploymentStatus />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/organigramme",
+        element: (
+            <ProtectedRoute>
+                <Organigramme />
             </ProtectedRoute>
         )
     },

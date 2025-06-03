@@ -1,38 +1,173 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import {InputAdd} from '../../../../components/Input';
-import Select from 'react-select'
+import { InputAdd } from '../../../../components/Input';
+import Select from 'react-select';
+import UserService from '../../../../services/UserService';
+import GroupeService from '../../../../services/GroupeService';
+import EntiteOrganisationService from '../../../../services/EntiteOrganisationService';
+import toast from 'react-hot-toast';
 
-export default function Habilitation ({ selectedTask })  {
+const Habilitation = forwardRef(({ selectedTask }, ref) => {
   const { t } = useTranslation();
 
   const [isChecked, setIsChecked] = useState(false);
   const [selectPointControl, setselectPointControl] = useState(false);
   const [taskConfig, setTaskConfig] = useState(null);
+  const [loading, setLoading] = useState(true);
   
-  // Données factices pour les utilisateurs, entités et groupes
-  const fakeUsers = [
-    { value: "Gallagher", label: "Gallagher" },
-    { value: "Franck", label: "Franck" },
-    { value: "Judes", label: "Judes" },
-    { value: "User", label: "User" },
-  ];
+  // États pour stocker les données réelles
+  const [users, setUsers] = useState([]);
+  const [entities, setEntities] = useState([]);
+  const [groups, setGroups] = useState([]);
+
+  // Exposer les méthodes au composant parent via ref
+  useImperativeHandle(ref, () => ({
+    // Récupérer les données avec la structure demandée
+    getHabilitationData: () => {
+      if (!taskConfig) {
+        // Retourner des valeurs par défaut si pas de configuration
+        return {
+          assignedEntity: null,
+          returnAllowed: false,
+          assignedUser: null,
+          assignedGroup: null,
+          responsibleUser: null,
+          interestedUser: null,
+          assigneeType: null
+        };
+      }
+      
+      // Déterminer le type d'assigné
+      let assigneeType = null;
+      let assignedUser = null;
+      let assignedEntity = null;
+      let assignedGroup = null;
+      let interestedUser = null;
+      let responsibleUser = null;
+
+      // Assignation utilisateur principal
+      if (taskConfig.isChecked && taskConfig.selectedUser) {
+        assignedUser = taskConfig.selectedUser;
+        assigneeType = 'user';
+      }
+
+      // Assignation entité
+      if (taskConfig.entity && taskConfig.selectedEntity) {
+        assignedEntity = taskConfig.selectedEntity;
+        if (!assigneeType) assigneeType = 'entity';
+      }
+
+      // Assignation groupe
+      if (taskConfig.groupUser && taskConfig.selectedGroup) {
+        assignedGroup = taskConfig.selectedGroup;
+        if (!assigneeType) assigneeType = 'group';
+      }
+
+      // Personne intéressée
+      if (taskConfig.persInteress && taskConfig.selectedInterestedUser) {
+        interestedUser = taskConfig.selectedInterestedUser;
+      }
+
+      // Responsable pour point de contrôle
+      if (taskConfig.isChecked && taskConfig.checkPointDetails) {
+        responsibleUser = taskConfig.checkPointDetails;
+      }
+
+      return {
+        assignedEntity: assignedEntity,
+        returnAllowed: taskConfig.possReturn || false,
+        assignedUser: assignedUser,
+        assignedGroup: assignedGroup,
+        responsibleUser: responsibleUser,
+        interestedUser: interestedUser,
+        assigneeType: assigneeType
+      };
+    },
+    
+    // Valider les données (VALIDATION OPTIONNELLE)
+    validateData: () => {
+      const data = {
+        assignedEntity: taskConfig?.entity && taskConfig?.selectedEntity ? taskConfig.selectedEntity : null,
+        returnAllowed: taskConfig?.possReturn || false,
+        assignedUser: taskConfig?.isChecked && taskConfig?.selectedUser ? taskConfig.selectedUser : null,
+        assignedGroup: taskConfig?.groupUser && taskConfig?.selectedGroup ? taskConfig.selectedGroup : null,
+        responsibleUser: taskConfig?.selectPointControl && taskConfig?.checkPointDetails ? taskConfig.checkPointDetails : null,
+        interestedUser: taskConfig?.persInteress && taskConfig?.selectedInterestedUser ? taskConfig.selectedInterestedUser : null,
+        assigneeType: null
+      };
+
+      // Déterminer le type d'assigné
+      if (data.assignedUser) data.assigneeType = 'user';
+      else if (data.assignedEntity) data.assigneeType = 'entity';
+      else if (data.assignedGroup) data.assigneeType = 'group';
+      
+      const errors = [];
+      
+      // Tous les champs sont optionnels, aucune validation obligatoire n'est nécessaire
+      // Seule validation conditionnelle: si la case à cocher est activée, il faut sélectionner un utilisateur responsable
+      if (taskConfig?.isChecked && !data.responsibleUser) {
+        errors.push('Un utilisateur responsable doit être sélectionné quand la case est cochée');
+      }
+      
+      return {
+        isValid: errors.length === 0,
+        errors,
+        data
+      };
+    },
+
+    // Réinitialiser le composant
+    reset: () => {
+      setTaskConfig(null);
+      setIsChecked(false);
+      setselectPointControl(false);
+    }
+  }));
   
-  const fakeEntities = [
-    { value: "entity1", label: "Direction Générale" },
-    { value: "entity2", label: "Département IT" },
-    { value: "entity3", label: "Ressources Humaines" },
-    { value: "entity4", label: "Comptabilité" },
-    { value: "entity5", label: "Service Client" },
-  ];
-  
-  const fakeGroups = [
-    { value: "group1", label: "Administrateurs" },
-    { value: "group2", label: "Développeurs" },
-    { value: "group3", label: "Gestionnaires" },
-    { value: "group4", label: "Support Technique" },
-    { value: "group5", label: "Management" },
-  ];
+  // Chargement des données réelles depuis les services
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Récupérer les utilisateurs
+        const usersResponse = await UserService.getAllUsers();
+        const usersData = usersResponse.data.data || [];
+        const formattedUsers = usersData.map(user => ({
+          value: user.id.toString(),
+          label: `${user.firstName} ${user.lastName}`,
+          userData: user
+        }));
+        setUsers(formattedUsers);
+        
+        // Récupérer les entités
+        const entitiesResponse = await EntiteOrganisationService.getAllEntites();
+        const entitiesData = entitiesResponse.data.data || [];
+        const formattedEntities = entitiesData.map(entity => ({
+          value: entity.id.toString(),
+          label: entity.libele,
+          entityData: entity
+        }));
+        setEntities(formattedEntities);
+        
+        // Récupérer les groupes
+        const groupsResponse = await GroupeService.getAllGroups();
+        const groupsData = groupsResponse.data || [];
+        const formattedGroups = groupsData.map(group => ({
+          value: group.id.toString(),
+          label: group.libeleGroupeUtilisateur,
+          groupData: group
+        }));
+        setGroups(formattedGroups);
+      } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+        toast.error('Erreur lors du chargement des données');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
@@ -81,8 +216,10 @@ export default function Habilitation ({ selectedTask })  {
       groupUser: false,
       possReturn: false,
       selectedUser: null,
+      selectedInterestedUser: null,
       selectedEntity: null,
-      selectedGroup: null
+      selectedGroup: null,
+      checkPointDetails: ''
     };
     setTaskConfig(newConfig);
     setIsChecked(false);
@@ -139,185 +276,189 @@ export default function Habilitation ({ selectedTask })  {
     }
   }
 
-    return <>
-        <div className="row">
-        <div className="col-md-12">
+  return (
+    <div className="row">
+      <div className="col-md-12">
+        <div className="d-flex py-2">
+          <div className="col-4">
+            <label>{t('AssignedPersons')}</label>
+          </div>
+          <div className="col-8 d-flex align-items-center">
+            <div>
+              <div className="d-flex align-items-center" style={{ width: "100%" }}>
+                <div className="custom-control custom-checkbox mr-3">
+                  <input 
+                    type="checkbox" 
+                    className="custom-control-input" 
+                    id="customCheck1" 
+                    checked={taskConfig && taskConfig.persInteress || false}
+                    onChange={(e) => handleConfigChange('persInteress', e.target.checked)}
+                    disabled={!selectedTask}
+                  />
+                  <label className="custom-control-label" htmlFor="customCheck1">{t('__pers_interess_')}</label>
+                </div>
+                {taskConfig && taskConfig.persInteress && (
+                  <div style={{ width: "100%" }}>
+                   <Select 
+                    options={users} 
+                    value={taskConfig && taskConfig.selectedInterestedUser ? 
+                        users.find(opt => opt.value === taskConfig.selectedInterestedUser) : 
+                        null}
+                    onChange={(option) => handleConfigChange('selectedInterestedUser', option ? option.value : null)}
+                    isDisabled={!selectedTask || loading}
+                    placeholder="Une personne intéressée"
+                    isLoading={loading}
+                  />
+                  </div>
+                )}
+              </div>
               
-              <div className="d-flex py-2">
-                <div className="col-4">
-                  <label>{t('AssignedPersons')}</label>
+              <div className="d-flex align-items-center mb-2" style={{ width: "100%" }}>
+                <div className="custom-control custom-checkbox mr-3">
+                  <input 
+                    type="checkbox" 
+                    className="custom-control-input" 
+                    id="customCheck2" 
+                    checked={taskConfig && taskConfig.entity || false}
+                    onChange={(e) => handleConfigChange('entity', e.target.checked)}
+                    disabled={!selectedTask}
+                  />
+                  <label className="custom-control-label" htmlFor="customCheck2">{t('__entity__')}</label>
                 </div>
-                <div className="col-8 d-flex align-items-center">
-                  <div>
-                   
-                    <div className="d-flex align-items-center" style={{ width: "100%" }}>
-                      <div className="custom-control custom-checkbox mr-3">
-                        <input 
-                          type="checkbox" 
-                          className="custom-control-input" 
-                          id="customCheck1" 
-                          checked={taskConfig && taskConfig.persInteress || false}
-                          onChange={(e) => handleConfigChange('persInteress', e.target.checked)}
-                          disabled={!selectedTask}
-                        />
-                        <label className="custom-control-label" htmlFor="customCheck1">{t('__pers_interess_')}</label>
-                      </div>
-                      {taskConfig && taskConfig.persInteress && (
-                        <div style={{ width: "100%" }}>
-                          <Select 
-                            options={fakeUsers} 
-                            value={taskConfig.selectedPersons ? 
-                                fakeUsers.find(opt => opt.value === taskConfig.selectedPersons) : 
-                                null}
-                            onChange={(option) => handleConfigChange('selectedPersons', option ? option.value : null)}
-                            isDisabled={!selectedTask}
-                            placeholder="Une personne intéressée"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="d-flex align-items-center mb-2" style={{ width: "100%" }}>
-                      <div className="custom-control custom-checkbox mr-3">
-                        <input 
-                          type="checkbox" 
-                          className="custom-control-input" 
-                          id="customCheck2" 
-                          checked={taskConfig && taskConfig.entity || false}
-                          onChange={(e) => handleConfigChange('entity', e.target.checked)}
-                          disabled={!selectedTask}
-                        />
-                        <label className="custom-control-label" htmlFor="customCheck2">{t('__entity__')}</label>
-                      </div>
-                      {taskConfig && taskConfig.entity && (
-                        <div style={{ width: "1000%" }}>
-                          <Select 
-                            options={fakeEntities} 
-                            value={taskConfig.selectedEntity ? 
-                                fakeEntities.find(opt => opt.value === taskConfig.selectedEntity) : 
-                                null}
-                            onChange={(option) => handleConfigChange('selectedEntity', option ? option.value : null)}
-                            isDisabled={!selectedTask}
-                            placeholder="une entité"
-                          />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="custom-control custom-checkbox">
-                      <input 
-                        type="checkbox" 
-                        className="custom-control-input" 
-                        id="customCheck3" 
-                        checked={taskConfig && taskConfig.groupUser || false}
-                        onChange={(e) => handleConfigChange('groupUser', e.target.checked)}
-                        disabled={!selectedTask}
-                      />
-                      <label className="custom-control-label" htmlFor="customCheck3">{t('__group_user_')}</label>
-                    </div>
-                    {taskConfig && taskConfig.groupUser && (
-                      <div className="ml-4 mt-2" style={{ width: "100%" }}>
-                        <Select 
-                          options={fakeGroups} 
-                          value={taskConfig.selectedGroup ? 
-                              fakeGroups.find(opt => opt.value === taskConfig.selectedGroup) : 
-                              null}
-                          onChange={(option) => handleConfigChange('selectedGroup', option ? option.value : null)}
-                          isDisabled={!selectedTask}
-                          placeholder="Un groupe d'utilisateurs"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-              <div className="d-flex py-2">
-                <div className="col-4">
-                  <label>{t('__assign_to_p_t_')}:</label>
-                </div>
-                <div className="col-8">
-                  <div className="form-group d-flex align-items-center mb-1" style={{ gap: "50px" }}>
-                    <div className="custom-control custom-checkbox">
-                      <input
-                        type="checkbox"
-                        className="custom-control-input"
-                        id="customCheck10"
-                        onChange={handleCheckboxChange}
-                        checked={isChecked}
-                        disabled={!selectedTask}
-                      />
-
-                      <label
-                        className="custom-control-label"
-                        htmlFor="customCheck10"
-                        style={{ marginBottom: "0" }}
-                      ></label>
-                    </div>
-                    {isChecked && (
-                      <div style={{ width: "100%" }}>
-                        <Select 
-                          options={fakeUsers} 
-                          value={taskConfig && taskConfig.selectedUser ? 
-                              fakeUsers.find(opt => opt.value === taskConfig.selectedUser) : 
-                              null}
-                          onChange={(option) => handleConfigChange('selectedUser', option ? option.value : null)}
-                          isDisabled={!selectedTask}
-                          placeholder="Sélectionner un utilisateur"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <p>{t('__msg_for_resp_')}</p>
-
-                  <div className="custom-control custom-checkbox">
-                    <input 
-                      type="checkbox" 
-                      className="custom-control-input" 
-                      id="customCheck30" 
-                      onChange={handleDisplay} 
-                      checked={selectPointControl}
-                      disabled={!selectedTask}
+                {taskConfig && taskConfig.entity && (
+                  <div style={{ width: "1000%" }}>
+                    <Select 
+                      options={entities} 
+                      value={taskConfig.selectedEntity ? 
+                          entities.find(opt => opt.value === taskConfig.selectedEntity) : 
+                          null}
+                      onChange={(option) => handleConfigChange('selectedEntity', option ? option.value : null)}
+                      isDisabled={!selectedTask || loading}
+                      placeholder="Une entité"
+                      isLoading={loading}
                     />
-                    <label className="custom-control-label" htmlFor="customCheck30">{t('__require_resp_ex')}</label>
                   </div>
-
-
-
-                </div>
+                )}
               </div>
-              {selectPointControl && (<div className="d-flex py-2">
-                    <div className="col-4">
-                    <label> {t('__check_point_')}</label>
-                    </div>
-                    <div className="col-8">
-                    <InputAdd 
-                      details={t('__detail_dyn_form__')} 
-                      value={taskConfig ? taskConfig.checkPointDetails || '' : ''}
-                      onChange={(e) => handleConfigChange('checkPointDetails', e.target.value)}
-                      disabled={!selectedTask}
-                    />
-                    </div>
-              </div>)}
-              <div className="d-flex py-2">
-                <div className="col-4">
-                <label>{t('__poss_return_')} :</label>
-                </div>
-                <div className="col-8 d-flex justify-content-start" >
-                    <div className="custom-control custom-checkbox">
-                      <input 
-                        type="checkbox" 
-                        className="custom-control-input" 
-                        id="customCheck33" 
-                        checked={taskConfig && taskConfig.possReturn || false}
-                        onChange={(e) => handleConfigChange('possReturn', e.target.checked)}
-                        disabled={!selectedTask}
-                      />
-                      <label className="custom-control-label" htmlFor="customCheck33"></label>
-                    </div>
-                </div>
+              
+              <div className="custom-control custom-checkbox">
+                <input 
+                  type="checkbox" 
+                  className="custom-control-input" 
+                  id="customCheck3" 
+                  checked={taskConfig && taskConfig.groupUser || false}
+                  onChange={(e) => handleConfigChange('groupUser', e.target.checked)}
+                  disabled={!selectedTask}
+                />
+                <label className="custom-control-label" htmlFor="customCheck3">{t('__group_user_')}</label>
               </div>
+              {taskConfig && taskConfig.groupUser && (
+                <div className="ml-4 mt-2" style={{ width: "100%" }}>
+                  <Select 
+                    options={groups} 
+                    value={taskConfig.selectedGroup ? 
+                        groups.find(opt => opt.value === taskConfig.selectedGroup) : 
+                        null}
+                    onChange={(option) => handleConfigChange('selectedGroup', option ? option.value : null)}
+                    isDisabled={!selectedTask || loading}
+                    placeholder="Un groupe d'utilisateurs"
+                    isLoading={loading}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+        
+        <div className="d-flex py-2">
+          <div className="col-4">
+            <label>{t('__assign_to_p_t_')}:</label>
+          </div>
+          <div className="col-8">
+            <div className="form-group d-flex align-items-center mb-1" style={{ gap: "50px" }}>
+              <div className="custom-control custom-checkbox">
+                <input
+                  type="checkbox"
+                  className="custom-control-input"
+                  id="customCheck10"
+                  onChange={handleCheckboxChange}
+                  checked={isChecked}
+                  disabled={!selectedTask}
+                />
+                <label
+                  className="custom-control-label"
+                  htmlFor="customCheck10"
+                  style={{ marginBottom: "0" }}
+                ></label>
+              </div>
+              {isChecked && (
+                <div style={{ width: "100%" }}>
+                  <Select 
+                    options={users} 
+                    value={taskConfig && taskConfig.checkPointDetails ? 
+                        users.find(opt => opt.value === taskConfig.checkPointDetails) : 
+                        null}
+                    onChange={(option) => handleConfigChange('checkPointDetails', option ? option.value : null)}
+                    isDisabled={!selectedTask || loading}
+                    placeholder="Sélectionner un utilisateur responsable"
+                    isLoading={loading}
+                  />
+                </div>
+              )}
+            </div>
+            <p>{t('__msg_for_resp_')}</p>
+
+            <div className="custom-control custom-checkbox">
+              <input 
+                type="checkbox" 
+                className="custom-control-input" 
+                id="customCheck30" 
+                onChange={handleDisplay} 
+                checked={selectPointControl}
+                disabled={!selectedTask}
+              />
+              <label className="custom-control-label" htmlFor="customCheck30">{t('__require_resp_ex')}</label>
+            </div>
+          </div>
         </div>
-    </>
-}
+        
+        {selectPointControl && (
+          <div className="d-flex py-2">
+            <div className="col-4">
+              <label> {t('__check_point_')}</label>
+            </div>
+            <div className="col-8">
+              <InputAdd 
+                details={t('__detail_dyn_form__')} 
+                value={taskConfig ? taskConfig.checkPointDetails || '' : ''}
+                onChange={(e) => handleConfigChange('checkPointDetails', e.target.value)}
+                disabled={!selectedTask}
+              />
+            </div>
+          </div>
+        )}
+        
+        <div className="d-flex py-2">
+          <div className="col-4">
+            <label>{t('__poss_return_')} :</label>
+          </div>
+          <div className="col-8 d-flex justify-content-start" >
+            <div className="custom-control custom-checkbox">
+              <input 
+                type="checkbox" 
+                className="custom-control-input" 
+                id="customCheck33" 
+                checked={taskConfig && taskConfig.possReturn || false}
+                onChange={(e) => handleConfigChange('possReturn', e.target.checked)}
+                disabled={!selectedTask}
+              />
+              <label className="custom-control-label" htmlFor="customCheck33"></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export default Habilitation;

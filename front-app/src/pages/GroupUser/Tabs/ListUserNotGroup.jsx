@@ -1,28 +1,56 @@
 import React, { useState, useEffect } from "react";
-import { Card, Button, Table } from "react-bootstrap";
-import DataTable from "datatables.net-react";
-import "datatables.net-dt/css/dataTables.dataTables.css";
-import "datatables.net-select-dt";
-import "datatables.net-responsive-dt";
-import DT from "datatables.net-dt";
-DataTable.use(DT);
+import { Card, Button, Table, Empty, Space } from "antd";
+import { UserAddOutlined } from "@ant-design/icons";
 
-export default function ListUserNotGroup() {
-    return (
-        <Card className="shadow">
-            <Card.Header className="d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Utilisateur sans groupe</h5>
-                <Button variant="primary" size="sm">
+const ListUserNotGroup = () => {
+    const [data, setData] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    // Définition des colonnes pour le tableau antd
+    const columns = [
+        {
+            title: 'Nom',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Email',
+            dataIndex: 'email',
+            key: 'email',
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            render: (_, record) => (
+                <Button 
+                    type="primary" 
+                    icon={<UserAddOutlined />} 
+                    size="small"
+                >
                     Ajouter à un groupe
                 </Button>
-            </Card.Header>
-            <Card.Body>
-                <DataTable
-                    options={{
-                        responsive: true,
-                    }}
-                ></DataTable>
-            </Card.Body>
-        </Card>
+            )
+        }
+    ];
+
+    return (
+        <div>
+            <Space style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button type="primary" icon={<UserAddOutlined />}>
+                    Ajouter à un groupe
+                </Button>
+            </Space>
+            <Table 
+                columns={columns} 
+                dataSource={data} 
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                size="middle"
+                loading={loading}
+                locale={{ emptyText: <Empty description="Aucun utilisateur sans groupe trouvé" /> }}
+            />
+        </div>
     );
-}
+};
+
+export default ListUserNotGroup;

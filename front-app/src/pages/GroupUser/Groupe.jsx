@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import Main from "../../layout/Main";
-import Breadcrumb from "../../components/Breadcrumb";
-import { Card, Form, Button, Spinner, Container, Row, Col, Tabs, Tab } from "react-bootstrap";
+import { Card, Form, Button, Spin, Row, Col, Tabs, Space, Select, Input, message, Breadcrumb, theme } from "antd";
+import { SaveOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, HomeOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
 import PrivilegeTabs from "./Tabs/PrivilegeTabs";
 import UserTabP from "./Tabs/UserTabP";
 import ListGroup from "./Tabs/ListGroup";
 import ListUserNotGroup from "./Tabs/ListUserNotGroup";
-import Select from 'react-select';
 import GroupeService from "../../services/GroupeService";
-import { toast, Toaster } from "react-hot-toast";
-import Swal from "sweetalert2";
 import "../../styles/users.css"
 
-export default function Groupe() {
+const { TextArea } = Input;
+const { TabPane } = Tabs;
+
+const Groupe = () => {
     const [groups, setGroups] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [currentGroup, setCurrentGroup] = useState({
@@ -22,6 +22,7 @@ export default function Groupe() {
         type: "TYPE_0"
     });
     const [editMode, setEditMode] = useState(false);
+    const [form] = Form.useForm();
 
 
     // Charger les groupes
@@ -32,74 +33,63 @@ export default function Groupe() {
             if (response.data) {
                 setGroups(response.data);
             } else {
-                toast.error("Erreur lors du chargement des groupes");
+                message.error("Erreur lors du chargement des groupes");
             }
         } catch (error) {
             console.error("Erreur lors du chargement des groupes", error);
-            toast.error("Erreur lors du chargement des groupes");
+            message.error("Erreur lors du chargement des groupes");
         } finally {
             setIsLoading(false);
         }
     };
 
     // Sauvegarder un groupe
-    const saveGroup = async (e) => {
-        e.preventDefault();
+    const saveGroup = async (values) => {
         try {
             let response;
             if (editMode) {
-                response = await GroupeService.updateGroup(currentGroup.id, currentGroup);
-                toast.success("Groupe mis à jour avec succès");
+                response = await GroupeService.updateGroup(currentGroup.id, values);
+                message.success("Groupe mis à jour avec succès");
             } else {
-                response = await GroupeService.createGroup(currentGroup);
-                toast.success("Groupe créé avec succès");
+                response = await GroupeService.createGroup(values);
+                message.success("Groupe créé avec succès");
             }
             resetForm();
             loadGroups();
         } catch (error) {
             console.error("Erreur lors de la sauvegarde du groupe", error);
-            toast.error("Erreur lors de la sauvegarde du groupe");
+            message.error("Erreur lors de la sauvegarde du groupe");
         }
     };
 
     // Supprimer un groupe
     const deleteGroup = async (id) => {
         try {
-            await Swal.fire({
-                title: "Êtes-vous sûr ?",
-                text: "Cette action est irréversible !",
-                icon: "warning",
-                showCancelButton: true,
-                confirmButtonColor: "#d33",
-                cancelButtonColor: "#3085d6",
-                confirmButtonText: "Oui, supprimer !",
-                cancelButtonText: "Annuler"
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    await GroupeService.deleteGroup(id);
-                    toast.success("Groupe supprimé avec succès");
-                    loadGroups();
-                }
-            });
+            await GroupeService.deleteGroup(id);
+            message.success("Groupe supprimé avec succès");
+            loadGroups();
         } catch (error) {
             console.error("Erreur lors de la suppression du groupe", error);
-            toast.error("Erreur lors de la suppression du groupe");
+            message.error("Erreur lors de la suppression du groupe");
         }
     };
 
     // Éditer un groupe
     const editGroup = (group) => {
-        setCurrentGroup({
+        const groupData = {
             id: group.id,
             name: group.libeleGroupeUtilisateur,
             description: group.descriptionGroupeUtilisateur,
             type: group.type
-        });
+        };
+        setCurrentGroup(groupData);
+        form.setFieldsValue(groupData);
         setEditMode(true);
     };
 
     // Réinitialiser le formulaire
     const resetForm = () => {
+        form.resetFields();
         setCurrentGroup({
             id: null,
             name: "",
@@ -109,141 +99,141 @@ export default function Groupe() {
         setEditMode(false);
     };
 
-    // Gérer les changements dans le formulaire
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setCurrentGroup({ ...currentGroup, [name]: value });
-    };
-
-    // Gérer les changements de type
-    const handleTypeChange = (selectedOption) => {
-        setCurrentGroup({ ...currentGroup, type: selectedOption.value });
-    };
+    // Options pour le select de type
+    const typeOptions = [
+        { value: 'TYPE_0', label: 'Type 0' },
+        { value: 'TYPE_1', label: 'Type 1' },
+        { value: 'TYPE_2', label: 'Type 2' }
+    ];
 
     useEffect(() => {
         loadGroups();
     }, []);
 
-    // Les onglets seront gérés directement avec les composants React Bootstrap
+    // Obtenir le token de couleur primaire pour le breadcrumb
+    const { token } = theme.useToken();
+    
+    // Style pour le breadcrumb
+    const breadcrumbStyle = {
+        margin: '0 0 16px',
+        padding: '8px 16px',
+        borderRadius: '4px',
+        backgroundColor: token.colorPrimaryBg,
+    };
+
+    const breadcrumbItemStyle = {
+        color: token.colorPrimaryActive,
+    };
 
     return (
         <Main>
-            <Toaster position="top-right" />
-            <Breadcrumb
-                items={[
-                    { label: "Home", link: "#", icon: "fas fa-tachometer-alt", active: false },
-                    { label: "Security", link: "#", icon: "far fa-file", active: false },
-                    { label: "Groups", icon: "fas fa-list", active: true }
-                ]}
-            />
-            <Card className="shadow-lg">
-                <Card.Header>
-                    <h4 className="mb-0">Gérer les groupes</h4>
-                </Card.Header>
-                <Card.Body>
-                    <Row>
-                        <Col md={4}>
-                            <Card className="shadow">
-                                <Card.Header>
-                                    <h5 className="mb-0">{editMode ? "Modifier un Groupe" : "Ajouter un Groupe"}</h5>
-                                </Card.Header>
-                                <Card.Body>
-                                    <Form onSubmit={saveGroup}>
-                                        <Form.Group className="mb-3">
-                                            <Form.Label>Libellé :</Form.Label>
-                                            <Form.Control
-                                                type="text"
-                                                name="name"
-                                                placeholder="Nom du groupe"
-                                                value={currentGroup.name}
-                                                onChange={handleInputChange}
-                                                required
-                                            />
-                                        </Form.Group>
-                                        <Form.Group className="mb-3">
-                                            <Form.Label>Description :</Form.Label>
-                                            <Form.Control
-                                                as="textarea"
-                                                name="description"
-                                                placeholder="Description du groupe"
-                                                value={currentGroup.description}
-                                                onChange={handleInputChange}
-                                                rows={3}
-                                            />
-                                        </Form.Group>
-                                        
-                                       
-                                        
-                                        <div className="d-flex justify-content-between mt-4">
-                                            <Button
-                                                variant="secondary"
-                                                type="button"
+            <div className="p-4">
+                <Breadcrumb style={breadcrumbStyle}>
+                    <Breadcrumb.Item href="/" style={breadcrumbItemStyle}>
+                        <HomeOutlined /> Accueil
+                    </Breadcrumb.Item>
+                    <Breadcrumb.Item style={breadcrumbItemStyle}>
+                        <TeamOutlined /> Groupes
+                    </Breadcrumb.Item>
+                </Breadcrumb>
+                <Card 
+                    className="shadow-sm mb-4"
+                    title="Gestion des groupes"
+                >
+                    <Row gutter={16}>
+                        <Col xs={24} md={8}>
+                            <Card 
+                                className="shadow-sm"
+                                title="Ajouter un groupe"
+                            >
+                                <Form
+                                    form={form}
+                                    layout="vertical"
+                                    onFinish={saveGroup}
+                                    initialValues={{
+                                        name: "",
+                                        description: "",
+                                        type: "TYPE_0"
+                                    }}
+                                >
+                                    <Form.Item
+                                        name="name"
+                                        label="Libellé"
+                                        rules={[{ required: true, message: 'Veuillez saisir un libellé' }]}
+                                    >
+                                        <Input />
+                                    </Form.Item>
+                                    
+                                    <Form.Item
+                                        name="description"
+                                        label="Description"
+                                    >
+                                        <TextArea rows={3} />
+                                    </Form.Item>
+                                    
+                                    <Form.Item>
+                                        <Space style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                            <Button 
                                                 onClick={resetForm}
                                             >
                                                 {editMode ? "Annuler" : "Réinitialiser"}
                                             </Button>
                                             <Button
-                                                variant="primary"
-                                                type="submit"
+                                                type="primary"
+                                                htmlType="submit"
+                                                icon={<SaveOutlined />}
                                             >
                                                 {editMode ? "Mettre à jour" : "Ajouter"}
                                             </Button>
-                                        </div>
-                                    </Form>
-                                </Card.Body>
+                                        </Space>
+                                    </Form.Item>
+                                </Form>
                             </Card>
                         </Col> 
-                        <Col md={8}>
-                            <Card className="shadow">
-                                <Card.Header>
-                                    <h5 className="mb-0">Objet Role</h5>
-                                </Card.Header>
-                                <Card.Body>
-                                    <Tabs defaultActiveKey="UserTabP" className="mb-3">
-                                        <Tab eventKey="UserTabP" title="Utilisateurs">
-                                            <UserTabP />
-                                        </Tab>
-                                        <Tab eventKey="privileges" title="Privileges">
-                                            <PrivilegeTabs />
-                                        </Tab>
-                                    </Tabs>
-                                </Card.Body>
+                        <Col xs={24} md={16}>
+                            <Card 
+                                className="shadow-sm"
+                                title="Objet Role"
+                            >
+                                <Tabs defaultActiveKey="UserTabP">
+                                    <Tabs.TabPane key="UserTabP" tab="Utilisateurs">
+                                        <UserTabP />
+                                    </Tabs.TabPane>
+                                    <Tabs.TabPane key="privileges" tab="Privileges">
+                                        <PrivilegeTabs />
+                                    </Tabs.TabPane>
+                                </Tabs>
                             </Card>
                         </Col>
                     </Row>
-                </Card.Body>
-            </Card>
-            
-            {isLoading ? (
-                <div className="mt-4">
-                    <Card className="shadow">
-                        <Card.Body>
-                            <div className="d-flex justify-content-center align-items-center p-5">
-                                <Spinner animation="border" variant="primary" />
-                                <span className="ms-3">Chargement des données...</span>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </div>
-            ) : (
-                <div className="mt-4">
-                    <Card className="shadow">
-                        <Card.Header>
-                            <h5 className="mb-0">Information générale</h5>
-                        </Card.Header>
-                        <Card.Body>
-                            <Tabs defaultActiveKey="LisGroup" className="mb-3">
-                                <Tab eventKey="LisGroup" title="Liste de groupe">
-                                    <ListGroup groups={groups} onEdit={editGroup} onDelete={deleteGroup} />
-                                </Tab>
-                                <Tab eventKey="ListUserNotGroup" title="Utilisateur sans groupe">
-                                    <ListUserNotGroup />
-                                </Tab>
-                            </Tabs>
-                        </Card.Body>
-                    </Card>
-                </div>
-            )}
+                </Card>
+                <Card 
+                    className="shadow-sm"
+                    title="Information générale"
+                    extra={
+                        <Button 
+                            icon={<ReloadOutlined />} 
+                            onClick={loadGroups}
+                            loading={isLoading}
+                        >
+                            Actualiser
+                        </Button>
+                    }
+                >
+                    <Spin spinning={isLoading} tip="Chargement des données...">
+                        <Tabs defaultActiveKey="LisGroup">
+                            <Tabs.TabPane key="LisGroup" tab="Liste de groupe">
+                                <ListGroup groups={groups} onEdit={editGroup} onDelete={deleteGroup} />
+                            </Tabs.TabPane>
+                            <Tabs.TabPane key="ListUserNotGroup" tab="Utilisateur sans groupe">
+                                <ListUserNotGroup />
+                            </Tabs.TabPane>
+                        </Tabs>
+                    </Spin>
+                </Card>
+            </div>
         </Main>
-    )
-}
+    );
+};
+
+export default Groupe;

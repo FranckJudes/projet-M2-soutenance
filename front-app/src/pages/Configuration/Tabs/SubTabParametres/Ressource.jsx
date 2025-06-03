@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Checkbox, Input, Radio } from '../../../../components/Input';
-import ZtreeComponent from "../../../../components/ZTreeComponent.jsx";
 import Select from 'react-select';
+import JsTree from '../../../../components/JsTree.jsx';
 
-export default function Ressource ({ selectedTask }){
+const Ressource = forwardRef(({ selectedTask }, ref) => {
     const { t } = useTranslation();
     const [isCheckedAttachement, setIsCheckedAttachement] = useState(false);
     const [isDisplayDoc, setIsDisplayDoc] = useState(false);
@@ -12,6 +12,120 @@ export default function Ressource ({ selectedTask }){
     const [taskConfig, setTaskConfig] = useState(null);
     const initialRender = useRef(true);
     const selectedNodeRef = useRef(null);
+
+    // Exposer les méthodes au composant parent via ref
+    useImperativeHandle(ref, () => ({
+        // Récupérer les données avec la structure demandée
+        getResourceData: () => {
+            if (!taskConfig) {
+                // Retourner des valeurs par défaut si pas de configuration
+                return {
+                    attachmentsEnabled: false,
+                    attachmentType: null,
+                    securityLevel: null,
+                    externalTools: null,
+                    linkToOtherTask: null,
+                    scriptBusinessRule: false,
+                    addFormResource: false,
+                    
+                    // Actions communes
+                    archiveAttachment: false,
+                    shareArchivePdf: false,
+                    describeFolderDoc: false,
+                    deleteAttachmentDoc: false,
+                    consultAttachmentDoc: false,
+                    downloadZip: false,
+                    
+                    // Actions spécifiques aux documents
+                    importAttachment: false,
+                    editAttachment: false,
+                    annotateDocument: false,
+                    verifyAttachmentDoc: false,
+                    searchInDocument: false,
+                    removeDocument: false,
+                    addNewAttachment: false,
+                    convertAttachmentPdf: false,
+                    downloadAttachmentPdf: false,
+                    downloadOriginalFormat: false
+                };
+            }
+
+            return {
+                attachmentsEnabled: taskConfig.hasAttachement || false,
+                attachmentType: taskConfig.selectedNode ? taskConfig.selectedNode.id : null,
+                securityLevel: taskConfig.securityLevel || null,
+                externalTools: taskConfig.externalTools || null,
+                linkToOtherTask: taskConfig.linkToOtherTask || null,
+                scriptBusinessRule: taskConfig.scriptRegleMetier || false,
+                addFormResource: taskConfig.addFormResource || false,
+                
+                // Actions communes
+                archiveAttachment: taskConfig.archiv_attach || false,
+                shareArchivePdf: taskConfig.share_achiv_pdf || false,
+                describeFolderDoc: taskConfig.decribe_fol_doc || false,
+                deleteAttachmentDoc: taskConfig.delete_attach_doc || false,
+                consultAttachmentDoc: taskConfig.consulter_attach_doc || false,
+                downloadZip: taskConfig.download_zip || false,
+                
+                // Actions spécifiques aux documents
+                importAttachment: taskConfig.import_attach || false,
+                editAttachment: taskConfig.edit_attach || false,
+                annotateDocument: taskConfig.annoter_doc || false,
+                verifyAttachmentDoc: taskConfig.verif_attach_doc || false,
+                searchInDocument: taskConfig.rechercher_un_doc || false,
+                removeDocument: taskConfig.retirer_un_doc || false,
+                addNewAttachment: taskConfig.add_new_attach || false,
+                convertAttachmentPdf: taskConfig.conver_attach_pdf || false,
+                downloadAttachmentPdf: taskConfig.download_attach_pdf || false,
+                downloadOriginalFormat: taskConfig.download_original_format || false
+            };
+        },
+        
+        // Valider les données (VALIDATION OPTIONNELLE)
+        validateData: () => {
+            const data = {
+                attachmentsEnabled: taskConfig?.hasAttachement || false,
+                attachmentType: taskConfig?.selectedNode ? taskConfig.selectedNode.id : null,
+                securityLevel: taskConfig?.securityLevel || null,
+                externalTools: taskConfig?.externalTools || null,
+                linkToOtherTask: taskConfig?.linkToOtherTask || null
+            };
+            
+            const errors = [];
+            
+            // Validation optionnelle - tous les champs sont optionnels
+            // Validation uniquement si URL externes spécifiées mais invalides
+            if (taskConfig?.externalTools && taskConfig.externalTools.trim()) {
+                try {
+                    new URL(taskConfig.externalTools);
+                } catch {
+                    errors.push('External tools URL must be a valid URL');
+                }
+            }
+            
+            if (taskConfig?.linkToOtherTask && taskConfig.linkToOtherTask.trim()) {
+                // Validation simple pour les liens vers d'autres tâches
+                if (taskConfig.linkToOtherTask.length < 3) {
+                    errors.push('Link to other task must be at least 3 characters');
+                }
+            }
+            
+            return {
+                isValid: errors.length === 0,
+                errors,
+                data
+            };
+        },
+
+        // Réinitialiser le composant
+        reset: () => {
+            setTaskConfig(null);
+            setIsCheckedAttachement(false);
+            setIsDisplayDoc(false);
+            setIsDisplayFol(false);
+            selectedNodeRef.current = null;
+        }
+    }));
     
     // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
     useEffect(() => {
@@ -133,23 +247,44 @@ export default function Ressource ({ selectedTask }){
     };
 
     const handleNodeSelect = (node) => {
-        const isDoc = node.original.type === 1;
-        setIsDisplayDoc(isDoc); // Afficher les options pour les documents
-        setIsDisplayFol(!isDoc); // Afficher les options pour les dossiers
+        console.log('handleNodeSelect appelé avec:', node);
+        
+        // Vérifier si le nœud a un type défini
+        // Type 1 = file, Type 0 = folder
+        const isDoc = node.original && node.original.type === 1;
+        const isFolder = node.original && node.original.type === 0;
+        
+        console.log('Type de nœud détecté:', {
+            isDoc,
+            isFolder,
+            originalType: node.original ? node.original.type : 'undefined',
+            nodeType: node.type
+        });
+        
+        // Mettre à jour les états d'affichage
+        setIsDisplayDoc(isDoc);
+        setIsDisplayFol(isFolder);
         
         // Mettre à jour la référence du nœud sélectionné
         selectedNodeRef.current = node.original;
+        
+        console.log('États mis à jour:', {
+            isDisplayDoc: isDoc,
+            isDisplayFol: isFolder,
+            selectedNode: node.original
+        });
         
         // Mettre à jour la configuration de la tâche
         if (taskConfig) {
             const updatedConfig = {
                 ...taskConfig,
                 isDisplayDoc: isDoc,
-                isDisplayFol: !isDoc,
+                isDisplayFol: isFolder,
                 selectedNode: node.original
             };
             setTaskConfig(updatedConfig);
             saveTaskConfig(updatedConfig);
+            console.log('Configuration mise à jour:', updatedConfig);
         }
     };
     
@@ -157,7 +292,7 @@ export default function Ressource ({ selectedTask }){
     const saveTaskConfig = (config) => {
         if (selectedTask && config) {
             localStorage.setItem(`task_resource_config_${selectedTask.id}`, JSON.stringify(config));
-            console.log('Configuration sauvegardée pour la tâche:', selectedTask.id);
+            console.log('Configuration sauvegardée pour la tâche:', selectedTask.id, config);
         }
     };
     
@@ -192,24 +327,81 @@ export default function Ressource ({ selectedTask }){
         { value: 'low', label: t('__low_security_') },
     ];
 
-    // Fonction pour obtenir le nœud initialement sélectionné dans ZtreeComponent
-    const getSelectedNodeIds = () => {
-        if (selectedNodeRef.current) {
-            return [selectedNodeRef.current.id];
+    // Arbre de données pour JsTree - avec types explicites
+    const treeData = useMemo(() => [
+        { 
+            id: 0, 
+            text: "Typologies", 
+            parent: 0, 
+            type: 0, // 0 = folder
+            state: { opened: true } 
+        },
+        { 
+            id: 1, 
+            text: "Typologie 1", 
+            parent: 0, 
+            type: 0 // 0 = folder
+        },
+        { 
+            id: 2, 
+            text: "Typologie 2", 
+            parent: 0, 
+            type: 0 // 0 = folder
+        },
+        { 
+            id: 3, 
+            text: "Document 1.1", 
+            parent: 1, 
+            type: 1 // 1 = file
+        },
+        { 
+            id: 4, 
+            text: "Document 1.2", 
+            parent: 1, 
+            type: 1 // 1 = file
+        },
+        { 
+            id: 5, 
+            text: "Document 2.1", 
+            parent: 2, 
+            type: 1 // 1 = file
+        },
+        { 
+            id: 6, 
+            text: "Document 2.2", 
+            parent: 2, 
+            type: 1 // 1 = file
         }
-        return [];
-    };
-
-    // Arbre de données pour ZTreeComponent - éviter de recréer à chaque rendu
-    const treeData  = useMemo(() =>[
-        { id: "1", text: "Élément 1", parent: "#", type: 0 },
-        { id: "1.1", text: "Élément 1.1", parent: "1", type: 1 },
-        { id: "1.2", text: "Élément 1.2", parent: "1", type: 1 },
-        { id: "2", text: "Élément 2", parent: "#", type: 0 },
-        { id: "3", text: "Élément 3", parent: "#", type: 0 },
-        { id: "3.1", text: "Élément 3.1", parent: "3", type: 1 },
     ], []);
 
+    // Si aucune tâche n'est sélectionnée, afficher un message
+    if (!selectedTask) {
+        return (
+            <div className="alert alert-info">
+                Veuillez sélectionner une tâche pour configurer ses ressources.
+            </div>
+        );
+    }
+
+    // Si taskConfig n'est pas encore chargé, afficher un loader
+    if (!taskConfig) {
+        return (
+            <div className="d-flex justify-content-center">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="sr-only">Chargement...</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Debug: afficher les états actuels
+    console.log('États actuels du composant Ressource:', {
+        isCheckedAttachement,
+        isDisplayDoc,
+        isDisplayFol,
+        selectedNodeRef: selectedNodeRef.current,
+        taskConfig
+    });
 
     return (
         <>
@@ -232,11 +424,11 @@ export default function Ressource ({ selectedTask }){
                 </div>
                 {isCheckedAttachement && (
                     <div className="col-8">
-                        <ZtreeComponent
+                        <JsTree
                             data={treeData}
-                            plugins={["checkbox"]}
+                            plugins={["types"]}
                             onNodeSelect={handleNodeSelect}
-                            selectedNodes={getSelectedNodeIds()}
+                            initialSelectedNode={selectedNodeRef.current ? selectedNodeRef.current.id : null}
                             key={`ztree-${selectedTask ? selectedTask.id : 'no-task'}`}
                         />
                         <hr />
@@ -247,7 +439,12 @@ export default function Ressource ({ selectedTask }){
             {/* Options pour les documents et dossiers */}
             {isCheckedAttachement && (isDisplayDoc || isDisplayFol) && (
                 <div className="d-flex py-2">
-                    <div className="col-4"></div>
+                    <div className="col-4">
+                        <strong>
+                            {isDisplayDoc && "Options pour les documents"}
+                            {isDisplayFol && "Options pour les dossiers"}
+                        </strong>
+                    </div>
                     <div className="col-8">
                         <div className="row">
                             {/* Options communes */}
@@ -457,4 +654,6 @@ export default function Ressource ({ selectedTask }){
             ))}
         </>
     );
-};
+});
+
+export default Ressource;

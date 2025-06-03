@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { toast } from 'react-hot-toast';
+import { Card , Breadcrumb, theme } from 'antd';
 import { FaPlus, FaEdit, FaTrash, FaClock, FaUser, FaTag, FaTimes, FaPaperclip, FaEllipsisH, FaArrowUp, FaArchive, FaPrint } from 'react-icons/fa';
 // import './KanbanBoard.css';
-import TaskModal from '../components/TaskModal';
+import Main from "../layout/Main";
 
 const KanbanBoard = () => {
   const [columns, setColumns] = useState({});
@@ -253,149 +254,166 @@ const KanbanBoard = () => {
     return <div className="loading">Chargement du tableau Kanban...</div>;
   }
 
+ 
+
   return (
-    <div className="kanban-container">
-      <div className="kanban-header">
-        <h1>Tableau Kanban des Tâches</h1>
-        <button className="btn btn-primary" onClick={() => handleColumnModal()}>
-          <FaPlus /> Ajouter une colonne
-        </button>
-      </div>
-
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="kanban-board">
-          {columns.columnOrder.map((columnId) => {
-            const column = columns.columns[columnId];
-            const tasks = column.taskIds.map((taskId) => columns.tasks[taskId]);
-
-            return (
-              <div className="kanban-column" key={column.id}>
-                <div className="column-header">
-                  <h2>{column.title}</h2>
-                  <div className="column-actions">
-                    <button
-                      className="btn btn-sm btn-outline"
-                      onClick={() => handleColumnModal(column)}
-                    >
-                      <FaEdit />
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline btn-danger"
-                      onClick={() => handleDeleteColumn(column.id)}
-                    >
-                      <FaTrash />
-                    </button>
-                  </div>
-                </div>
-                <button
-                  className="btn btn-sm btn-outline btn-block"
-                  onClick={() => handleTaskModal(null, column.id)}
+    <Main>
+                <Card 
+                    className="shadow-sm mb-4"
                 >
-                  <FaPlus /> Ajouter une tâche
-                </button>
-                <Droppable droppableId={column.id}>
-                  {(provided, snapshot) => (
-                    <div
-                      className={`task-list ${
-                        snapshot.isDraggingOver ? 'dragging-over' : ''
-                      }`}
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                    >
-                      {tasks.map((task, index) => (
-                        <Draggable
-                          key={task.id}
-                          draggableId={task.id}
-                          index={index}
-                        >
-                          {(provided, snapshot) => (
-                            <div
-                              className={`task-card ${
-                                snapshot.isDragging ? 'dragging' : ''
-                              } priority-${task.priority}`}
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => setSelectedTask(task)}
-                            >
-                              <div className="task-header">
-                                <h3>{task.title}</h3>
-                                <div className="task-actions">
-                                  <button
-                                    className="btn btn-sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleTaskModal(task);
-                                    }}
-                                  >
-                                    <FaEdit />
-                                  </button>
-                                  <button
-                                    className="btn btn-sm btn-danger"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteTask(task.id);
-                                    }}
-                                  >
-                                    <FaTrash />
-                                  </button>
-                                </div>
-                              </div>
-                              <p className="task-description">
-                                {task.description}
-                              </p>
-                              <div className="task-meta">
-                                <div className="task-assignee">
-                                  <FaUser /> {task.assignee}
-                                </div>
-                                <div className="task-due-date">
-                                  <FaClock /> {task.dueDate}
-                                </div>
-                              </div>
-                              <div className="task-labels">
-                                {task.labels.map((label, i) => (
-                                  <span key={i} className="task-label">
-                                    <FaTag /> {label}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
+                    <div className="d-flex justify-content-between align-items-center p-3">
+                        <div>
+                            <h4 className="mb-0">Gestion des tâches</h4>
+                            <p className="text-muted mb-0">Gérez les tâches de l'application</p>
+                        </div>
+                      
                     </div>
-                  )}
-                </Droppable>
-              </div>
-            );
-          })}
+                </Card>
+          <Card>
+          <div className="kanban-container">
+          <div className="kanban-header">
+            <h1>Tableau Kanban des Tâches</h1>
+            <button className="btn btn-primary" onClick={() => handleColumnModal()}>
+              <FaPlus /> Ajouter une colonne
+            </button>
+          </div>
+
+          <DragDropContext onDragEnd={onDragEnd}>
+            <div className="kanban-board">
+              {columns.columnOrder.map((columnId) => {
+                const column = columns.columns[columnId];
+                const tasks = column.taskIds.map((taskId) => columns.tasks[taskId]);
+
+                return (
+                  <div className="kanban-column" key={column.id}>
+                    <div className="column-header">
+                      <h2>{column.title}</h2>
+                      <div className="column-actions">
+                        <button
+                          className="btn btn-sm btn-outline"
+                          onClick={() => handleColumnModal(column)}
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline btn-danger"
+                          onClick={() => handleDeleteColumn(column.id)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-sm btn-outline btn-block"
+                      onClick={() => handleTaskModal(null, column.id)}
+                    >
+                      <FaPlus /> Ajouter une tâche
+                    </button>
+                    <Droppable droppableId={column.id}>
+                      {(provided, snapshot) => (
+                        <div
+                          className={`task-list ${
+                            snapshot.isDraggingOver ? 'dragging-over' : ''
+                          }`}
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                        >
+                          {tasks.map((task, index) => (
+                            <Draggable
+                              key={task.id}
+                              draggableId={task.id}
+                              index={index}
+                            >
+                              {(provided, snapshot) => (
+                                <div
+                                  className={`task-card ${
+                                    snapshot.isDragging ? 'dragging' : ''
+                                  } priority-${task.priority}`}
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => setSelectedTask(task)}
+                                >
+                                  <div className="task-header">
+                                    <h3>{task.title}</h3>
+                                    <div className="task-actions">
+                                      <button
+                                        className="btn btn-sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleTaskModal(task);
+                                        }}
+                                      >
+                                        <FaEdit />
+                                      </button>
+                                      <button
+                                        className="btn btn-sm btn-danger"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteTask(task.id);
+                                        }}
+                                      >
+                                        <FaTrash />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className="task-description">
+                                    {task.description}
+                                  </p>
+                                  <div className="task-meta">
+                                    <div className="task-assignee">
+                                      <FaUser /> {task.assignee}
+                                    </div>
+                                    <div className="task-due-date">
+                                      <FaClock /> {task.dueDate}
+                                    </div>
+                                  </div>
+                                  <div className="task-labels">
+                                    {task.labels.map((label, i) => (
+                                      <span key={i} className="task-label">
+                                        <FaTag /> {label}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      )}
+                    </Droppable>
+                  </div>
+                );
+              })}
+            </div>
+          </DragDropContext>
+
+          {showTaskModal && (
+            <TaskFormModal
+              task={currentTask}
+              onClose={() => setShowTaskModal(false)}
+              onSave={handleSaveTask}
+            />
+          )}
+
+          {showColumnModal && (
+            <ColumnModal
+              column={currentColumn}
+              onClose={() => setShowColumnModal(false)}
+              onSave={handleSaveColumn}
+            />
+          )}
+
+          {selectedTask && (
+            <TaskDetailModal 
+              task={selectedTask} 
+              onClose={() => setSelectedTask(null)} 
+            />
+          )}
         </div>
-      </DragDropContext>
-
-      {showTaskModal && (
-        <TaskFormModal
-          task={currentTask}
-          onClose={() => setShowTaskModal(false)}
-          onSave={handleSaveTask}
-        />
-      )}
-
-      {showColumnModal && (
-        <ColumnModal
-          column={currentColumn}
-          onClose={() => setShowColumnModal(false)}
-          onSave={handleSaveColumn}
-        />
-      )}
-
-      {selectedTask && (
-        <TaskDetailModal 
-          task={selectedTask} 
-          onClose={() => setSelectedTask(null)} 
-        />
-      )}
-    </div>
+      </Card>
+    </Main>
   );
 };
 

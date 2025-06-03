@@ -89,7 +89,7 @@ class SiderBar extends Component {
                   </Link>
                 </li>
                 <li>
-                  <Link className="nav-link" to="/forms">
+                  <Link className="nav-link" to="/organigramme">
                     <span>Organigramme</span>
                   </Link>
                 </li>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Card } from '../../../components/Card.jsx';
 import { styles } from '../../../utils/styles.jsx';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,12 @@ import dagre from '@dagrejs/dagre';
 import toast from 'react-hot-toast';
 import BpmnModelService from '../../../services/BpmnModelService';
 import ProcessExecutionService from '../../../services/ProcessExecutionService';
+import { 
+  mapPlanificationToBackend,
+  mapNotificationToBackend,
+  mapConditionToBackend,
+  mapResourceToBackend
+} from '../../../utils/configurationMappers';
 
 // Utilitaires pour la gestion du BPMN
 const isElementInSubProcess = (elementId, subProcess) => {
@@ -38,6 +44,8 @@ const isElementInSubProcess = (elementId, subProcess) => {
   }
   return false;
 };
+
+
 
 // Composant Breadcrumb pour la navigation dans les sous-processus
 const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
@@ -74,6 +82,13 @@ const BpmnBreadcrumb = ({ breadcrumb, navigateToBreadcrumbLevel }) => {
 function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuccess = null }) {
   const { t } = useTranslation();
   
+  // RÉFÉRENCES pour les composants InformationGeneral et Habilitation
+  const informationGeneralRef = useRef();
+  const habilitationRef = useRef();
+  const planificationRef = useRef();
+  const ressourceRef = useRef();
+  const notificationsRef = useRef();
+
   const [activities, setActivities] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
@@ -101,6 +116,421 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
   const nodeWidth = 172;
   const nodeHeight = 36;
 
+  // NOUVELLE FONCTION pour valider les données d'information actuelles
+  const validateCurrentTaskInformation = () => {
+    if (selectedEvent && informationGeneralRef.current) {
+      const validation = informationGeneralRef.current.validateData();
+      
+      if (!validation.isValid) {
+        console.error('Données incomplètes pour la tâche actuelle:', validation.errors);
+        toast.error(t('Veuillez remplir tous les champs obligatoires pour la tâche sélectionnée'));
+        return false;
+      }
+      
+      console.log('Données valides pour la tâche actuelle:', validation.data);
+      return true;
+    }
+    
+    return true; // Pas de tâche sélectionnée, validation OK
+  };
+
+  // NOUVELLE FONCTION pour valider les données d'habilitation
+  const validateCurrentTaskHabilitation = () => {
+    if (selectedEvent && habilitationRef.current) {
+      const validation = habilitationRef.current.validateData();
+      
+      if (!validation.isValid) {
+        console.warn('Avertissement sur les données d\'habilitation pour la tâche actuelle:', validation.errors);
+        // Afficher un avertissement mais ne pas bloquer la soumission
+        toast.error(t('Certains détails du point de contrôle sont manquants mais la soumission est autorisée'));
+        return true; // Permettre la soumission même avec des avertissements
+      }
+      
+      console.log('Données d\'habilitation valides pour la tâche actuelle:', validation.data);
+      return true;
+    }
+    
+    return true; // Pas de tâche sélectionnée, validation OK
+  };
+
+  const getNotificationData = (taskId) => {
+    // Si c'est la tâche actuellement sélectionnée, récupérer depuis le composant
+    if (selectedEvent && selectedEvent.id === taskId && notificationsRef.current) {
+      const data = notificationsRef.current.getNotificationData();
+      if (data) {
+        console.log(`Données notification récupérées depuis le composant pour ${taskId}:`, data);
+        return data;
+      }
+    }
+    
+    // Sinon, récupérer depuis le localStorage (pour les autres tâches)
+    try {
+      const savedConfig = localStorage.getItem(`task_notification_config_${taskId}`);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        
+        // Transformer la configuration localStorage vers le format backend
+        let sensitivity = 'public';
+        switch (config.selectedPriority) {
+          case 1:
+            sensitivity = 'public';
+            break;
+          case 2:
+            sensitivity = 'confidential';
+            break;
+          default:
+            sensitivity = 'public';
+        }
+  
+        // Extraire le premier rappel comme reminderBeforeDeadline
+        let reminderBeforeDeadline = null;
+        if (config.selectedReminders && config.selectedReminders.length > 0) {
+          const firstReminder = config.selectedReminders[0];
+          reminderBeforeDeadline = extractMinutesFromReminder(firstReminder.value);
+        }
+  
+        const data = {
+          notifyOnCreation: config.notificationByAttribution || false,
+          notifyOnDeadline: config.alertEscalade || false,
+          reminderBeforeDeadline: reminderBeforeDeadline,
+          notificationSensitivity: sensitivity,
+          selectedReminders: config.selectedReminders || []
+        };
+        
+        console.log(`Données notification récupérées depuis localStorage pour ${taskId}:`, data);
+        return data;
+      }
+    } catch (error) {
+      console.error(`Erreur récupération config notification pour ${taskId}:`, error);
+    }
+    
+    // Valeurs par défaut si aucune donnée trouvée
+    return {
+      notifyOnCreation: false,
+      notifyOnDeadline: false,
+      reminderBeforeDeadline: null,
+      notificationSensitivity: 'public',
+      selectedReminders: []
+    };
+  };
+  
+  // Fonction utilitaire pour extraire les minutes d'un rappel
+  const extractMinutesFromReminder = (reminderValue) => {
+    if (!reminderValue) return null;
+    
+    // Mapping des valeurs vers des minutes
+    const reminderMapping = {
+      [t("minutesBefore")]: 15,
+      [t("oneHourBefore")]: 60,
+      [t("hoursBefore.2")]: 120,
+      [t("hoursBefore.3")]: 180,
+      [t("hoursBefore.4")]: 240,
+      [t("oneDayBefore")]: 1440,
+      [t("daysBefore.2")]: 2880,
+      [t("daysBefore.3")]: 4320,
+      [t("oneWeekBefore")]: 10080,
+      [t("weeksBefore.2")]: 20160,
+      [t("oneMonthBefore")]: 43200
+    };
+  
+    return reminderMapping[reminderValue] || null;
+  };
+  
+
+  // NOUVELLE FONCTION pour récupérer les données d'information
+  const getInformationData = (taskId) => {
+    // Si c'est la tâche actuellement sélectionnée, récupérer depuis le composant
+    if (selectedEvent && selectedEvent.id === taskId && informationGeneralRef.current) {
+      const data = informationGeneralRef.current.getInformationData();
+      if (data) {
+        console.log(`Données information récupérées depuis le composant pour ${taskId}:`, data);
+        return data;
+      }
+    }
+    
+    // Sinon, récupérer depuis le localStorage (pour les autres tâches)
+    try {
+      const savedConfig = localStorage.getItem(`task_information_config_${taskId}`);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        const data = {
+          board: config.board || '',
+          workInstructions: config.instructions || '',
+          expectedDeliverable: config.results || '',
+          category: config.category || null
+        };
+        console.log(`Données information récupérées depuis localStorage pour ${taskId}:`, data);
+        return data;
+      }
+    } catch (error) {
+      console.error(`Erreur récupération config tâche ${taskId}:`, error);
+    }
+    
+    // Valeurs par défaut si aucune donnée trouvée
+    return {
+      board: '',
+      workInstructions: '',
+      expectedDeliverable: '',
+      category: null
+    };
+  };
+
+  const getPlanificationData = (taskId) => {
+    // Si c'est la tâche actuellement sélectionnée, récupérer depuis le composant
+    if (selectedEvent && selectedEvent.id === taskId && planificationRef.current) {
+      const data = planificationRef.current.getPlanificationData();
+      if (data) {
+        console.log(`Données planification récupérées depuis le composant pour ${taskId}:`, data);
+        return data;
+      }
+    }
+    
+    // Sinon, récupérer depuis le localStorage (pour les autres tâches)
+    try {
+      const savedConfig = localStorage.getItem(`task_planification_config_${taskId}`);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        
+        // Transformer la configuration localStorage vers le format backend
+        const data = {
+          allDay: config.toutJournee || false,
+          durationValue: config.delayValue ? parseInt(config.delayValue, 10) : null,
+          durationUnit: config.delayUnit || 'Minutes',
+          criticality: config.criticite || '1',
+          priority: config.priority || '1',
+          viewHistoryEnabled: config.consultationHistorique || false,
+          
+          // KPIs
+          kpiTasksProcessed: config.nombreTachesTraitees || false,
+          kpiReturnRate: config.tauxRetourTachesTraitees || false,
+          kpiAvgInteractions: config.nombreInteractionsMoyensTachesTraitees || false,
+          kpiDeadlineCompliance: config.respectDelais || false,
+          kpiValidationWaitTime: config.tempsAttenteValidation || false,
+          kpiPriorityCompliance: config.respectPriorites || false,
+          kpiEmergencyManagement: config.gestionUrgences || false,
+          
+          // Actions alternatives
+          notifierSuperviseur: config.notifier_superviseur || false,
+          reassignerTache: config.reassigner_tache || false,
+          envoyerRappel: config.envoyerRappel || false,
+          escaladeHierarchique: config.escaladeHierarchique || false,
+          changementPriorite: config.changementPriorite || false,
+          bloquerWorkflow: config.bloquerWorkflow || false,
+          genererAlerteEquipe: config.genererAlerteEquipe || false,
+          demanderJustification: config.demanderJustification || false,
+          activerActionCorrective: config.activerActionCorrective || false,
+          escaladeExterne: config.escaladeExterne || false,
+          cloturerDefaut: config.cloturerDefaut || false,
+          suiviParKpi: config.suiviParKpi || false,
+          planBOuTacheAlternative: config.planBOuTacheAlternative || false
+        };
+        
+        console.log(`Données planification récupérées depuis localStorage pour ${taskId}:`, data);
+        return data;
+      }
+    } catch (error) {
+      console.error(`Erreur récupération config planification pour ${taskId}:`, error);
+    }
+    
+    // Valeurs par défaut si aucune donnée trouvée
+    return {
+      allDay: false,
+      durationValue: null,
+      durationUnit: 'Minutes',
+      criticality: '1',
+      priority: '1',
+      viewHistoryEnabled: false,
+      kpiTasksProcessed: false,
+      kpiReturnRate: false,
+      kpiAvgInteractions: false,
+      kpiDeadlineCompliance: false,
+      kpiValidationWaitTime: false,
+      kpiPriorityCompliance: false,
+      kpiEmergencyManagement: false,
+      notifierSuperviseur: false,
+      reassignerTache: false,
+      envoyerRappel: false,
+      escaladeHierarchique: false,
+      changementPriorite: false,
+      bloquerWorkflow: false,
+      genererAlerteEquipe: false,
+      demanderJustification: false,
+      activerActionCorrective: false,
+      escaladeExterne: false,
+      cloturerDefaut: false,
+      suiviParKpi: false,
+      planBOuTacheAlternative: false
+    };
+  };
+
+  // NOUVELLE FONCTION pour récupérer les données de ressource
+const getResourceData = (taskId) => {
+  // Si c'est la tâche actuellement sélectionnée, récupérer depuis le composant
+  if (selectedEvent && selectedEvent.id === taskId && ressourceRef.current) {
+    const data = ressourceRef.current.getResourceData();
+    if (data) {
+      console.log(`Données ressource récupérées depuis le composant pour ${taskId}:`, data);
+      return data;
+    }
+  }
+  
+  // Sinon, récupérer depuis le localStorage (pour les autres tâches)
+  try {
+    const savedConfig = localStorage.getItem(`task_resource_config_${taskId}`);
+    if (savedConfig) {
+      const config = JSON.parse(savedConfig);
+      
+      // Transformer la configuration localStorage vers le format backend
+      const data = {
+        attachmentsEnabled: config.hasAttachement || false,
+        attachmentType: config.selectedNode ? config.selectedNode.id : null,
+        securityLevel: config.securityLevel || null,
+        externalTools: config.externalTools || null,
+        linkToOtherTask: config.linkToOtherTask || null,
+        scriptBusinessRule: config.scriptRegleMetier || false,
+        addFormResource: config.addFormResource || false,
+        
+        // Actions communes
+        archiveAttachment: config.archiv_attach || false,
+        shareArchivePdf: config.share_achiv_pdf || false,
+        describeFolderDoc: config.decribe_fol_doc || false,
+        deleteAttachmentDoc: config.delete_attach_doc || false,
+        consultAttachmentDoc: config.consulter_attach_doc || false,
+        downloadZip: config.download_zip || false,
+        
+        // Actions spécifiques aux documents
+        importAttachment: config.import_attach || false,
+        editAttachment: config.edit_attach || false,
+        annotateDocument: config.annoter_doc || false,
+        verifyAttachmentDoc: config.verif_attach_doc || false,
+        searchInDocument: config.rechercher_un_doc || false,
+        removeDocument: config.retirer_un_doc || false,
+        addNewAttachment: config.add_new_attach || false,
+        convertAttachmentPdf: config.conver_attach_pdf || false,
+        downloadAttachmentPdf: config.download_attach_pdf || false,
+        downloadOriginalFormat: config.download_original_format || false
+      };
+      
+      console.log(`Données ressource récupérées depuis localStorage pour ${taskId}:`, data);
+      return data;
+    }
+  } catch (error) {
+    console.error(`Erreur récupération config ressource pour ${taskId}:`, error);
+  }
+  
+  // Valeurs par défaut si aucune donnée trouvée
+  return {
+    attachmentsEnabled: false,
+    attachmentType: null,
+    securityLevel: null,
+    externalTools: null,
+    linkToOtherTask: null,
+    scriptBusinessRule: false,
+    addFormResource: false,
+    
+    // Actions communes
+    archiveAttachment: false,
+    shareArchivePdf: false,
+    describeFolderDoc: false,
+    deleteAttachmentDoc: false,
+    consultAttachmentDoc: false,
+    downloadZip: false,
+    
+    // Actions spécifiques aux documents
+    importAttachment: false,
+    editAttachment: false,
+    annotateDocument: false,
+    verifyAttachmentDoc: false,
+    searchInDocument: false,
+    removeDocument: false,
+    addNewAttachment: false,
+    convertAttachmentPdf: false,
+    downloadAttachmentPdf: false,
+    downloadOriginalFormat: false
+  };
+};
+  // NOUVELLE FONCTION pour récupérer les données d'habilitation
+  const getHabilitationData = (taskId) => {
+    // Si c'est la tâche actuellement sélectionnée, récupérer depuis le composant
+    if (selectedEvent && selectedEvent.id === taskId && habilitationRef.current) {
+      const data = habilitationRef.current.getHabilitationData();
+      if (data) {
+        console.log(`Données habilitation récupérées depuis le composant pour ${taskId}:`, data);
+        return data;
+      }
+    }
+    
+    // Sinon, récupérer depuis le localStorage (pour les autres tâches)
+    try {
+      const savedConfig = localStorage.getItem(`task_habilitation_config_${taskId}`);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        
+        // Transformer la configuration localStorage vers le format backend
+        let assigneeType = null;
+        let assignedUser = null;
+        let assignedEntity = null;
+        let assignedGroup = null;
+        let interestedUser = null;
+        let responsibleUser = null;
+
+        // Assignation utilisateur principal
+        if (config.isChecked && config.selectedUser) {
+          assignedUser = config.selectedUser;
+          assigneeType = 'user';
+        }
+
+        // Assignation entité
+        if (config.entity && config.selectedEntity) {
+          assignedEntity = config.selectedEntity;
+          if (!assigneeType) assigneeType = 'entity';
+        }
+
+        // Assignation groupe
+        if (config.groupUser && config.selectedGroup) {
+          assignedGroup = config.selectedGroup;
+          if (!assigneeType) assigneeType = 'group';
+        }
+
+        // Personne intéressée
+        if (config.persInteress && config.selectedInterestedUser) {
+          interestedUser = config.selectedInterestedUser;
+        }
+
+        // Responsable pour point de contrôle
+        if (config.selectPointControl && config.checkPointDetails) {
+          responsibleUser = config.checkPointDetails;
+        }
+
+        const data = {
+          assignedEntity: assignedEntity,
+          returnAllowed: config.possReturn || false,
+          assignedUser: assignedUser,
+          assignedGroup: assignedGroup,
+          responsibleUser: responsibleUser,
+          interestedUser: interestedUser,
+          assigneeType: assigneeType
+        };
+        
+        console.log(`Données habilitation récupérées depuis localStorage pour ${taskId}:`, data);
+        return data;
+      }
+    } catch (error) {
+      console.error(`Erreur récupération config habilitation pour ${taskId}:`, error);
+    }
+    
+    // Valeurs par défaut si aucune donnée trouvée
+    return {
+      assignedEntity: null,
+      returnAllowed: false,
+      assignedUser: null,
+      assignedGroup: null,
+      responsibleUser: null,
+      interestedUser: null,
+      assigneeType: null
+    };
+  };
+
   // Fonction de déploiement automatique
   const deployProcessAfterSave = async (savedProcessData) => {
     try {
@@ -114,6 +544,7 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
+      console.log("Gallagher=============>",deploymentResponse);
       
       if (deploymentResponse.ok) {
         const deploymentResult = await deploymentResponse.json();
@@ -650,14 +1081,37 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
     }
   }, [isUpdateMode, sharedData]);
 
+  // MODIFICATION DES TAB ITEMS avec les références
   const tabItems = [
-    { id: "InformationGeneral", title: t("__inf_gen_tabs_"), content: <InformationGeneral selectedTask={selectedEvent} /> },
-    { id: "Habilitation", title: t("__habi_tabs__"), content: <Habilitation selectedTask={selectedEvent} /> },
-    { id: "Planification", title: t("__planf_tabs__"), content: <Planification selectedTask={selectedEvent} /> },
-    { id: "ressource", title: t("__ressour_tabs__"), content: <Ressource selectedTask={selectedEvent} /> },
+    { 
+      id: "InformationGeneral", 
+      title: t("__inf_gen_tabs_"), 
+      content: <InformationGeneral ref={informationGeneralRef} selectedTask={selectedEvent} /> 
+    },
+    { 
+      id: "Habilitation", 
+      title: t("__habi_tabs__"), 
+      content: <Habilitation ref={habilitationRef} selectedTask={selectedEvent} /> 
+    },
+    { 
+      id: "Planification", 
+      title: t("__planf_tabs__"), 
+      content: <Planification ref={planificationRef} selectedTask={selectedEvent} /> 
+    },
+        
+    { 
+      id: "ressource", 
+      title: t("__ressour_tabs__"), 
+      content: <Ressource ref={ressourceRef} selectedTask={selectedEvent} /> 
+    },
     { id: "condition", title: t("__condition_tabs_"), content: <Condition selectedTask={selectedEvent} /> },
-    { id: "notification", title: t("__notifi_tabs_"), content: <Notifications selectedTask={selectedEvent} /> },
+    { 
+      id: "notification", 
+      title: t("__notifi_tabs_"), 
+      content: <Notifications ref={notificationsRef} selectedTask={selectedEvent} /> 
+    },
   ];
+  
   const connectionLineStyle = { stroke: "white" };
 
   return (
@@ -745,6 +1199,15 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
               <button 
                 className="btn btn-primary" 
                 onClick={async () => {
+                  // NOUVELLES VALIDATIONS avant sauvegarde
+                  if (!validateCurrentTaskInformation()) {
+                    return; // Arrêter la sauvegarde si validation échoue
+                  }
+                  
+                  if (!validateCurrentTaskHabilitation()) {
+                    return; // Arrêter la sauvegarde si validation habilitation échoue
+                  }
+                  
                   const loadingToast = toast.loading(t("Sauvegarde en cours..."));
                   
                   try {
@@ -791,16 +1254,35 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
                             }
                           };
 
+                          // Récupérer les configurations brutes du localStorage pour les autres modules
+                          const rawPlanification = getConfigFromStorage(`task_planification_config_${taskId}`);
+                          const rawResource = getConfigFromStorage(`task_resource_config_${taskId}`);
+                          const rawCondition = getConfigFromStorage(`task_condition_config_${taskId}`);
+                          const rawNotification = getConfigFromStorage(`task_notification_config_${taskId}`);
+                          
+                          // NOUVELLES MÉTHODES pour récupérer les données d'information et d'habilitation
+                          const informationData = getInformationData(taskId);
+                          const habilitationData = getHabilitationData(taskId);
+                          const planificationData = getPlanificationData(taskId);
+                          const resourceData = getResourceData(taskId);
+                          const notificationData = getNotificationData(taskId);
+
+                          // Transformer les configurations pour qu'elles correspondent au format attendu par le backend
+                          const mappedPlanification = mapPlanificationToBackend(rawPlanification);
+                          const mappedResource = mapResourceToBackend(rawResource);
+                          const mappedCondition = mapConditionToBackend(rawCondition);
+                          const mappedNotification = mapNotificationToBackend(rawNotification);
+                          
                           const taskConfig = {
                             taskId: taskId,
                             taskName: task.name || taskId,
                             taskType: task.type || 'task',
-                            resource: getConfigFromStorage(`task_resource_config_${taskId}`),
-                            information: getConfigFromStorage(`task_information_config_${taskId}`),
-                            habilitation: getConfigFromStorage(`task_habilitation_config_${taskId}`),
-                            planification: getConfigFromStorage(`task_planification_config_${taskId}`),
-                            condition: getConfigFromStorage(`task_condition_config_${taskId}`),
-                            notification: getConfigFromStorage(`task_notification_config_${taskId}`)
+                            resource: resourceData, // Utiliser directement les données récupérées
+                            information: informationData, // Utiliser directement les données récupérées
+                            habilitation: habilitationData, // Utiliser directement les données récupérées
+                            planification: planificationData, // Utiliser directement les données récupérées
+                            condition: mappedCondition,
+                            notification: notificationData // Utiliser directement les données récupérées
                           };
                           allTaskConfigurations.push(taskConfig);
                         } catch (error) {

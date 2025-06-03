@@ -1,25 +1,113 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import {Checkbox } from '../../../../components/Input';
+import { Checkbox } from '../../../../components/Input';
 
-// Utiliser un composant wrapper pour forcer le remontage quand selectedTask change
-const PlanificationWrapper = ({ selectedTask }) => {
-  // Si aucune tâche n'est sélectionnée, afficher un message
-  if (!selectedTask) {
-    return (
-      <div className="alert alert-info">
-        Veuillez sélectionner une tâche pour configurer sa planification.
-      </div>
-    );
-  }
-  
-  // Utiliser la key pour forcer le remontage du composant quand la tâche change
-  return <Planification key={`planification-${selectedTask.id}`} selectedTask={selectedTask} />;
-};
-
-function Planification({ selectedTask }) {
+const Planification = forwardRef(({ selectedTask }, ref) => {
   const { t } = useTranslation();
   const [taskConfig, setTaskConfig] = useState(null);
+
+
+  // Exposer les méthodes au composant parent via ref
+  useImperativeHandle(ref, () => ({
+    // Récupérer les données avec la structure demandée
+    getPlanificationData: () => {
+      if (!taskConfig) {
+        // Retourner des valeurs par défaut si pas de configuration
+        return {
+          allDay: false,
+          durationValue: null,
+          durationUnit: 'Minutes',
+          criticality: '1',
+          priority: '1',
+          viewHistoryEnabled: false,
+          kpiTasksProcessed: false,
+          kpiReturnRate: false,
+          kpiAvgInteractions: false,
+          kpiDeadlineCompliance: false,
+          kpiValidationWaitTime: false,
+          kpiPriorityCompliance: false,
+          kpiEmergencyManagement: false,
+          notifierSuperviseur: false,
+          reassignerTache: false,
+          envoyerRappel: false,
+          escaladeHierarchique: false,
+          changementPriorite: false,
+          bloquerWorkflow: false,
+          genererAlerteEquipe: false,
+          demanderJustification: false,
+          activerActionCorrective: false,
+          escaladeExterne: false,
+          cloturerDefaut: false,
+          suiviParKpi: false,
+          planBOuTacheAlternative: false
+        };
+      }
+
+      return {
+        allDay: taskConfig.toutJournee || false,
+        durationValue: taskConfig.delayValue ? parseInt(taskConfig.delayValue, 10) : null,
+        durationUnit: taskConfig.delayUnit || 'Minutes',
+        criticality: taskConfig.criticite || '1',
+        priority: taskConfig.priority || '1',
+        viewHistoryEnabled: taskConfig.consultationHistorique || false,
+        
+        // KPIs
+        kpiTasksProcessed: taskConfig.nombreTachesTraitees || false,
+        kpiReturnRate: taskConfig.tauxRetourTachesTraitees || false,
+        kpiAvgInteractions: taskConfig.nombreInteractionsMoyensTachesTraitees || false,
+        kpiDeadlineCompliance: taskConfig.respectDelais || false,
+        kpiValidationWaitTime: taskConfig.tempsAttenteValidation || false,
+        kpiPriorityCompliance: taskConfig.respectPriorites || false,
+        kpiEmergencyManagement: taskConfig.gestionUrgences || false,
+        
+        // Actions alternatives
+        notifierSuperviseur: taskConfig.notifier_superviseur || false,
+        reassignerTache: taskConfig.reassigner_tache || false,
+        envoyerRappel: taskConfig.envoyerRappel || false,
+        escaladeHierarchique: taskConfig.escaladeHierarchique || false,
+        changementPriorite: taskConfig.changementPriorite || false,
+        bloquerWorkflow: taskConfig.bloquerWorkflow || false,
+        genererAlerteEquipe: taskConfig.genererAlerteEquipe || false,
+        demanderJustification: taskConfig.demanderJustification || false,
+        activerActionCorrective: taskConfig.activerActionCorrective || false,
+        escaladeExterne: taskConfig.escaladeExterne || false,
+        cloturerDefaut: taskConfig.cloturerDefaut || false,
+        suiviParKpi: taskConfig.suiviParKpi || false,
+        planBOuTacheAlternative: taskConfig.planBOuTacheAlternative || false
+      };
+    },
+    
+    // Valider les données (VALIDATION OPTIONNELLE)
+    validateData: () => {
+      const data = {
+        allDay: taskConfig?.toutJournee || false,
+        durationValue: taskConfig?.delayValue ? parseInt(taskConfig.delayValue, 10) : null,
+        durationUnit: taskConfig?.delayUnit || 'Minutes',
+        criticality: taskConfig?.criticite || '1',
+        priority: taskConfig?.priority || '1',
+        viewHistoryEnabled: taskConfig?.consultationHistorique || false
+      };
+      
+      const errors = [];
+      
+      // Validation optionnelle - tous les champs sont optionnels
+      // Validation uniquement si durée spécifiée mais invalide
+      if (taskConfig?.delayValue && isNaN(parseInt(taskConfig.delayValue, 10))) {
+        errors.push('Duration value must be a valid number');
+      }
+      
+      return {
+        isValid: errors.length === 0,
+        errors,
+        data
+      };
+    },
+
+    // Réinitialiser le composant
+    reset: () => {
+      setTaskConfig(null);
+    }
+  }));
   
   // Fonction pour charger la configuration depuis le localStorage
   const loadConfig = useCallback(() => {
@@ -40,7 +128,10 @@ function Planification({ selectedTask }) {
   
   // Initialisation du composant
   useEffect(() => {
-    if (!selectedTask) return;
+    if (!selectedTask) {
+      setTaskConfig(null);
+      return;
+    }
     
     console.log('Initialisation du composant Planification pour la tâche:', selectedTask.id);
     
@@ -127,6 +218,15 @@ function Planification({ selectedTask }) {
   const handleCheckboxChange = (field, checked) => {
     handleConfigChange(field, checked);
   };
+
+  // Si aucune tâche n'est sélectionnée, afficher un message
+  if (!selectedTask) {
+    return (
+      <div className="alert alert-info">
+        Veuillez sélectionner une tâche pour configurer sa planification.
+      </div>
+    );
+  }
   
   // Si taskConfig n'est pas encore chargé, afficher un loader
   if (!taskConfig) {
@@ -493,6 +593,6 @@ function Planification({ selectedTask }) {
       </div>
     </div>
   );
-}
+});
 
-export default PlanificationWrapper;
+export default Planification;

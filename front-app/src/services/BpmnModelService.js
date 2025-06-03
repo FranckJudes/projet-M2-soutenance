@@ -19,7 +19,26 @@ class BpmnModelService {
     
     // Ajout du fichier BPMN
     if (completeData.xml) {
-      const bpmnBlob = new Blob([completeData.xml], { type: 'application/xml' });
+      // Générer un ID de processus unique pour éviter les conflits
+      let xmlContent = completeData.xml;
+      const timestamp = new Date().getTime();
+      const uniqueProcessId = `Process_${timestamp}`;
+      
+      // Remplacer l'ID du processus par défaut par un ID unique
+      if (xmlContent.includes('id="Process_1"')) {
+        xmlContent = xmlContent.replace('id="Process_1"', `id="${uniqueProcessId}"`);
+        console.log(`ID de processus modifié en ${uniqueProcessId}`);
+      } else if (xmlContent.includes('id="Process_')) {
+        // Regex pour trouver les ID de processus existants
+        const processIdRegex = /id="(Process_[^"]+)"/;
+        const match = xmlContent.match(processIdRegex);
+        if (match && match[1]) {
+          xmlContent = xmlContent.replace(`id="${match[1]}"`, `id="${uniqueProcessId}"`);
+          console.log(`ID de processus modifié de ${match[1]} en ${uniqueProcessId}`);
+        }
+      }
+      
+      const bpmnBlob = new Blob([xmlContent], { type: 'application/xml' });
       formData.append('bpmnFile', bpmnBlob, 'process.bpmn');
     }
     
@@ -120,9 +139,34 @@ class BpmnModelService {
   }
 
     /**
-       * Sauvegarde et déploie automatiquement un modèle BPMN
+       * Télécharge un modèle BPMN pour analyse sans sauvegarde
+       * @param {FormData} formData - Le FormData contenant le fichier BPMN
+       * @returns {Promise} - Promesse avec les éléments du processus
        */
-    async saveBpmnModelAndDeploy(completeData, allTaskConfigurations) {
+    async uploadBpmnModel(formData) {
+      try {
+        const response = await axios.post(
+          `${API_URL}/bpmn/upload`,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              ...this.getAuthHeaders()
+            }
+          }
+        );
+        
+        return response.data;
+      } catch (error) {
+        console.error('Erreur lors de l\'upload du modèle BPMN:', error);
+        throw error;
+      }
+    }
+
+    /**
+   * Sauvegarde et déploie automatiquement un modèle BPMN
+   */
+  async saveBpmnModelAndDeploy(completeData, allTaskConfigurations) {
       try {
           // 1. Sauvegarder le modèle
           const saveResponse = await this.saveBpmnModel(completeData, allTaskConfigurations);
@@ -218,11 +262,9 @@ class BpmnModelService {
   async undeployBpmnModel(bpmnId) {
       try {
           const response = await axios.delete(
-              `${this.API_BASE_URL}/api/camunda/undeploy/${bpmnId}`,
+              `${API_URL}/bpmn/undeploy/${bpmnId}`,
               {
-                  headers: {
-                      'Authorization': `Bearer ${this.getAuthToken()}`
-                  }
+                  headers: this.getAuthHeaders()
               }
           );
           
@@ -238,12 +280,11 @@ class BpmnModelService {
    */
   async getDeployedProcesses() {
       try {
+          // Utiliser la route exacte du contrôleur backend
           const response = await axios.get(
-              `${this.API_BASE_URL}/api/camunda/deployed-processes`,
+              `${API_URL}/bpmn/deployed-processes`,
               {
-                  headers: {
-                      'Authorization': `Bearer ${this.getAuthToken()}`
-                  }
+                  headers: this.getAuthHeaders()
               }
           );
           
@@ -260,11 +301,9 @@ class BpmnModelService {
   async getProcessStatistics(processDefinitionKey) {
       try {
           const response = await axios.get(
-              `${this.API_BASE_URL}/api/camunda/process-statistics/${processDefinitionKey}`,
+              `${API_URL}/bpmn/process-statistics/${processDefinitionKey}`,
               {
-                  headers: {
-                      'Authorization': `Bearer ${this.getAuthToken()}`
-                  }
+                  headers: this.getAuthHeaders()
               }
           );
           
@@ -282,18 +321,61 @@ class BpmnModelService {
       try {
           const action = activate ? 'activate' : 'suspend';
           const response = await axios.post(
-              `${this.API_BASE_URL}/api/camunda/process/${processDefinitionKey}/${action}`,
+              `${API_URL}/bpmn/process/${processDefinitionKey}/${action}`,
               {},
               {
-                  headers: {
-                      'Authorization': `Bearer ${this.getAuthToken()}`
-                  }
+                  headers: this.getAuthHeaders()
               }
           );
           
           return response.data;
       } catch (error) {
           console.error(`Erreur lors de l'${activate ? 'activation' : 'suspension'}:`, error);
+          throw error;
+      }
+  }
+  
+  /**
+   * Vérifie si un processus est déployé et actif
+   * @param {String} processKey - La clé du processus à vérifier
+   * @returns {Promise} - Promesse avec le statut du déploiement
+   */
+  async checkDeploymentStatus(processKey) {
+      try {
+          // Utiliser la route exacte du contrôleur backend
+          const response = await axios.get(
+              `${API_URL}/bpmn/check-deployment/${processKey}`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la vérification du déploiement:', error);
+          throw error;
+      }
+  }
+  
+  /**
+   * Démarre une instance d'un processus
+   * @param {String} processKey - La clé du processus à démarrer
+   * @returns {Promise} - Promesse avec les informations de l'instance démarrée
+   */
+  async startProcessInstance(processKey) {
+      try {
+          // Utiliser la route exacte du contrôleur backend
+          const response = await axios.post(
+              `${API_URL}/bpmn/start-process/${processKey}`,
+              {},
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors du démarrage du processus:', error);
           throw error;
       }
   }
