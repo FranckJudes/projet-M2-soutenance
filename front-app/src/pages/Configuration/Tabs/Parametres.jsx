@@ -108,7 +108,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
   const [lowerEdges, setLowerEdges] = useState([]);
 
   // États pour l'automatisation
-  const [deploymentStatus, setDeploymentStatus] = useState(null);
   const [isProcessDeployed, setIsProcessDeployed] = useState(false);
   const [processDefinitionKey, setProcessDefinitionKey] = useState(null);
 
@@ -530,40 +529,7 @@ const getResourceData = (taskId) => {
       assigneeType: null
     };
   };
-
-  // Fonction de déploiement automatique
-  const deployProcessAfterSave = async (savedProcessData) => {
-    try {
-      console.log("Déploiement automatique du processus...", savedProcessData);
-      
-      // Appeler l'API de déploiement automatique
-      const deploymentResponse = await fetch(`${process.env.VITE_BASE_SERVICE_HARMONI}/api/camunda/deploy/${savedProcessData.id}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      console.log("Gallagher=============>",deploymentResponse);
-      
-      if (deploymentResponse.ok) {
-        const deploymentResult = await deploymentResponse.json();
-        setDeploymentStatus('success');
-        setIsProcessDeployed(true);
-        setProcessDefinitionKey(deploymentResult.processDefinitionKey);
-        
-        toast.success(t("Processus déployé et prêt à l'exécution !"));
-        console.log("Processus déployé avec succès:", deploymentResult);
-      } else {
-        throw new Error("Échec du déploiement");
-      }
-      
-    } catch (error) {
-      console.error("Erreur lors du déploiement:", error);
-      setDeploymentStatus('error');
-      toast.error(t("Erreur lors du déploiement du processus"));
-    }
-  };
+ 
 
   // Fonction pour calculer les positions des nœuds avec dagre
   const calculateLayout = useCallback((nodes, edges, direction) => {
@@ -1395,30 +1361,6 @@ const getResourceData = (taskId) => {
                   <i className="fas fa-play mr-1"></i>
                   {t("Démarrer le processus")}
                 </button>
-              )}
-            </div>
-          )}
-
-          {/* NOUVEAU: Indicateur de statut de déploiement */}
-          {deploymentStatus && (
-            <div className={`alert mt-3 ${deploymentStatus === 'success' ? 'alert-success' : 'alert-danger'}`}>
-              {deploymentStatus === 'success' ? (
-                <>
-                  <i className="fas fa-check-circle mr-2"></i>
-                  {t("Processus déployé avec succès et prêt à l'exécution")}
-                  {processDefinitionKey && (
-                    <div className="mt-2">
-                      <small className="text-muted">
-                        {t("Clé du processus:")} <code>{processDefinitionKey}</code>
-                      </small>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <i className="fas fa-exclamation-triangle mr-2"></i>
-                  {t("Erreur lors du déploiement du processus")}
-                </>
               )}
             </div>
           )}
