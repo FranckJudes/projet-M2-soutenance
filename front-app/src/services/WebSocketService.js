@@ -14,8 +14,17 @@ class WebSocketService {
   }
 
   getHeaders() {
+    // Récupérer le token depuis sessionStorage (prioritaire) ou localStorage
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    
+    if (!token) {
+      console.warn('Aucun token d\'authentification trouvé pour la connexion WebSocket');
+    } else {
+      console.log('Token d\'authentification trouvé pour WebSocket');
+    }
+    
     return {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'Authorization': token ? `Bearer ${token}` : '',
     };
   }
 
@@ -35,6 +44,7 @@ class WebSocketService {
         // Utiliser la variable d'environnement pour l'URL du serveur
         const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
         console.log('Connecting to WebSocket at:', `${API_URL}/ws`);
+        console.log('Using auth token:', localStorage.getItem('token') ? 'Token present' : 'No token found');
         
         // Créer un nouveau client STOMP
         this.stompClient = new Client({
@@ -54,19 +64,27 @@ class WebSocketService {
         // Gérer l'événement de connexion
         this.stompClient.onConnect = (frame) => {
           console.log('Connected to WebSocket:', frame);
+          console.log('Connection headers:', frame.headers);
           this.connected = true;
           this.connectionPromise = Promise.resolve(true);
-          resolve(true);
           
           // S'abonner aux notifications personnelles
           if (this.userId) {
-            this.subscribeToUserNotifications(this.userId);
+            console.log(`Auto-subscribing user ${this.userId} to notifications`);
+            this.subscribeToUserNotifications(this.userId)
+              .then(() => console.log('Successfully subscribed to notifications'))
+              .catch(err => console.error('Failed to subscribe to notifications:', err));
+          } else {
+            console.warn('No userId available for subscription');
           }
+          
+          resolve(true);
         };
         
         // Gérer l'événement de déconnexion
         this.stompClient.onStompError = (frame) => {
           console.error('STOMP error:', frame);
+          this.connected = false;
         };
         
         // Gérer l'événement d'erreur WebSocket
@@ -74,6 +92,17 @@ class WebSocketService {
           console.error('WebSocket error:', error);
           this.connected = false;
           reject(error);
+        };
+        
+        // Gérer l'événement de déconnexion
+        this.stompClient.onDisconnect = () => {
+          console.log('Disconnected from WebSocket');
+          this.connected = false;
+        };
+        
+        // Gérer les tentatives de reconnexion
+        this.stompClient.beforeConnect = () => {
+          console.log('Attempting to connect to WebSocket...');
         };
         
         // Démarrer la connexion

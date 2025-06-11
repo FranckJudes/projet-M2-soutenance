@@ -16,8 +16,80 @@ const NotificationsPage = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // ID utilisateur (à remplacer par l'ID de l'utilisateur connecté)
-  const userId = '1';
+  // Récupérer l'ID utilisateur depuis le stockage local
+  const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+  
+  // État pour suivre la connexion WebSocket
+  const [wsConnected, setWsConnected] = useState(false);
+
+  // Initialiser la connexion WebSocket
+  useEffect(() => {
+    if (!userId) {
+      console.error('Aucun ID utilisateur trouvé pour la connexion WebSocket');
+      return;
+    }
+
+    console.log('Tentative de connexion WebSocket avec l\'ID utilisateur:', userId);
+    
+    // Établir la connexion WebSocket
+    webSocketService.connect(userId)
+      .then(() => {
+        console.log('WebSocket connecté avec succès');
+        setWsConnected(true);
+        
+        // S'abonner aux notifications de l'utilisateur
+        return webSocketService.subscribeToUserNotifications(userId);
+      })
+      .then(() => {
+        console.log('Abonnement aux notifications réussi');
+      })
+      .catch(error => {
+        console.error('Erreur de connexion WebSocket:', error);
+        toast.error('Impossible de se connecter au service de notifications en temps réel');
+      });
+
+    // Nettoyage lors du démontage du composant
+    return () => {
+      console.log('Déconnexion du WebSocket');
+      webSocketService.unsubscribeFromUserNotifications(userId);
+      // Ne pas déconnecter complètement pour permettre aux autres pages de recevoir des notifications
+    };
+  }, [userId]); // Se reconnecter si l'ID utilisateur change
+
+  // Écouter les notifications en temps réel
+  useEffect(() => {
+    // Gestionnaire pour les nouvelles notifications
+    const handleNewNotification = (event) => {
+      const notification = event.detail;
+      console.log('Nouvelle notification reçue via WebSocket:', notification);
+      
+      // Ajouter la notification à la liste existante
+      setNotifications(prevNotifications => [notification, ...prevNotifications]);
+      
+      // Incrémenter le compteur de notifications non lues
+      setUnreadCount(prev => prev + 1);
+      
+      // Afficher une notification toast
+      toast.success(`Nouvelle notification: ${notification.title}`);
+    };
+    
+    // Gestionnaire pour le compteur de notifications
+    const handleNotificationCount = (event) => {
+      const count = event.detail;
+      console.log('Mise à jour du compteur de notifications:', count);
+      setUnreadCount(count);
+    };
+    
+    // Ajouter les écouteurs d'événements
+    window.addEventListener('notification', handleNewNotification);
+    window.addEventListener('notification-count', handleNotificationCount);
+    
+    // Nettoyage
+    return () => {
+      window.removeEventListener('notification', handleNewNotification);
+      window.removeEventListener('notification-count', handleNotificationCount);
+    };
+  }, []); // Exécuter une seule fois au montage
 
   // Charger les notifications depuis l'API
   useEffect(() => {

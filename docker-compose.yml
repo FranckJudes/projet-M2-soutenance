@@ -1,0 +1,58 @@
+services:
+
+  postgres:
+    container_name: bd_pg_harmony
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: gallagher
+      POSTGRES_PASSWORD: gallagher09
+      POSTGRES_DB: harmony_db3
+    volumes:
+      - postgres-data:/var/lib/postgresql/data 
+    ports:
+      - "5432:5432"
+    networks:
+      - microservices-net
+    restart: unless-stopped
+    healthcheck: 
+      test: ["CMD-SHELL", "pg_isready -U gallagher -d harmony_db3"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  rabbimq:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "15672:15672" 
+      - "5672:5672"   
+    networks:
+      - microservices-net
+    restart: unless-stopped
+    environment:
+      SPRING_RABBITMQ_HOST: localhost
+      RABBITMQ_DEFAULT_USER: gallagher
+      RABBITMQ_DEFAULT_PASS: gallagher09
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 3  
+
+
+  mail-dev:
+    container_name: ms_mail_dev
+    image: maildev/maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
+      
+volumes:
+  postgres-data:
+  pgadmin-data:
+  mysql_db:
+
+
+networks:
+  microservices-net:

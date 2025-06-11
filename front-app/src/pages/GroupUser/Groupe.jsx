@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Main from "../../layout/Main";
-import { Card, Form, Button, Spin, Row, Col, Tabs, Space, Select, Input, message, Breadcrumb, theme } from "antd";
-import { SaveOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, HomeOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
+import { Card, Form, Button, Spin, Row, Col, Tabs, Space, Select, Input, message, Breadcrumb, theme, Alert } from "antd";
+import { SaveOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, HomeOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined } from "@ant-design/icons";
 import PrivilegeTabs from "./Tabs/PrivilegeTabs";
 import UserTabP from "./Tabs/UserTabP";
 import ListGroup from "./Tabs/ListGroup";
 import ListUserNotGroup from "./Tabs/ListUserNotGroup";
+import GroupUserManagement from "./Tabs/GroupUserManagement";
 import GroupeService from "../../services/GroupeService";
 import "../../styles/users.css"
 
@@ -22,6 +23,7 @@ const Groupe = () => {
         type: "TYPE_0"
     });
     const [editMode, setEditMode] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState(null);
     const [form] = Form.useForm();
 
 
@@ -83,6 +85,7 @@ const Groupe = () => {
             type: group.type
         };
         setCurrentGroup(groupData);
+        setSelectedGroup(group);
         form.setFieldsValue(groupData);
         setEditMode(true);
     };
@@ -97,6 +100,7 @@ const Groupe = () => {
             type: "TYPE_0"
         });
         setEditMode(false);
+        setSelectedGroup(null);
     };
 
     // Options pour le select de type
@@ -222,11 +226,55 @@ const Groupe = () => {
                 >
                     <Spin spinning={isLoading} tip="Chargement des données...">
                         <Tabs defaultActiveKey="LisGroup">
-                            <Tabs.TabPane key="LisGroup" tab="Liste de groupe">
+                            <Tabs.TabPane 
+                                key="LisGroup" 
+                                tab={
+                                    <span>
+                                        <TeamOutlined /> Liste des groupes
+                                    </span>
+                                }
+                            >
                                 <ListGroup groups={groups} onEdit={editGroup} onDelete={deleteGroup} />
                             </Tabs.TabPane>
-                            <Tabs.TabPane key="ListUserNotGroup" tab="Utilisateur sans groupe">
+                            <Tabs.TabPane 
+                                key="ListUserNotGroup" 
+                                tab={
+                                    <span>
+                                        <UserOutlined /> Utilisateurs sans groupe
+                                    </span>
+                                }
+                            >
                                 <ListUserNotGroup />
+                            </Tabs.TabPane>
+                            <Tabs.TabPane 
+                                key="manageGroupUsers" 
+                                tab={
+                                    <span>
+                                        <UsergroupAddOutlined /> Gérer les utilisateurs du groupe
+                                    </span>
+                                }
+                            >
+                                {selectedGroup ? (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <Alert
+                                            message={`Groupe sélectionné: ${selectedGroup.libeleGroupeUtilisateur}`}
+                                            type="info"
+                                            showIcon
+                                        />
+                                    </div>
+                                ) : (
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <Alert
+                                            message="Veuillez sélectionner un groupe en cliquant sur le bouton d'édition dans la liste des groupes"
+                                            type="warning"
+                                            showIcon
+                                        />
+                                    </div>
+                                )}
+                                <GroupUserManagement 
+                                    selectedGroup={selectedGroup} 
+                                    onRefresh={loadGroups} 
+                                />
                             </Tabs.TabPane>
                         </Tabs>
                     </Spin>

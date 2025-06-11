@@ -1312,7 +1312,7 @@ const getResourceData = (taskId) => {
                     toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
                     
                     // 8. NOUVEAU: Déploiement automatique après sauvegarde réussie
-                    await deployProcessAfterSave(response.data);
+                    // await deployProcessAfterSave(response.data);
                     
                     // 9. Appeler le callback de succès si fourni
                     if (onSaveSuccess) {
