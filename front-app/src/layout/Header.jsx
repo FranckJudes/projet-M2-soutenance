@@ -1,9 +1,23 @@
 import { Component } from "react";
 import LanguageSelector from "../components/LanguageSelector";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import NotificationCenter from "../components/NotificationCenter/NotificationCenter";
-
+import { authService } from "../api/authService";
 class Header extends Component{
+    constructor(props) {
+        super(props);
+        this.handleLogout = this.handleLogout.bind(this);
+    }
+    
+    // Fonction de déconnexion
+    handleLogout(e) {
+        e.preventDefault();
+        authService.logout().then(() => {
+            // Redirection vers la page de login après déconnexion
+            window.location.href = '/login';
+        });
+    }
+    
     render(){
         return  <nav className="navbar navbar-expand-lg main-navbar sticky">
                     <div className="form-inline mr-auto">
@@ -49,10 +63,10 @@ class Header extends Component{
                                 <i className="fas fa-cog" /> Settings
                             </Link>
                             <div className="dropdown-divider" />
-                            <Link className="dropdown-item has-icon text-danger" to="/login">
+                            <a href="#" onClick={this.handleLogout} className="dropdown-item has-icon text-danger">
                                 <i className="fas fa-sign-out-alt" />
                                 <span>Logout</span>
-                            </Link>
+                            </a>
                         </div>
                         </li>
                     </ul>

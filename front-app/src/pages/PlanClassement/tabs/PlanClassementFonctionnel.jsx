@@ -1,7 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Card } from "../../../components/Card";
-import { ModalComponent } from "../../../components/Modal.jsx";
-import { Input, Textarea } from "../../../components/Input.jsx";
 import { useTranslation } from "react-i18next";
 import {
     getAllPlanClassement,
@@ -9,8 +6,35 @@ import {
     updatePlanClassement,
     createPlanClassement,
 } from "../../../api/PlanClassementApi.jsx";
-import {showAlert} from "../../../components/SweetAlert.jsx";
+import { showAlert } from "../../../components/SweetAlert.jsx";
 import { useToast } from "../../../components/Toast";
+import { 
+    Card, 
+    Tree, 
+    Button, 
+    Modal, 
+    Form, 
+    Input, 
+    Typography, 
+    Space, 
+    Spin, 
+    Tooltip, 
+    Divider,
+    message
+} from 'antd';
+import { 
+    FolderOutlined, 
+    FileOutlined, 
+    EditOutlined, 
+    DeleteOutlined, 
+    PlusOutlined, 
+    InfoCircleOutlined,
+    EyeOutlined,
+    PlusCircleOutlined
+} from '@ant-design/icons';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 // Données fictives pour tester le composant
 const fakeData = [
@@ -157,26 +181,41 @@ const fakeData = [
   }
 ];
 
-// Mock des fonctions API pour le développement local
-const mockGetAllPlanClassement = () => {
-  return Promise.resolve(fakeData);
-};
+// Transformation des données API en structure arborescente
+const transformToTreeData = (data) => {
+  // Créer une map pour un accès rapide aux nœuds par ID
+  const nodeMap = new Map();
+  data.forEach(item => {
+    // Normaliser les noms de champs pour s'assurer qu'ils correspondent au format attendu par le backend
+    const normalizedItem = {
+      ...item,
+      codePlanClassement: item.codePlanClassement || item.codeplanclassement,
+      libellePlanClassement: item.libellePlanClassement || item.libelleplanclassement,
+      descriptionPlanClassement: item.descriptionPlanClassement || item.descriptionplanclassement,
+      parentId: item.parentId || item.parent_id,
+      numeroOrdre: item.numeroOrdre || 1,
+      isCollapsed: false,
+      children: []
+    };
+    nodeMap.set(item.plan_classement_id, normalizedItem);
+  });
 
-const mockDeletePlanClassement = (id) => {
-  console.log(`Suppression simulée de l'élément avec l'ID: ${id}`);
-  return Promise.resolve({ success: true });
-};
+  // Construire l'arborescence
+  const treeData = [];
+  data.forEach(item => {
+    const node = nodeMap.get(item.plan_classement_id);
+    const parentId = item.parentId || item.parent_id;
+    if (parentId === null) {
+      treeData.push(node);
+    } else {
+      const parent = nodeMap.get(parentId);
+      if (parent) {
+        parent.children.push(node);
+      }
+    }
+  });
 
-const mockUpdatePlanClassement = (id, data) => {
-  console.log(`Mise à jour simulée de l'élément avec l'ID: ${id}`, data);
-  return Promise.resolve({ success: true });
-};
-
-const mockCreatePlanClassement = (data) => {
-  console.log(`Création simulée d'un nouvel élément:`, data);
-  // Simuler la création d'un nouvel ID
-  const newId = Math.max(...fakeData.map(node => node.plan_classement_id)) + 1;
-  return Promise.resolve({ ...data, plan_classement_id: newId });
+  return treeData;
 };
 
 function OrgChart() {
@@ -184,10 +223,11 @@ function OrgChart() {
     const [nodes, setNodes] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({
-        codeplanclassement: "",
-        libelleplanclassement: "",
-        descriptionplanclassement: "",
-        parent_id: null,
+        codePlanClassement: "",
+        libellePlanClassement: "",
+        descriptionPlanClassement: "",
+        parentId: null,
+        numeroOrdre: 1, // Valeur par défaut pour le champ obligatoire
     });
     const [editingNode, setEditingNode] = useState(null);
     const [selectedNode, setSelectedNode] = useState(null);
@@ -216,72 +256,110 @@ function OrgChart() {
         return null;
     };
 
+    const [loading, setLoading] = useState(false);
+    
     useEffect(() => {
         const fetchData = async () => {
+            setLoading(true);
             try {
-                // Utiliser des données fictives au lieu de l'API réelle
-                // const data = await getAllPlanClassement();
-                const data = await mockGetAllPlanClassement();
-                setNodes(data);
+                // Utiliser l'API réelle
+                const response = await getAllPlanClassement();
+                if (response && response.data) {
+                    // Transformer les données plates en structure arborescente
+                    const treeData = transformToTreeData(response.data);
+                    setNodes(treeData);
+                } else {
+                    // Utiliser les données fictives en cas d'erreur ou pour le développement
+                    setNodes(transformToTreeData(fakeData));
+                }
             } catch (error) {
-                if (error ==='no_connexion'){
+                console.error("Erreur lors du chargement des données", error);
+                if (error === 'no_connexion') {
                     showToast({
                         title: "Erreur",
                         message: "Problème de connexion : Vérifiez votre réseau.",
                         color: "red",
                         position: "topRight",
                     });
+                } else {
+                    message.error("Impossible de charger les plans de classement");
                 }
-                console.error("Erreur lors du chargement des données", error);
+                // Utiliser les données fictives en cas d'erreur
+                setNodes(transformToTreeData(fakeData));
+            } finally {
+                setLoading(false);
             }
         };
         fetchData();
     }, []);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (values) => {
+        // Avec Ant Design Form, nous recevons directement les valeurs du formulaire
+        // et non un événement, donc pas besoin de e.preventDefault()
+        setLoading(true);
         try {
+            console.log("Valeurs du formulaire:", values);
+            
+            // Préparer les données à envoyer
+            const dataToSubmit = {
+                ...values,
+                // Ajouter le parentId qui n'est pas géré par le formulaire
+                parentId: formData.parentId
+            };
+            
+            console.log("Données à soumettre:", dataToSubmit);
+            
             if (editingNode) {
-                // Utiliser la fonction mock au lieu de l'API réelle
-                // await updatePlanClassement(editingNode.plan_classement_id, formData);
-                await mockUpdatePlanClassement(editingNode.plan_classement_id, formData);
-                showToast({
-                    title: "Succès",
-                    message: "Plan de classement mis à jour avec succès.",
-                    color: "green",
-                    position: "topRight",
-                });
+                // Utiliser l'API réelle pour la mise à jour
+                const response = await updatePlanClassement(editingNode.plan_classement_id, dataToSubmit);
+                if (response && response.success) {
+                    message.success("Plan de classement mis à jour avec succès");
+                    showToast({
+                        title: "Succès",
+                        message: "Plan de classement mis à jour avec succès.",
+                        color: "green",
+                        position: "topRight",
+                    });
+                }
             } else {
-                // Utiliser la fonction mock au lieu de l'API réelle
-                // await createPlanClassement(formData);
-                await mockCreatePlanClassement(formData);
+                // Utiliser l'API réelle pour la création
+                const response = await createPlanClassement(dataToSubmit);
+                if (response && response.success) {
+                    message.success("Nouveau plan de classement créé avec succès");
+                    showToast({
+                        title: "Succès",
+                        message: "Nouveau plan de classement ajouté.",
+                        color: "green",
+                        position: "topRight",
+                    });
+                }
             }
-            // Recharger les données fictives
-            const updatedNodes = await mockGetAllPlanClassement();
-            setNodes(updatedNodes);
+            // Recharger les données depuis l'API
+            const response = await getAllPlanClassement();
+            if (response && response.data) {
+                const treeData = transformToTreeData(response.data);
+                setNodes(treeData);
+            }
             setShowModal(false);
             setEditingNode(null);
             setFormData({
-                codeplanclassement: "",
-                libelleplanclassement: "",
-                descriptionplanclassement: "",
-                parent_id: null,
-            });
-            showToast({
-                title: "Succès",
-                message: editingNode ? "Plan de classement mis à jour." : "Nouveau plan de classement ajouté.",
-                color: "green",
-                position: "topRight",
+                codePlanClassement: "",
+                libellePlanClassement: "",
+                descriptionPlanClassement: "",
+                parentId: null,
+                numeroOrdre: 1,
             });
         } catch (error) {
             console.error("Erreur lors de l'ajout/mise à jour", error);
-            setShowModal(false);
+            message.error("Erreur lors de l'opération. Vérifiez les champs du formulaire.");
             showToast({
                 title: "Erreur",
-                message: "Verifier le champ de formulaire.",
+                message: "Vérifiez les champs du formulaire.",
                 color: "red",
                 position: "topRight",
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -299,19 +377,38 @@ function OrgChart() {
             cancelButtonText: "Non",
         }).then(async (result) => {
             if (result.isConfirmed) {
-                    // Utiliser la fonction mock au lieu de l'API réelle
-                    // await deletePlanClassement(id);
-                    await mockDeletePlanClassement(id);
-                    // Recharger les données fictives
-                    const updatedNodes = await mockGetAllPlanClassement();
-                    setNodes(updatedNodes);
-                    setSelectedNode(null);
-                showToast({
-                    title: "Succès",
-                    message: "Plan de classement supprimé avec succès.",
-                    color: "green",
-                    position: "topRight",
-                });
+                setLoading(true);
+                try {
+                    // Utiliser l'API réelle
+                    const response = await deletePlanClassement(id);
+                    if (response && response.success) {
+                        message.success("Plan de classement supprimé avec succès");
+                        // Recharger les données depuis l'API
+                        const apiResponse = await getAllPlanClassement();
+                        if (apiResponse && apiResponse.data) {
+                            const treeData = transformToTreeData(apiResponse.data);
+                            setNodes(treeData);
+                        }
+                        setSelectedNode(null);
+                        showToast({
+                            title: "Succès",
+                            message: "Plan de classement supprimé avec succès.",
+                            color: "green",
+                            position: "topRight",
+                        });
+                    }
+                } catch (error) {
+                    console.error("Erreur lors de la suppression", error);
+                    message.error("Erreur lors de la suppression du plan de classement");
+                    showToast({
+                        title: "Erreur",
+                        message: "Impossible de supprimer le plan de classement.",
+                        color: "red",
+                        position: "topRight",
+                    });
+                } finally {
+                    setLoading(false);
+                }
             } else if (result.isDismissed) {
                 showToast({
                     title: "Attention",
@@ -325,131 +422,254 @@ function OrgChart() {
 
     const handleEdit = (node) => {
         setFormData({
-            codeplanclassement: node.codeplanclassement || "",
-            libelleplanclassement: node.libelleplanclassement || "",
-            descriptionplanclassement: node.descriptionplanclassement || "",
-            parent_id: node.parent_id || null,
+            codePlanClassement: node.codePlanClassement || "",
+            libellePlanClassement: node.libellePlanClassement || "",
+            descriptionPlanClassement: node.descriptionPlanClassement || "",
+            parentId: node.parentId || null,
+            numeroOrdre: node.numeroOrdre || 1,
         });
         setEditingNode(node);
         setShowModal(true);
     };
 
     const handleAddChild = (node) => {
+        if (!node || !node.plan_classement_id) {
+            message.error("Impossible d'ajouter un sous-plan : parent invalide");
+            return;
+        }
+        
+        // Préparer le formulaire pour l'ajout d'un enfant
+        // Utiliser le code du parent comme préfixe pour le code du sous-plan
+        const parentCode = node.codePlanClassement || node.codeplanclassement || "";
+        
         setFormData({
-            codeplanclassement: "",
-            libelleplanclassement: "",
-            descriptionplanclassement: "",
-            parent_id: node.plan_classement_id,
+            codePlanClassement: parentCode ? `${parentCode}-` : "",
+            libellePlanClassement: "",
+            descriptionPlanClassement: "",
+            parentId: node.plan_classement_id,
+            numeroOrdre: 1 // Valeur par défaut
         });
-        setEditingNode(null);
+        
+        console.log("Préparation d'un sous-plan pour le parent:", node);
+        setEditingNode(null); // Nous créons un nouveau nœud, pas d'édition
         setShowModal(true);
     };
 
-    const renderTree = (node, depth = 0) => {
-        const backgroundColor = depth === 0 ? "#BCCCDC" : "#F8FAFC";
-
-        return (
-            <div key={node.plan_classement_id} style={{ marginLeft: "20px" }}>
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        border: "1px solid black",
-                        color: "black",
-                        padding: "5px",
-                        fontFamily: "Nunito, Segoe UI, Arial",
-                        borderRadius: "4px",
-                        backgroundColor,
-                        marginBottom: "5px",
-                        height: "48px",
-                        cursor: "pointer",
-                    }}
-                    onClick={() => toggleCollapse(node.plan_classement_id)}
-                >
-                    <span style={{ fontSize: "14px" }}>
-                        {node.isCollapsed ? "+" : "-"} {node.libelleplanclassement}
-                    </span>
-                </div>
-                <div
-                    style={{
-                        display: node.isCollapsed ? "none" : "block",
-                        transition: "all 0.3s ease-in-out",
-                    }}
-                >
-                    {node.children && node.children.length > 0 && (
-                        <div style={{ marginLeft: "20px" }}>
-                            {node.children.map((child) => renderTree(child, depth + 1))}
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
+    // Convertir les données en format compatible avec Ant Design Tree
+    const convertToTreeData = (nodes) => {
+        return nodes.map(node => ({
+            key: node.plan_classement_id,
+            title: node.libellePlanClassement || node.libelleplanclassement, // Support des deux formats
+            code: node.codePlanClassement || node.codeplanclassement, // Support des deux formats
+            description: node.descriptionPlanClassement || node.descriptionplanclassement, // Support des deux formats
+            parentId: node.parentId || node.parent_id, // Support des deux formats
+            numeroOrdre: node.numeroOrdre || 1,
+            plan_classement_id: node.plan_classement_id, // Conserver l'ID original
+            icon: node.children && node.children.length > 0 ? <FolderOutlined /> : <FileOutlined />,
+            children: node.children && node.children.length > 0 ? convertToTreeData(node.children) : []
+        }));
+    };
+    
+    // Trouver un nœud dans l'arbre par son ID
+    const findNodeInTreeData = (treeData, key) => {
+        for (let node of treeData) {
+            if (node.key === key) {
+                return node;
+            }
+            if (node.children && node.children.length > 0) {
+                const found = findNodeInTreeData(node.children, key);
+                if (found) return found;
+            }
+        }
+        return null;
     };
 
+    // Convertir les données pour le composant Tree d'Ant Design
+    const treeData = convertToTreeData(nodes);
+    
+    // Gérer la sélection d'un nœud dans l'arbre
+    const onSelect = (selectedKeys, info) => {
+        if (selectedKeys.length > 0) {
+            const selectedId = selectedKeys[0];
+            const node = findNodeById(nodes, selectedId);
+            if (node) setSelectedNode(node);
+        } else {
+            setSelectedNode(null);
+        }
+    };
+    
+    // Gérer la sélection d'un nœud dans l'arbre
+    
     return (
         <>
-            <div className="row">
-                <div className="col-8">
-                    <div className="card-header">
-                        <h4>Gestion des Plans de Classement</h4>
-                        <div className="card-header-action">
-                            <button className="btn btn-success" onClick={() => setShowModal(true)}>
-                                {t("Ajouter")}
-                            </button>
+            <Spin spinning={loading} tip="Chargement...">
+                <div style={{ padding: '20px' }}>
+                    <Card>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <Title level={4}>Gestion des Plans de Classement</Title>
+                            <Button 
+                                type="primary" 
+                                icon={<PlusOutlined />} 
+                                onClick={() => {
+                                    setFormData({
+                                        codeplanclassement: "",
+                                        libelleplanclassement: "",
+                                        descriptionplanclassement: "",
+                                        parent_id: null,
+                                    });
+                                    setEditingNode(null);
+                                    setShowModal(true);
+                                }}
+                            >
+                                {t("Ajouter un plan de classement")}
+                            </Button>
                         </div>
-                    </div>
-                    <div className="row">
-                        <div className="col-12">
-                            {nodes.map((node) => renderTree(node))}
+                        
+                        <div style={{ display: 'flex', gap: '20px' }}>
+                            <div style={{ width: '60%', minHeight: '400px', border: '1px solid #f0f0f0', borderRadius: '8px', padding: '16px' }}>
+                                {nodes.length > 0 ? (
+                                    <Tree
+                                        showIcon
+                                        defaultExpandAll
+                                        onSelect={onSelect}
+                                        treeData={treeData}
+                                    />
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                                        <Text type="secondary">Aucun plan de classement disponible</Text>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div style={{ width: '40%' }}>
+                                {selectedNode ? (
+                                    <Card
+                                        title={<span><InfoCircleOutlined /> Détails du plan de classement</span>}
+                                        bordered={true}
+                                        style={{ marginBottom: '20px' }}
+                                    >
+                                        <div style={{ marginBottom: '20px' }}>
+                                            <p><Text strong>Code :</Text> {selectedNode.codeplanclassement}</p>
+                                            <p><Text strong>Libellé :</Text> {selectedNode.libelleplanclassement}</p>
+                                            <Divider style={{ margin: '10px 0' }} />
+                                            <p><Text strong>Description :</Text></p>
+                                            <p>{selectedNode.descriptionplanclassement}</p>
+                                        </div>
+                                        
+                                        <Space>
+                                            <Tooltip title="Ajouter un sous-plan">
+                                                <Button 
+                                                    type="primary" 
+                                                    icon={<PlusCircleOutlined />} 
+                                                    onClick={() => handleAddChild(selectedNode)}
+                                                >
+                                                    Ajouter un sous-plan
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip title="Modifier">
+                                                <Button 
+                                                    icon={<EditOutlined />} 
+                                                    onClick={() => handleEdit(selectedNode)}
+                                                >
+                                                    Modifier
+                                                </Button>
+                                            </Tooltip>
+                                            <Tooltip title="Supprimer">
+                                                <Button 
+                                                    danger 
+                                                    icon={<DeleteOutlined />} 
+                                                    onClick={() => handleDelete(selectedNode.plan_classement_id)}
+                                                >
+                                                    Supprimer
+                                                </Button>
+                                            </Tooltip>
+                                        </Space>
+                                    </Card>
+                                ) : (
+                                    <Card bordered={false} style={{ textAlign: 'center', padding: '40px 0' }}>
+                                        <Text type="secondary">Sélectionnez un plan de classement pour afficher ses détails</Text>
+                                    </Card>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    </Card>
                 </div>
+            </Spin>
 
-                <div className="col-4">
-                    {selectedNode && (
-                        <Card
-                            title="Détails"
-                            children={
-                                <div>
-                                    <p><b>Code :</b> {selectedNode.codeplanclassement}</p>
-                                    <p><b>Libellé :</b> {selectedNode.libelleplanclassement}</p>
-                                    <p><b>Description :</b> {selectedNode.descriptionplanclassement}</p>
-                                </div>
-                            }
-                            footer={
-                                <div>
-                                    <button className="btn btn-success ml-2" onClick={() => handleAddChild(selectedNode)}>
-                                        <i className="fas fa-plus"></i>
-                                    </button>
-                                    <button className="btn btn-primary ml-2" onClick={() => handleEdit(selectedNode)}>
-                                        <i className="fas fa-edit"></i>
-                                    </button>
-                                    <button className="btn btn-danger ml-2" onClick={() => handleDelete(selectedNode.plan_classement_id)}>
-                                        <i className="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            }
-                        />
-                    )}
-                </div>
-            </div>
-
-            <ModalComponent
-                showModal={showModal}
-                toggleModal={() => setShowModal(!showModal)}
-                titleModal={editingNode ? t("Modifier une entrée") : t("Ajouter une nouvelle entrée")}
+            <Modal
+                title={editingNode ? t("Modifier un plan de classement") : t("Ajouter un nouveau plan de classement")}
+                open={showModal}
+                onCancel={() => setShowModal(false)}
+                footer={null}
+                destroyOnClose={true}
             >
-                <form onSubmit={handleSubmit}>
-                    <Input name="codeplanclassement" label={t("Code")} required onChange={handleInputChange} value={formData.codeplanclassement} />
-                    <Input name="libelleplanclassement" label={t("Libellé")} required onChange={handleInputChange} value={formData.libelleplanclassement} />
-                    <Textarea name="descriptionplanclassement" label={t("Description")} required onChange={handleInputChange} value={formData.descriptionplanclassement} />
-                    <input type="hidden" name="parent_id" value={formData.parent_id || ""} />
-                    <button type="submit" className="btn btn-success">
-                        {editingNode ? t("Mettre à jour") : t("Ajouter")}
-                    </button>
-                </form>
-            </ModalComponent>
+                <Form
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                    initialValues={{
+                        codePlanClassement: formData.codePlanClassement,
+                        libellePlanClassement: formData.libellePlanClassement,
+                        descriptionPlanClassement: formData.descriptionPlanClassement,
+                        numeroOrdre: formData.numeroOrdre || 1
+                    }}
+                    name="planClassementForm"
+                    preserve={false}
+                >
+                    <Form.Item 
+                        name="codePlanClassement" 
+                        label={t("Code")} 
+                        rules={[{ required: true, message: 'Veuillez saisir le code du plan de classement' }]}
+                    >
+                        <Input 
+                            placeholder="Code du plan de classement" 
+                        />
+                    </Form.Item>
+                    
+                    <Form.Item 
+                        name="libellePlanClassement" 
+                        label={t("Libellé")} 
+                        rules={[{ required: true, message: 'Veuillez saisir le libellé du plan de classement' }]}
+                    >
+                        <Input 
+                            placeholder="Libellé du plan de classement" 
+                        />
+                    </Form.Item>
+                    
+                    <Form.Item 
+                        name="descriptionPlanClassement" 
+                        label={t("Description")} 
+                        rules={[{ required: true, message: 'Veuillez saisir une description' }]}
+                    >
+                        <TextArea 
+                            rows={4} 
+                            placeholder="Description du plan de classement" 
+                        />
+                    </Form.Item>
+                    
+                    <Form.Item 
+                        name="numeroOrdre" 
+                        label={t("Numéro d'ordre")} 
+                        rules={[{ required: true, message: 'Veuillez saisir un numéro d\'ordre' }]}
+                        hidden={true} // Caché car géré automatiquement
+                        initialValue={1}
+                    >
+                        <Input 
+                            type="number" 
+                            min="1"
+                            placeholder="Numéro d'ordre" 
+                        />
+                    </Form.Item>
+                    
+                    <Form.Item>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                            <Button onClick={() => setShowModal(false)}>Annuler</Button>
+                            <Button type="primary" htmlType="submit">
+                                {editingNode ? t("Mettre à jour") : t("Ajouter")}
+                            </Button>
+                        </div>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
 };

@@ -149,9 +149,7 @@ export const authService = {
 
   async logout() {
     try {
-      // Essayer d'abord avec le token de sessionStorage
       let token = sessionStorage.getItem('token');
-      // Si pas de token dans sessionStorage, essayer localStorage
       if (!token) {
         token = localStorage.getItem('token');
       }

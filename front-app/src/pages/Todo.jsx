@@ -1,104 +1,231 @@
 import React, { useState, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { toast } from 'react-hot-toast';
-import { Card , Breadcrumb, theme } from 'antd';
-import { FaPlus, FaEdit, FaTrash, FaClock, FaUser, FaTag, FaTimes, FaPaperclip, FaEllipsisH, FaArrowUp, FaArchive, FaPrint } from 'react-icons/fa';
-// import './KanbanBoard.css';
+import {
+  Card,
+  Select,
+  Button,
+  Modal,
+  Tag,
+  Avatar,
+  Tooltip,
+  Badge,
+  Space,
+  Typography,
+  Spin,
+  message,
+  Descriptions,
+  Divider,
+  Row,
+  Col,
+  Progress,
+  Alert
+} from 'antd';
+import {
+  UserOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  ReloadOutlined,
+  InfoCircleOutlined,
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+  SettingOutlined,
+  FireOutlined,
+  ThunderboltOutlined,
+  BugOutlined
+} from '@ant-design/icons';
 import Main from "../layout/Main";
+import UserTaskService from '../services/UserTaskService';
 
-const KanbanBoard = () => {
+const { Option } = Select;
+const { Title, Text, Paragraph } = Typography;
+
+const KanbanBoardAntd = () => {
   const [columns, setColumns] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [showTaskModal, setShowTaskModal] = useState(false);
-  const [currentTask, setCurrentTask] = useState(null);
-  const [showColumnModal, setShowColumnModal] = useState(false);
-  const [currentColumn, setCurrentColumn] = useState(null);
+  const [tasks, setTasks] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState('1');
   const [selectedTask, setSelectedTask] = useState(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [completingTaskId, setCompletingTaskId] = useState(null);
 
-  // Charger les données du tableau Kanban
-  useEffect(() => {
-    const mockData = {
-      columns: {
-        'column-1': {
-          id: 'column-1',
-          title: 'À faire',
-          taskIds: ['task-1', 'task-2', 'task-3'],
-        },
-        'column-2': {
-          id: 'column-2',
-          title: 'En cours',
-          taskIds: ['task-4', 'task-5'],
-        },
-        'column-3': {
-          id: 'column-3',
-          title: 'Terminé',
-          taskIds: ['task-6'],
-        },
-      },
-      tasks: {
-        'task-1': {
-          id: 'task-1',
-          title: 'Réviser le document de spécifications',
-          description: 'Vérifier que toutes les exigences sont couvertes',
-          assignee: 'Jean Dupont',
-          dueDate: '2025-05-20',
-          priority: 'high',
-          labels: ['Documentation', 'Urgent'],
-        },
-        'task-2': {
-          id: 'task-2',
-          title: 'Implémenter la fonctionnalité de login',
-          description: 'Ajouter l\'authentification par JWT',
-          assignee: 'Marie Martin',
-          dueDate: '2025-05-22',
-          priority: 'medium',
-          labels: ['Frontend', 'Backend'],
-        },
-        'task-3': {
-          id: 'task-3',
-          title: 'Corriger le bug #123',
-          description: 'Le formulaire ne se soumet pas correctement',
-          assignee: 'Pierre Dubois',
-          dueDate: '2025-05-18',
-          priority: 'high',
-          labels: ['Bug'],
-        },
-        'task-4': {
-          id: 'task-4',
-          title: 'Optimiser les requêtes SQL',
-          description: 'Améliorer les performances de la page d\'accueil',
-          assignee: 'Sophie Petit',
-          dueDate: '2025-05-25',
-          priority: 'medium',
-          labels: ['Backend', 'Performance'],
-        },
-        'task-5': {
-          id: 'task-5',
-          title: 'Mettre à jour les dépendances',
-          description: 'Mettre à jour les packages npm vers les dernières versions',
-          assignee: 'Jean Dupont',
-          dueDate: '2025-05-30',
-          priority: 'low',
-          labels: ['Maintenance'],
-        },
-        'task-6': {
-          id: 'task-6',
-          title: 'Créer les maquettes UI',
-          description: 'Concevoir les interfaces utilisateur pour les nouvelles fonctionnalités',
-          assignee: 'Marie Martin',
-          dueDate: '2025-05-15',
-          priority: 'high',
-          labels: ['Design', 'UI/UX'],
-        },
-      },
-      columnOrder: ['column-1', 'column-2', 'column-3'],
+  // Liste des utilisateurs
+  const [users] = useState([
+    { id: '1', name: 'Jean Dupont', avatar: 'JD' },
+    { id: '2', name: 'Marie Martin', avatar: 'MM' },
+    { id: '3', name: 'Pierre Dubois', avatar: 'PD' },
+    { id: '4', name: 'Sophie Petit', avatar: 'SP' }
+  ]);
+
+  // Configuration des colonnes
+  const columnConfig = {
+    'todo': {
+      id: 'todo',
+      title: 'À faire',
+      color: '#1890ff',
+      icon: <PlayCircleOutlined />,
+      description: 'Tâches en attente'
+    },
+    'inprogress': {
+      id: 'inprogress',
+      title: 'En cours',
+      color: '#faad14',
+      icon: <ThunderboltOutlined />,
+      description: 'Tâches en cours de traitement'
+    },
+    'done': {
+      id: 'done',
+      title: 'Terminé',
+      color: '#52c41a',
+      icon: <CheckCircleOutlined />,
+      description: 'Tâches complétées'
+    }
+  };
+
+  // Charger les tâches BPMN d'un utilisateur
+  const loadUserBpmnTasks = async (userId) => {
+    try {
+      setLoading(true);
+      console.log('🔄 Chargement des tâches BPMN pour l\'utilisateur:', userId);
+      
+      const response = await UserTaskService.getUserTasksImproved(userId);
+      const bpmnTasks = response.data;
+      
+      console.log('✅ Tâches BPMN récupérées:', bpmnTasks);
+      
+      const convertedData = convertBpmnTasksToKanban(bpmnTasks);
+      
+      setColumns(convertedData.columns);
+      setTasks(convertedData.tasks);
+      
+      const userName = users.find(u => u.id === userId)?.name;
+      message.success(`${bpmnTasks.length} tâches chargées pour ${userName}`);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des tâches BPMN:', error);
+      message.error('Erreur lors du chargement des tâches: ' + (error.response?.data?.error || error.message));
+      
+      // Fallback vers des données vides
+      setColumns({
+        'todo': { ...columnConfig.todo, taskIds: [] },
+        'inprogress': { ...columnConfig.inprogress, taskIds: [] },
+        'done': { ...columnConfig.done, taskIds: [] }
+      });
+      setTasks({});
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Convertir les tâches BPMN en format Kanban
+  const convertBpmnTasksToKanban = (bpmnTasks) => {
+    const kanbanTasks = {};
+    const columns = {
+      'todo': { ...columnConfig.todo, taskIds: [] },
+      'inprogress': { ...columnConfig.inprogress, taskIds: [] },
+      'done': { ...columnConfig.done, taskIds: [] }
     };
 
-    setColumns(mockData);
-    setIsLoading(false);
-  }, []);
+    bpmnTasks.forEach(bpmnTask => {
+      const kanbanTask = {
+        id: bpmnTask.id,
+        title: bpmnTask.name || 'Tâche sans titre',
+        description: getTaskDescription(bpmnTask),
+        assignee: getAssigneeInfo(bpmnTask),
+        dueDate: bpmnTask.dueDate ? new Date(bpmnTask.dueDate) : null,
+        priority: getPriorityLevel(bpmnTask),
+        status: getTaskStatus(bpmnTask),
+        labels: getTaskLabels(bpmnTask),
+        bpmnData: {
+          taskDefinitionKey: bpmnTask.taskDefinitionKey,
+          processInstanceId: bpmnTask.processInstanceId,
+          processDefinitionId: bpmnTask.processDefinitionId,
+          createTime: bpmnTask.createTime,
+          suspended: bpmnTask.suspended,
+          hasConfiguration: bpmnTask.hasConfiguration,
+          taskConfiguration: bpmnTask.taskConfiguration,
+          assignedUserInfo: bpmnTask.assignedUserInfo,
+          assignedGroupInfo: bpmnTask.assignedGroupInfo,
+          assignedEntityInfo: bpmnTask.assignedEntityInfo
+        }
+      };
 
-  // Gérer le glisser-déposer des tâches
+      kanbanTasks[bpmnTask.id] = kanbanTask;
+      
+      const columnId = determineTaskColumn(bpmnTask);
+      columns[columnId].taskIds.push(bpmnTask.id);
+    });
+
+    return { tasks: kanbanTasks, columns };
+  };
+
+  // Utilitaires de conversion
+  const getTaskDescription = (bpmnTask) => {
+    if (bpmnTask.taskConfiguration?.information?.workInstructions) {
+      return bpmnTask.taskConfiguration.information.workInstructions;
+    }
+    if (bpmnTask.taskConfiguration?.information?.expectedDeliverable) {
+      return bpmnTask.taskConfiguration.information.expectedDeliverable;
+    }
+    return bpmnTask.description || 'Aucune description disponible';
+  };
+
+  const getAssigneeInfo = (bpmnTask) => {
+    if (bpmnTask.assignedUserInfo) {
+      return {
+        name: bpmnTask.assignedUserInfo.name,
+        id: bpmnTask.assignedUserInfo.id,
+        email: bpmnTask.assignedUserInfo.email
+      };
+    }
+    if (bpmnTask.assignee) {
+      return {
+        name: `Utilisateur ${bpmnTask.assignee}`,
+        id: bpmnTask.assignee
+      };
+    }
+    if (bpmnTask.taskConfiguration?.habilitation?.assignedUser) {
+      const user = bpmnTask.taskConfiguration.habilitation.assignedUser;
+      return {
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        id: user.id
+      };
+    }
+    return { name: 'Non assigné', id: null };
+  };
+
+  const getPriorityLevel = (bpmnTask) => {
+    const priority = bpmnTask.priority || bpmnTask.taskConfiguration?.planification?.priority || 50;
+    if (priority >= 80) return 'high';
+    if (priority >= 50) return 'medium';
+    return 'low';
+  };
+
+  const getTaskStatus = (bpmnTask) => {
+    if (bpmnTask.suspended) return 'suspended';
+    if (bpmnTask.assignee) return 'assigned';
+    return 'unassigned';
+  };
+
+  const getTaskLabels = (bpmnTask) => {
+    const labels = ['BPMN'];
+    
+    if (bpmnTask.hasConfiguration) labels.push('Configuré');
+    if (bpmnTask.suspended) labels.push('Suspendu');
+    if (bpmnTask.assignedGroupInfo) labels.push(`Groupe: ${bpmnTask.assignedGroupInfo.name}`);
+    if (bpmnTask.assignedEntityInfo) labels.push(`Entité: ${bpmnTask.assignedEntityInfo.name}`);
+    
+    return labels;
+  };
+
+  const determineTaskColumn = (bpmnTask) => {
+    if (bpmnTask.suspended) return 'todo';
+    if (bpmnTask.assignee) return 'inprogress';
+    return 'todo';
+  };
+
+  // Gestion du drag & drop
   const onDragEnd = (result) => {
     const { destination, source, draggableId } = result;
 
@@ -109,28 +236,21 @@ const KanbanBoard = () => {
       return;
     }
 
-    const sourceColumn = columns.columns[source.droppableId];
-    const destColumn = columns.columns[destination.droppableId];
+    const sourceColumn = columns[source.droppableId];
+    const destColumn = columns[destination.droppableId];
 
     if (sourceColumn.id === destColumn.id) {
       const newTaskIds = Array.from(sourceColumn.taskIds);
       newTaskIds.splice(source.index, 1);
       newTaskIds.splice(destination.index, 0, draggableId);
 
-      const newColumn = {
-        ...sourceColumn,
-        taskIds: newTaskIds,
-      };
-
-      const newState = {
+      setColumns({
         ...columns,
-        columns: {
-          ...columns.columns,
-          [newColumn.id]: newColumn,
+        [sourceColumn.id]: {
+          ...sourceColumn,
+          taskIds: newTaskIds,
         },
-      };
-
-      setColumns(newState);
+      });
       return;
     }
 
@@ -148,638 +268,517 @@ const KanbanBoard = () => {
       taskIds: destTaskIds,
     };
 
-    const newState = {
+    setColumns({
       ...columns,
-      columns: {
-        ...columns.columns,
-        [newSourceColumn.id]: newSourceColumn,
-        [newDestColumn.id]: newDestColumn,
-      },
-    };
-
-    setColumns(newState);
-    toast.success(`Tâche déplacée vers ${destColumn.title}`);
-  };
-
-  const handleTaskModal = (task = null, columnId = null) => {
-    setCurrentTask(task ? { ...task } : { columnId });
-    setShowTaskModal(true);
-  };
-
-  const handleColumnModal = (column = null) => {
-    setCurrentColumn(column ? { ...column } : {});
-    setShowColumnModal(true);
-  };
-
-  const handleSaveTask = (task) => {
-    let newState = { ...columns };
-
-    if (task.id) {
-      newState.tasks[task.id] = task;
-      toast.success('Tâche mise à jour avec succès');
-    } else {
-      const taskId = `task-${Date.now()}`;
-      const newTask = {
-        id: taskId,
-        ...task,
-      };
-      newState.tasks[taskId] = newTask;
-      newState.columns[task.columnId].taskIds.push(taskId);
-      toast.success('Tâche ajoutée avec succès');
-    }
-
-    setColumns(newState);
-    setShowTaskModal(false);
-  };
-
-  const handleSaveColumn = (column) => {
-    let newState = { ...columns };
-
-    if (column.id) {
-      newState.columns[column.id].title = column.title;
-      toast.success('Colonne mise à jour avec succès');
-    } else {
-      const columnId = `column-${Date.now()}`;
-      const newColumn = {
-        id: columnId,
-        title: column.title,
-        taskIds: [],
-      };
-      newState.columns[columnId] = newColumn;
-      newState.columnOrder.push(columnId);
-      toast.success('Colonne ajoutée avec succès');
-    }
-
-    setColumns(newState);
-    setShowColumnModal(false);
-  };
-
-  const handleDeleteTask = (taskId) => {
-    let newState = { ...columns };
-
-    let columnId = null;
-    for (const colId in newState.columns) {
-      if (newState.columns[colId].taskIds.includes(taskId)) {
-        columnId = colId;
-        break;
-      }
-    }
-
-    if (columnId) {
-      newState.columns[columnId].taskIds = newState.columns[columnId].taskIds.filter(
-        (id) => id !== taskId
-      );
-      delete newState.tasks[taskId];
-      setColumns(newState);
-      toast.success('Tâche supprimée avec succès');
-    }
-  };
-
-  const handleDeleteColumn = (columnId) => {
-    let newState = { ...columns };
-
-    const taskIdsToDelete = newState.columns[columnId].taskIds;
-    taskIdsToDelete.forEach((taskId) => {
-      delete newState.tasks[taskId];
+      [newSourceColumn.id]: newSourceColumn,
+      [newDestColumn.id]: newDestColumn,
     });
 
-    delete newState.columns[columnId];
-    newState.columnOrder = newState.columnOrder.filter((id) => id !== columnId);
-
-    setColumns(newState);
-    toast.success('Colonne supprimée avec succès');
+    message.success(`Tâche déplacée vers ${destColumn.title}`);
   };
 
-  if (isLoading) {
-    return <div className="loading">Chargement du tableau Kanban...</div>;
+  // Compléter une tâche
+  const handleCompleteTask = async (taskId) => {
+    try {
+      setCompletingTaskId(taskId);
+      const task = tasks[taskId];
+      
+      if (!task || !task.bpmnData) {
+        message.error('Impossible de compléter cette tâche');
+        return;
+      }
+
+      console.log('🔄 Completion de la tâche BPMN:', taskId);
+      
+      const response = await UserTaskService.completeTask(taskId, {
+        completedViaKanban: true,
+        completedAt: new Date().toISOString(),
+        completedBy: selectedUserId
+      });
+      
+      console.log('✅ Tâche complétée:', response.data);
+      
+      message.success(`Tâche "${task.title}" complétée avec succès!`);
+      
+      if (response.data.nextTasks && response.data.nextTasks.length > 0) {
+        message.info(`${response.data.nextTasks.length} nouvelle(s) tâche(s) créée(s)`);
+      }
+      
+      // Recharger les tâches
+      await loadUserBpmnTasks(selectedUserId);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la completion:', error);
+      message.error('Erreur lors de la completion: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setCompletingTaskId(null);
+    }
+  };
+
+  // Afficher les détails d'une tâche
+  const showTaskDetails = (task) => {
+    setSelectedTask(task);
+    setDetailModalVisible(true);
+  };
+
+  // Rafraîchir les tâches
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadUserBpmnTasks(selectedUserId);
+    setRefreshing(false);
+  };
+
+  // Charger les tâches au montage et lors du changement d'utilisateur
+  useEffect(() => {
+    if (selectedUserId) {
+      loadUserBpmnTasks(selectedUserId);
+    }
+  }, [selectedUserId]);
+
+  // Rendu des composants
+  const getPriorityIcon = (priority) => {
+    switch (priority) {
+      case 'high':
+        return <FireOutlined style={{ color: '#ff4d4f' }} />;
+      case 'medium':
+        return <ThunderboltOutlined style={{ color: '#faad14' }} />;
+      case 'low':
+        return <ClockCircleOutlined style={{ color: '#52c41a' }} />;
+      default:
+        return <InfoCircleOutlined style={{ color: '#1890ff' }} />;
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return '#ff4d4f';
+      case 'medium': return '#faad14';
+      case 'low': return '#52c41a';
+      default: return '#1890ff';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'assigned': return 'processing';
+      case 'suspended': return 'warning';
+      case 'unassigned': return 'default';
+      default: return 'default';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Main>
+        <Card>
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>
+              <Text>Chargement des tâches BPMN...</Text>
+            </div>
+          </div>
+        </Card>
+      </Main>
+    );
   }
 
- 
+  const columnOrder = ['todo', 'inprogress', 'done'];
 
   return (
     <Main>
-                <Card 
-                    className="shadow-sm mb-4"
+      {/* En-tête */}
+      <Card style={{ marginBottom: 24 }}>
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Title level={4} style={{ margin: 0 }}>
+              📋 Tableau Kanban des Tâches BPMN
+            </Title>
+            <Text type="secondary">
+              Gérez vos tâches de processus métier en mode Kanban
+            </Text>
+          </Col>
+          <Col>
+            <Space size="middle">
+              <Select
+                value={selectedUserId}
+                onChange={setSelectedUserId}
+                style={{ width: 200 }}
+                placeholder="Sélectionner un utilisateur"
+              >
+                {users.map(user => (
+                  <Option key={user.id} value={user.id}>
+                    <Space>
+                      <Avatar size="small">{user.avatar}</Avatar>
+                      {user.name}
+                    </Space>
+                  </Option>
+                ))}
+              </Select>
+              <Button
+                type="primary"
+                icon={<ReloadOutlined />}
+                loading={refreshing}
+                onClick={handleRefresh}
+              >
+                Actualiser
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Statistiques rapides */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        {columnOrder.map(columnId => {
+          const column = columns[columnId];
+          const count = column ? column.taskIds.length : 0;
+          const config = columnConfig[columnId];
+          
+          return (
+            <Col span={8} key={columnId}>
+              <Card size="small">
+                <Space>
+                  <Avatar 
+                    icon={config.icon} 
+                    style={{ backgroundColor: config.color }}
+                  />
+                  <div>
+                    <Text strong>{config.title}</Text>
+                    <br />
+                    <Text type="secondary">{count} tâche(s)</Text>
+                  </div>
+                </Space>
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+
+      {/* Tableau Kanban */}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Row gutter={16}>
+          {columnOrder.map((columnId) => {
+            const column = columns[columnId];
+            const columnTasks = column ? column.taskIds.map(taskId => tasks[taskId]).filter(Boolean) : [];
+            const config = columnConfig[columnId];
+
+            return (
+              <Col span={8} key={columnId}>
+                <Card
+                  title={
+                    <Space>
+                      {config.icon}
+                      <span>{config.title}</span>
+                      <Badge 
+                        count={columnTasks.length} 
+                        style={{ backgroundColor: config.color }}
+                      />
+                    </Space>
+                  }
+                  size="small"
+                  style={{ height: '70vh' }}
+                  bodyStyle={{ 
+                    padding: '12px',
+                    height: 'calc(100% - 57px)',
+                    overflow: 'auto'
+                  }}
                 >
-                    <div className="d-flex justify-content-between align-items-center p-3">
-                        <div>
-                            <h4 className="mb-0">Gestion des tâches</h4>
-                            <p className="text-muted mb-0">Gérez les tâches de l'application</p>
-                        </div>
-                      
-                    </div>
-                </Card>
-          <Card>
-          <div className="kanban-container">
-          <div className="kanban-header">
-            <h1>Tableau Kanban des Tâches</h1>
-            <button className="btn btn-primary" onClick={() => handleColumnModal()}>
-              <FaPlus /> Ajouter une colonne
-            </button>
-          </div>
-
-          <DragDropContext onDragEnd={onDragEnd}>
-            <div className="kanban-board">
-              {columns.columnOrder.map((columnId) => {
-                const column = columns.columns[columnId];
-                const tasks = column.taskIds.map((taskId) => columns.tasks[taskId]);
-
-                return (
-                  <div className="kanban-column" key={column.id}>
-                    <div className="column-header">
-                      <h2>{column.title}</h2>
-                      <div className="column-actions">
-                        <button
-                          className="btn btn-sm btn-outline"
-                          onClick={() => handleColumnModal(column)}
-                        >
-                          <FaEdit />
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline btn-danger"
-                          onClick={() => handleDeleteColumn(column.id)}
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-sm btn-outline btn-block"
-                      onClick={() => handleTaskModal(null, column.id)}
-                    >
-                      <FaPlus /> Ajouter une tâche
-                    </button>
-                    <Droppable droppableId={column.id}>
-                      {(provided, snapshot) => (
-                        <div
-                          className={`task-list ${
-                            snapshot.isDraggingOver ? 'dragging-over' : ''
-                          }`}
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                        >
-                          {tasks.map((task, index) => (
+                  <Droppable droppableId={columnId}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        style={{
+                          minHeight: '100%',
+                          backgroundColor: snapshot.isDraggingOver ? '#f0f8ff' : 'transparent',
+                          borderRadius: 6,
+                          padding: snapshot.isDraggingOver ? 8 : 0,
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                          {columnTasks.map((task, index) => (
                             <Draggable
                               key={task.id}
                               draggableId={task.id}
                               index={index}
                             >
                               {(provided, snapshot) => (
-                                <div
-                                  className={`task-card ${
-                                    snapshot.isDragging ? 'dragging' : ''
-                                  } priority-${task.priority}`}
+                                <Card
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  onClick={() => setSelectedTask(task)}
+                                  size="small"
+                                  hoverable
+                                  style={{
+                                    transform: snapshot.isDragging ? 'rotate(5deg)' : 'none',
+                                    boxShadow: snapshot.isDragging 
+                                      ? '0 8px 16px rgba(0,0,0,0.15)' 
+                                      : '0 2px 8px rgba(0,0,0,0.1)',
+                                    borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
+                                    cursor: 'pointer'
+                                  }}
+                                  onClick={() => showTaskDetails(task)}
+                                  actions={[
+                                    <Tooltip title="Voir les détails">
+                                      <InfoCircleOutlined 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          showTaskDetails(task);
+                                        }}
+                                      />
+                                    </Tooltip>,
+                                    <Tooltip title="Compléter la tâche">
+                                      <CheckCircleOutlined 
+                                        style={{ color: '#52c41a' }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCompleteTask(task.id);
+                                        }}
+                                      />
+                                    </Tooltip>
+                                  ]}
                                 >
-                                  <div className="task-header">
-                                    <h3>{task.title}</h3>
-                                    <div className="task-actions">
-                                      <button
-                                        className="btn btn-sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleTaskModal(task);
-                                        }}
-                                      >
-                                        <FaEdit />
-                                      </button>
-                                      <button
-                                        className="btn btn-sm btn-danger"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteTask(task.id);
-                                        }}
-                                      >
-                                        <FaTrash />
-                                      </button>
+                                  <Card.Meta
+                                    title={
+                                      <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                                        <Text strong style={{ fontSize: '14px' }}>
+                                          {task.title}
+                                        </Text>
+                                        {getPriorityIcon(task.priority)}
+                                      </Space>
+                                    }
+                                    description={
+                                      <div>
+                                        <Paragraph 
+                                          ellipsis={{ rows: 2 }}
+                                          style={{ fontSize: '12px', margin: '8px 0' }}
+                                        >
+                                          {task.description}
+                                        </Paragraph>
+                                        
+                                        <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                                          <Space size="small">
+                                            {task.assignee.name !== 'Non assigné' && (
+                                              <Tooltip title={task.assignee.email || task.assignee.name}>
+                                                <Avatar size="small" icon={<UserOutlined />}>
+                                                  {task.assignee.name.split(' ').map(n => n[0]).join('')}
+                                                </Avatar>
+                                              </Tooltip>
+                                            )}
+                                            {task.dueDate && (
+                                              <Tooltip title={`Échéance: ${task.dueDate.toLocaleDateString()}`}>
+                                                <ClockCircleOutlined style={{ color: '#faad14' }} />
+                                              </Tooltip>
+                                            )}
+                                          </Space>
+                                          <Tag 
+                                            color={getStatusColor(task.status)}
+                                            style={{ fontSize: '10px', margin: 0 }}
+                                          >
+                                            {task.status === 'suspended' ? 'Suspendu' : 
+                                             task.status === 'assigned' ? 'Assigné' : 'Libre'}
+                                          </Tag>
+                                        </Space>
+
+                                        <div style={{ marginTop: 8 }}>
+                                          {task.labels.slice(0, 2).map((label, i) => (
+                                            <Tag 
+                                              key={i} 
+                                              size="small" 
+                                              style={{ fontSize: '10px', marginBottom: 2 }}
+                                              color={i === 0 ? 'blue' : 'default'}
+                                            >
+                                              {label}
+                                            </Tag>
+                                          ))}
+                                          {task.labels.length > 2 && (
+                                            <Tag size="small" style={{ fontSize: '10px' }}>
+                                              +{task.labels.length - 2}
+                                            </Tag>
+                                          )}
+                                        </div>
+
+                                        <div style={{ marginTop: 4, fontSize: '10px', color: '#8c8c8c' }}>
+                                          ID: {task.bpmnData.taskDefinitionKey}
+                                        </div>
+                                      </div>
+                                    }
+                                  />
+                                  {completingTaskId === task.id && (
+                                    <div style={{ 
+                                      position: 'absolute', 
+                                      top: 0, 
+                                      left: 0, 
+                                      right: 0, 
+                                      bottom: 0, 
+                                      backgroundColor: 'rgba(255,255,255,0.8)', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center',
+                                      borderRadius: 6
+                                    }}>
+                                      <Spin size="small" />
                                     </div>
-                                  </div>
-                                  <p className="task-description">
-                                    {task.description}
-                                  </p>
-                                  <div className="task-meta">
-                                    <div className="task-assignee">
-                                      <FaUser /> {task.assignee}
-                                    </div>
-                                    <div className="task-due-date">
-                                      <FaClock /> {task.dueDate}
-                                    </div>
-                                  </div>
-                                  <div className="task-labels">
-                                    {task.labels.map((label, i) => (
-                                      <span key={i} className="task-label">
-                                        <FaTag /> {label}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
+                                  )}
+                                </Card>
                               )}
                             </Draggable>
                           ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
-                  </div>
-                );
-              })}
-            </div>
-          </DragDropContext>
+                        </Space>
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      </DragDropContext>
 
-          {showTaskModal && (
-            <TaskFormModal
-              task={currentTask}
-              onClose={() => setShowTaskModal(false)}
-              onSave={handleSaveTask}
-            />
-          )}
+      {/* Modal de détails de tâche BPMN */}
+      <Modal
+        title={
+          <Space>
+            <SettingOutlined />
+            <span>Détails de la Tâche BPMN</span>
+            {selectedTask && (
+              <Tag color={getPriorityColor(selectedTask.priority)}>
+                {selectedTask.priority.toUpperCase()}
+              </Tag>
+            )}
+          </Space>
+        }
+        open={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        width={800}
+        footer={[
+          <Button key="refresh" icon={<ReloadOutlined />} onClick={handleRefresh}>
+            Actualiser
+          </Button>,
+          <Button 
+            key="complete" 
+            type="primary" 
+            icon={<CheckCircleOutlined />}
+            loading={completingTaskId === selectedTask?.id}
+            onClick={() => {
+              if (selectedTask) {
+                handleCompleteTask(selectedTask.id);
+                setDetailModalVisible(false);
+              }
+            }}
+          >
+            Compléter la Tâche
+          </Button>,
+          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+            Fermer
+          </Button>
+        ]}
+      >
+        {selectedTask && (
+          <div>
+            <Title level={4}>{selectedTask.title}</Title>
+            <Paragraph>{selectedTask.description}</Paragraph>
 
-          {showColumnModal && (
-            <ColumnModal
-              column={currentColumn}
-              onClose={() => setShowColumnModal(false)}
-              onSave={handleSaveColumn}
-            />
-          )}
+            <Divider orientation="left">Informations BPMN</Divider>
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label="ID Tâche">
+                <Text code>{selectedTask.id}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Clé de définition">
+                <Text code>{selectedTask.bpmnData.taskDefinitionKey}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Instance de processus">
+                <Text code>{selectedTask.bpmnData.processInstanceId}</Text>
+              </Descriptions.Item>
+              <Descriptions.Item label="Date de création">
+                {selectedTask.bpmnData.createTime ? 
+                  new Date(selectedTask.bpmnData.createTime).toLocaleString() : 'N/A'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Statut">
+                <Tag color={getStatusColor(selectedTask.status)}>
+                  {selectedTask.bpmnData.suspended ? 'Suspendu' : 'Actif'}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Configuration">
+                <Tag color={selectedTask.bpmnData.hasConfiguration ? 'success' : 'default'}>
+                  {selectedTask.bpmnData.hasConfiguration ? 'Configurée' : 'Non configurée'}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
 
-          {selectedTask && (
-            <TaskDetailModal 
-              task={selectedTask} 
-              onClose={() => setSelectedTask(null)} 
-            />
-          )}
-        </div>
-      </Card>
+            {selectedTask.bpmnData.hasConfiguration && selectedTask.bpmnData.taskConfiguration && (
+              <>
+                <Divider orientation="left">Configuration de la Tâche</Divider>
+                
+                {selectedTask.bpmnData.taskConfiguration.information && (
+                  <Alert
+                    message="Informations"
+                    description={
+                      <div>
+                        {selectedTask.bpmnData.taskConfiguration.information.workInstructions && (
+                          <p><strong>Instructions:</strong> {selectedTask.bpmnData.taskConfiguration.information.workInstructions}</p>
+                        )}
+                        {selectedTask.bpmnData.taskConfiguration.information.expectedDeliverable && (
+                          <p><strong>Livrable attendu:</strong> {selectedTask.bpmnData.taskConfiguration.information.expectedDeliverable}</p>
+                        )}
+                      </div>
+                    }
+                    type="info"
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+
+                {selectedTask.bpmnData.taskConfiguration.habilitation && (
+                  <Alert
+                    message="Assignation"
+                    description={
+                      <Descriptions column={1} size="small">
+                        {selectedTask.bpmnData.taskConfiguration.habilitation.assignedUser && (
+                          <Descriptions.Item label="Utilisateur assigné">
+                            <Space>
+                              <Avatar size="small" icon={<UserOutlined />} />
+                              {selectedTask.bpmnData.taskConfiguration.habilitation.assignedUser.firstName} {selectedTask.bpmnData.taskConfiguration.habilitation.assignedUser.lastName}
+                              <Text type="secondary">({selectedTask.bpmnData.taskConfiguration.habilitation.assignedUser.email})</Text>
+                            </Space>
+                          </Descriptions.Item>
+                        )}
+                        {selectedTask.bpmnData.assignedGroupInfo && (
+                          <Descriptions.Item label="Groupe assigné">
+                            <Tag>{selectedTask.bpmnData.assignedGroupInfo.name}</Tag>
+                          </Descriptions.Item>
+                        )}
+                        {selectedTask.bpmnData.assignedEntityInfo && (
+                          <Descriptions.Item label="Entité assignée">
+                            <Tag color="purple">{selectedTask.bpmnData.assignedEntityInfo.name}</Tag>
+                          </Descriptions.Item>
+                        )}
+                      </Descriptions>
+                    }
+                    type="success"
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+              </>
+            )}
+
+            <Divider orientation="left">Étiquettes</Divider>
+            <Space wrap>
+              {selectedTask.labels.map((label, i) => (
+                <Tag 
+                  key={i} 
+                  color={i === 0 ? 'blue' : 'default'}
+                >
+                  {label}
+                </Tag>
+              ))}
+            </Space>
+          </div>
+        )}
+      </Modal>
     </Main>
   );
 };
 
-// Modal de formulaire pour tâche (existant)
-const TaskFormModal = ({ task, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
-    id: task?.id || '',
-    title: task?.title || '',
-    description: task?.description || '',
-    assignee: task?.assignee || '',
-    dueDate: task?.dueDate || '',
-    priority: task?.priority || 'medium',
-    labels: task?.labels || [],
-    columnId: task?.columnId || task?.id ? '' : task.columnId,
-  });
-
-  const [labelInput, setLabelInput] = useState('');
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
-
-  const handleAddLabel = () => {
-    if (labelInput.trim() !== '') {
-      setFormData({
-        ...formData,
-        labels: [...formData.labels, labelInput.trim()],
-      });
-      setLabelInput('');
-    }
-  };
-
-  const handleRemoveLabel = (index) => {
-    const newLabels = [...formData.labels];
-    newLabels.splice(index, 1);
-    setFormData({
-      ...formData,
-      labels: newLabels,
-    });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>{task?.id ? 'Modifier la tâche' : 'Ajouter une tâche'}</h2>
-          <button className="btn-close" onClick={onClose}>
-            &times;
-          </button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="title">Titre</label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="description">Description</label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows="3"
-            ></textarea>
-          </div>
-          <div className="form-group">
-            <label htmlFor="assignee">Assigné à</label>
-            <input
-              type="text"
-              id="assignee"
-              name="assignee"
-              value={formData.assignee}
-              onChange={handleChange}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="dueDate">Date d'échéance</label>
-            <input
-              type="date"
-              id="dueDate"
-              name="dueDate"
-              value={formData.dueDate}
-              onChange={handleChange}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="priority">Priorité</label>
-            <select
-              id="priority"
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-            >
-              <option value="low">Basse</option>
-              <option value="medium">Moyenne</option>
-              <option value="high">Haute</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Étiquettes</label>
-            <div className="label-input-container">
-              <input
-                type="text"
-                value={labelInput}
-                onChange={(e) => setLabelInput(e.target.value)}
-                placeholder="Ajouter une étiquette"
-              />
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={handleAddLabel}
-              >
-                <FaPlus />
-              </button>
-            </div>
-            <div className="labels-container">
-              {formData.labels.map((label, index) => (
-                <div key={index} className="label-item">
-                  <span>{label}</span>
-                  <button
-                    type="button"
-                    className="btn-remove-label"
-                    onClick={() => handleRemoveLabel(index)}
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {task?.id ? 'Mettre à jour' : 'Ajouter'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Modal pour colonnes (existant)
-const ColumnModal = ({ column, onClose, onSave }) => {
-  const [title, setTitle] = useState(column?.title || '');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave({
-      id: column?.id || '',
-      title,
-    });
-  };
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>{column?.id ? 'Modifier la colonne' : 'Ajouter une colonne'}</h2>
-          <button className="btn-close" onClick={onClose}>
-            &times;
-          </button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="title">Titre</label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary">
-              {column?.id ? 'Mettre à jour' : 'Ajouter'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Nouveau modal de détail de tâche
-const TaskDetailModal = ({ task, onClose }) => {
-  const [attachments, setAttachments] = useState([
-    { name: 'Silly_sight_1.png', date: '21st December, 12:56 PM' },
-    { name: 'All_images.zip', date: '21st December, 12:56 PM' }
-  ]);
-  const [activities, setActivities] = useState([
-    { user: 'Alfen Loebe', action: 'Moved the task "the standard chunk" from Doing to To Do', date: '10:41 AM August 7, 2022' },
-    { user: 'Jessie Samson', action: 'Attached images3.png to the task "the standard chunk"', date: '10:41 AM August 7, 2022' }
-  ]);
-
-  const handleAddAttachment = (file) => {
-    const newAttachment = {
-      name: file.name,
-      date: new Date().toLocaleString('en-US', { 
-        day: 'numeric', 
-        month: 'long', 
-        year: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
-    };
-    setAttachments([...attachments, newAttachment]);
-  };
-
-  const handleDeleteAttachment = (index) => {
-    const newAttachments = [...attachments];
-    newAttachments.splice(index, 1);
-    setAttachments(newAttachments);
-  };
-
-  return (
-    <div className="task-modal-overlay">
-      <div className="task-modal">
-        <div className="task-modal-header">
-          <h2>{task?.title || 'Détails de la tâche'}</h2>
-          <button className="close-btn" onClick={onClose}>
-            <FaTimes />
-          </button>
-        </div>
-
-        <div className="task-modal-body">
-          <div className="task-section">
-            <h3>Description</h3>
-            <p>{task?.description || 'Aucune description fournie.'}</p>
-          </div>
-
-          <div className="task-section">
-            <h3>Board</h3>
-            <div className="board-info">
-              <div className="board-column">
-                <span className="column-name">Phoenix</span>
-                <span className="task-status">Doing</span>
-              </div>
-              <div className="board-details">
-                <div className="detail">
-                  <span className="detail-label">Assigned to</span>
-                  <span className="detail-value">{task?.assignee || 'Non assigné'}</span>
-                </div>
-                <div className="detail">
-                  <span className="detail-label">Priority</span>
-                  <span className={`detail-value priority-${task?.priority || 'medium'}`}>
-                    {task?.priority === 'high' ? 'High' : 
-                     task?.priority === 'low' ? 'Low' : 'Medium'}
-                  </span>
-                </div>
-                <div className="detail">
-                  <span className="detail-label">Category</span>
-                  <span className="detail-value">
-                    {task?.labels?.length ? task.labels[0] : 'Aucune catégorie'}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="task-section">
-            <h3>Attachments</h3>
-            <div className="attachments-list">
-              {attachments.map((attachment, index) => (
-                <div key={index} className="attachment-item">
-                  <div className="attachment-icon">
-                    <FaPaperclip />
-                  </div>
-                  <div className="attachment-info">
-                    <span className="attachment-name">{attachment.name}</span>
-                    <span className="attachment-date">{attachment.date}</span>
-                  </div>
-                  <button 
-                    className="attachment-delete"
-                    onClick={() => handleDeleteAttachment(index)}
-                  >
-                    &times;
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="add-attachment">
-              <label htmlFor="file-upload" className="attachment-upload-btn">
-                <FaPaperclip /> Add an Attachment
-              </label>
-              <input 
-                id="file-upload" 
-                type="file" 
-                onChange={(e) => handleAddAttachment(e.target.files[0])}
-                style={{ display: 'none' }}
-              />
-            </div>
-          </div>
-
-          <div className="task-section">
-            <h3>Actions</h3>
-            <div className="actions-grid">
-              <button className="action-btn">
-                <FaArrowUp /> Move
-              </button>
-              <button className="action-btn">
-                <FaEllipsisH /> Duplicate
-              </button>
-              <button className="action-btn">
-                <FaEllipsisH /> Share
-              </button>
-              <button className="action-btn">
-                <FaEllipsisH /> Create template
-              </button>
-              <button className="action-btn">
-                <FaArrowUp /> Jump to top
-              </button>
-              <button className="action-btn">
-                <FaArchive /> Move to Archive
-              </button>
-              <button className="action-btn danger">
-                <FaTrash /> Move to Trash
-              </button>
-              <button className="action-btn">
-                <FaPrint /> Print/Download
-              </button>
-            </div>
-          </div>
-
-          <div className="task-section">
-            <h3>Activities</h3>
-            <div className="activities-list">
-              {activities.map((activity, index) => (
-                <div key={index} className="activity-item">
-                  <div className="activity-user">{activity.user}</div>
-                  <div className="activity-action">{activity.action}</div>
-                  <div className="activity-date">{activity.date}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="task-modal-footer">
-          <span className="copyright">02.4 © Themewagon</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default KanbanBoard;
+export default KanbanBoardAntd;
