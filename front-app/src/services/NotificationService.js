@@ -10,9 +10,10 @@ class NotificationService {
   }
 
   // Récupérer toutes les notifications d'un utilisateur
-  async getUserNotifications(userId) {
+  async getUserNotifications() {
     try {
-      const response = await axios.get(`${API_URL}/notifications/ user/${userId}`, {
+      // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
+      const response = await axios.get(`${API_URL}/notifications/user/current`, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -23,9 +24,10 @@ class NotificationService {
   }
 
   // Récupérer les notifications non lues d'un utilisateur
-  async getUnreadNotifications(userId) {
+  async getUnreadNotifications() {
     try {
-      const response = await axios.get(`${API_URL}/notifications/user/${userId}/unread`, {
+      // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
+      const response = await axios.get(`${API_URL}/notifications/user/current/unread`, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -36,9 +38,10 @@ class NotificationService {
   }
 
   // Marquer une notification comme lue
-  async markAsRead(notificationId, userId) {
+  async markAsRead(notificationId) {
     try {
-      const response = await axios.post(`${API_URL}/notifications/${notificationId}/read?userId=${userId}`, {
+      // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
+      const response = await axios.post(`${API_URL}/notifications/${notificationId}/read`, {}, {
         headers: this.getHeaders(),
       });
       return response.data;

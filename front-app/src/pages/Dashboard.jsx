@@ -22,16 +22,16 @@ function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   
-  // ID utilisateur (à remplacer par l'ID de l'utilisateur connecté)
-  const userId = '1';
+  // Utiliser le token d'authentification au lieu de l'ID utilisateur
+  // Le token contient déjà l'identité de l'utilisateur
 
   // Charger les données au chargement du composant
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
-        // Charger les tâches
-        const tasksData = await taskService.getUserTasks(userId);
+        // Charger les tâches en utilisant le token d'authentification
+        const tasksData = await taskService.getUserTasks();
         setTasks(tasksData);
         
         // Calculer les statistiques des tâches
@@ -42,12 +42,12 @@ function Dashboard() {
           return new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED';
         }).length;
         
-        // Charger les notifications
-        const notificationsData = await notificationService.getUserNotifications(userId);
+        // Charger les notifications en utilisant le token d'authentification
+        const notificationsData = await notificationService.getUserNotifications();
         setNotifications(notificationsData);
         
-        // Charger les workflows actifs
-        const workflowsData = await workflowService.getActiveInstances(userId);
+        // Charger les workflows actifs en utilisant le token d'authentification
+        const workflowsData = await workflowService.getActiveInstances();
         setWorkflows(workflowsData);
         
         // Mettre à jour les statistiques
@@ -136,7 +136,7 @@ function Dashboard() {
     fetchDashboardData();
     
     // Configurer WebSocket pour les mises à jour en temps réel
-    webSocketService.connect(userId)
+    webSocketService.connect()
       .then(() => {
         console.log('WebSocket connecté pour le tableau de bord');
         
@@ -164,12 +164,12 @@ function Dashboard() {
       .catch(error => {
         console.error('Erreur de connexion WebSocket:', error);
       });
-  }, [userId]);
+  }, []);
   
   // Marquer une tâche comme terminée
   const completeTask = async (taskId) => {
     try {
-      await taskService.completeTask(taskId, userId);
+      await taskService.completeTask(taskId);
       
       // Mettre à jour l'état local
       setTasks(prevTasks => 

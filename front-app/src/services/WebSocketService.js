@@ -28,10 +28,7 @@ class WebSocketService {
     };
   }
 
-  connect(userId) {
-    // Stocker l'userId pour les reconnexions
-    this.userId = userId || this.userId;
-    
+  connect() {
     if (this.connectionPromise && this.connected) {
       return this.connectionPromise;
     }
@@ -68,15 +65,11 @@ class WebSocketService {
           this.connected = true;
           this.connectionPromise = Promise.resolve(true);
           
-          // S'abonner aux notifications personnelles
-          if (this.userId) {
-            console.log(`Auto-subscribing user ${this.userId} to notifications`);
-            this.subscribeToUserNotifications(this.userId)
-              .then(() => console.log('Successfully subscribed to notifications'))
-              .catch(err => console.error('Failed to subscribe to notifications:', err));
-          } else {
-            console.warn('No userId available for subscription');
-          }
+          // S'abonner aux notifications personnelles en utilisant le token
+          console.log('Auto-subscribing to notifications using token');
+          this.subscribeToUserNotifications()
+            .then(() => console.log('Successfully subscribed to notifications'))
+            .catch(err => console.error('Failed to subscribe to notifications:', err));
           
           resolve(true);
         };
@@ -126,24 +119,22 @@ class WebSocketService {
     }
   }
 
-  subscribeToUserNotifications(userId) {
+  subscribeToUserNotifications() {
     if (!this.connected || !this.stompClient) {
       console.error('Cannot subscribe: WebSocket not connected');
       // Tenter de se reconnecter automatiquement
-      this.connect(userId);
+      this.connect();
       return Promise.reject('WebSocket not connected');
     }
     
     // Désabonner les anciennes souscriptions si elles existent
-    if (this.subscriptions[userId]) {
-      this.unsubscribeFromUserNotifications(userId);
-    }
+    this.unsubscribeFromAllNotifications();
 
-    console.log(`Subscribing to notifications for user ${userId}`);
+    console.log('Subscribing to notifications using token');
 
     // S'abonner aux notifications
     const notificationsSubscription = this.stompClient.subscribe(
-      `/user/${userId}/queue/notifications`,
+      '/user/queue/notifications',
       message => {
         try {
           console.log('Received notification:', message);
@@ -159,7 +150,7 @@ class WebSocketService {
 
     // S'abonner au compteur de notifications non lues
     const countSubscription = this.stompClient.subscribe(
-      `/user/${userId}/queue/notifications/count`,
+      '/user/queue/notifications/count',
       message => {
         try {
           console.log('Received notification count:', message);
@@ -174,39 +165,39 @@ class WebSocketService {
     );
 
     // Stocker les abonnements pour pouvoir se désabonner plus tard
-    this.subscriptions[userId] = {
+    this.subscriptions = {
       notifications: notificationsSubscription,
       count: countSubscription
     };
 
-    console.log(`Successfully subscribed to notifications for user ${userId}`);
+    console.log('Successfully subscribed to notifications using token');
     return Promise.resolve(true);
   }
 
-  unsubscribeFromUserNotifications(userId) {
-    if (this.subscriptions[userId]) {
-      if (this.subscriptions[userId].notifications) {
-        this.subscriptions[userId].notifications.unsubscribe();
+  unsubscribeFromAllNotifications() {
+    if (this.subscriptions) {
+      if (this.subscriptions.notifications) {
+        this.subscriptions.notifications.unsubscribe();
       }
-      if (this.subscriptions[userId].count) {
-        this.subscriptions[userId].count.unsubscribe();
+      if (this.subscriptions.count) {
+        this.subscriptions.count.unsubscribe();
       }
-      delete this.subscriptions[userId];
+      this.subscriptions = {};
     }
   }
 
-  markNotificationAsRead(notificationId, userId) {
+  markNotificationAsRead(notificationId) {
     if (!this.connected || !this.stompClient) {
       console.error('Cannot send message: WebSocket not connected');
       return Promise.reject('WebSocket not connected');
     }
 
-    console.log(`Marking notification ${notificationId} as read for user ${userId}`);
+    console.log(`Marking notification ${notificationId} as read`);
     
     this.stompClient.publish({
       destination: '/app/notifications/read',
       headers: {},
-      body: JSON.stringify({ notificationId, userId })
+      body: JSON.stringify({ notificationId })
     });
     
     return Promise.resolve(true);

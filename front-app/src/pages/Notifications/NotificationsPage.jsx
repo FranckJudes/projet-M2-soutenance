@@ -16,29 +16,21 @@ const NotificationsPage = () => {
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
   const [unreadCount, setUnreadCount] = useState(0);
   
-  // Récupérer l'ID utilisateur depuis le stockage local
-  const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+  // Nous n'avons plus besoin de récupérer l'ID utilisateur car nous utilisons le token d'authentification
   
   // État pour suivre la connexion WebSocket
   const [wsConnected, setWsConnected] = useState(false);
 
   // Initialiser la connexion WebSocket
   useEffect(() => {
-    if (!userId) {
-      console.error('Aucun ID utilisateur trouvé pour la connexion WebSocket');
-      return;
-    }
-
-    console.log('Tentative de connexion WebSocket avec l\'ID utilisateur:', userId);
+    console.log('Tentative de connexion WebSocket avec le token JWT');
     
     // Établir la connexion WebSocket
-    webSocketService.connect(userId)
+    webSocketService.connect()
       .then(() => {
         console.log('WebSocket connecté avec succès');
         setWsConnected(true);
-        
-        // S'abonner aux notifications de l'utilisateur
-        return webSocketService.subscribeToUserNotifications(userId);
+        return webSocketService.subscribeToUserNotifications();
       })
       .then(() => {
         console.log('Abonnement aux notifications réussi');
@@ -51,10 +43,10 @@ const NotificationsPage = () => {
     // Nettoyage lors du démontage du composant
     return () => {
       console.log('Déconnexion du WebSocket');
-      webSocketService.unsubscribeFromUserNotifications(userId);
+      webSocketService.unsubscribeFromAllNotifications();
       // Ne pas déconnecter complètement pour permettre aux autres pages de recevoir des notifications
     };
-  }, [userId]); // Se reconnecter si l'ID utilisateur change
+  }, []); // Plus besoin de dépendre de userId car on utilise le token
 
   // Écouter les notifications en temps réel
   useEffect(() => {
@@ -96,7 +88,7 @@ const NotificationsPage = () => {
     const fetchNotifications = async () => {
       try {
         setIsLoading(true);
-        const data = await notificationService.getUserNotifications(userId);
+        const data = await notificationService.getUserNotifications();
         setNotifications(data);
         
         // Compter les notifications non lues
@@ -214,45 +206,9 @@ const NotificationsPage = () => {
     };
     
     fetchNotifications();
-  }, [userId]);
+  }, []);
   
-  // Configurer la connexion WebSocket pour les notifications en temps réel
-  useEffect(() => {
-    // Se connecter au WebSocket
-    webSocketService.connect(userId)
-      .then(() => {
-        console.log('WebSocket connecté avec succès');
-        
-        // Écouter les nouvelles notifications
-        const handleNewNotification = (event) => {
-          const newNotification = event.detail;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(prev => prev + 1);
-          toast.success(`Nouvelle notification: ${newNotification.title}`);
-        };
-        
-        // Écouter les mises à jour du compteur de notifications
-        const handleNotificationCount = (event) => {
-          const count = event.detail;
-          setUnreadCount(count);
-        };
-        
-        // Ajouter les écouteurs d'événements
-        window.addEventListener('notification', handleNewNotification);
-        window.addEventListener('notification-count', handleNotificationCount);
-        
-        // Nettoyer les écouteurs lors du démontage du composant
-        return () => {
-          window.removeEventListener('notification', handleNewNotification);
-          window.removeEventListener('notification-count', handleNotificationCount);
-          webSocketService.disconnect();
-        };
-      })
-      .catch(error => {
-        console.error('Erreur de connexion WebSocket:', error);
-        toast.error('Erreur de connexion aux notifications en temps réel');
-      });
-  }, [userId]);
+  // Ce useEffect est supprimé car il fait double emploi avec celui ci-dessus
 
   // Marquer une notification comme lue
   const markAsRead = (id) => {
