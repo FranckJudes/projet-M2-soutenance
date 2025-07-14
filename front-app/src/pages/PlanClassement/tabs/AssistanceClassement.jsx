@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { FileManager } from "@cubone/react-file-manager";
-
- import "@cubone/react-file-manager/dist/style.css";
 
 import {
     getAllFileSchemes,
@@ -23,7 +20,22 @@ import {
     Spin, 
     Tooltip, 
     Divider,
-    message
+    message,
+    Tree,
+    Dropdown,
+    Empty,
+    Row,
+    Col,
+    Descriptions,
+    Tag,
+    Menu,
+    Select,
+    Table,
+    Breadcrumb,
+    Layout,
+    List,
+    Avatar,
+    Badge
 } from 'antd';
 import { 
     FolderOutlined, 
@@ -32,11 +44,27 @@ import {
     DeleteOutlined, 
     PlusOutlined, 
     InfoCircleOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    MoreOutlined,
+    FolderOpenOutlined,
+    EyeOutlined,
+    FolderAddOutlined,
+    FileAddOutlined,
+    SearchOutlined,
+    DownloadOutlined,
+    HomeOutlined,
+    FileTextOutlined,
+    FilePdfOutlined,
+    FileWordOutlined,
+    FileExcelOutlined,
+    FilePptOutlined,
+    FileImageOutlined
 } from '@ant-design/icons';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
+const { Option } = Select;
+const { Sider, Content } = Layout;
 
 const AssistanceClassement = () => {
     const { t } = useTranslation();
@@ -44,79 +72,55 @@ const AssistanceClassement = () => {
     
     const [loading, setLoading] = useState(false);
     const [files, setFiles] = useState([]);
+    const [currentFolder, setCurrentFolder] = useState(null);
+    const [breadcrumb, setBreadcrumb] = useState([{ name: 'Racine', id: null }]);
     const [showModal, setShowModal] = useState(false);
+    const [modalType, setModalType] = useState('folder'); // 'folder' ou 'document'
     const [formData, setFormData] = useState({
-        name: "",
-        isDirectory: true,
-        path: "",
-        description: ""
+        label: "",
+        description: "",
+        type: "DOSSIER",
+        colorSeries: "#1890ff",
+        iconSeries: "folder"
     });
-    const [editingFile, setEditingFile] = useState(null);
-    const [selectedFile, setSelectedFile] = useState(null);
+    const [editingItem, setEditingItem] = useState(null);
+    const [searchText, setSearchText] = useState("");
     
-    // Transformer les file schemes en structure de fichiers
-    const transformToFileStructure = (fileSchemes) => {
-        if (!fileSchemes || fileSchemes.length === 0) return [];
-        
-        return fileSchemes.map(scheme => {
-            const path = scheme.parentId 
-                ? `/${scheme.id || scheme.file_scheme_id}`
-                : `/${scheme.id || scheme.file_scheme_id}`;
-                
-            const fileObj = {
-                name: scheme.label, // Utiliser label au lieu de name
-                isDirectory: scheme.iconSeries === "folder", // Déterminer si c'est un dossier basé sur iconSeries
-                path: path,
-                updatedAt: scheme.updatedAt || new Date().toISOString(),
-                description: scheme.description,
-                file_scheme_id: scheme.id || scheme.file_scheme_id,
-                parentId: scheme.parentId,
-                colorSeries: scheme.colorSeries,
-                iconSeries: scheme.iconSeries,
-                type: scheme.type,
-                planId: scheme.planId,
-                documentId: scheme.documentId,
-                workflowId: scheme.workflowId
-            };
-            
-            if (scheme.children && scheme.children.length > 0) {
-                fileObj.children = transformToFileStructure(scheme.children);
-            }
-            
-            return fileObj;
-        });
-    };
+    // Types de documents supportés
+    const documentTypes = [
+        { value: 'DOCUMENT', label: 'Document général', icon: <FileTextOutlined /> },
+        { value: 'PDF', label: 'Document PDF', icon: <FilePdfOutlined /> },
+        { value: 'WORD', label: 'Document Word', icon: <FileWordOutlined /> },
+        { value: 'EXCEL', label: 'Tableur Excel', icon: <FileExcelOutlined /> },
+        { value: 'POWERPOINT', label: 'Présentation PowerPoint', icon: <FilePptOutlined /> },
+        { value: 'IMAGE', label: 'Image', icon: <FileImageOutlined /> }
+    ];
+    
+    // Couleurs disponibles
+    const colors = [
+        '#1890ff', '#52c41a', '#fa8c16', '#f5222d', 
+        '#722ed1', '#13c2c2', '#eb2f96', '#faad14'
+    ];
     
     // Fonction pour transformer les données plates en structure arborescente
     const transformToTreeData = (flatData) => {
         const idMapping = flatData.reduce((acc, el) => {
-            acc[el.id || el.file_scheme_id] = el;
+            acc[el.id] = el;
             return acc;
         }, {});
         
         const root = [];
         
         flatData.forEach(el => {
-            // Adapter les noms de champs si nécessaire
-            if (!el.label && el.name) {
-                el.label = el.name;
-            }
-            
-            // Traiter les éléments avec un parent
-            if (el.parentId) {
-                const parentId = el.parentId;
-                const parent = idMapping[parentId];
-                
-                // Si le parent existe, ajouter l'élément comme enfant
+            if (el.parentId && el.parentId !== 0) {
+                const parent = idMapping[el.parentId];
                 if (parent) {
                     if (!parent.children) parent.children = [];
                     parent.children.push(el);
                 } else {
-                    // Si le parent n'existe pas, ajouter à la racine
                     root.push(el);
                 }
             } else {
-                // Les éléments sans parent vont à la racine
                 root.push(el);
             }
         });
@@ -124,7 +128,7 @@ const AssistanceClassement = () => {
         return root;
     };
     
-    // Charger les données au chargement du composant
+    // Charger les données
     useEffect(() => {
         fetchData();
     }, []);
@@ -134,10 +138,8 @@ const AssistanceClassement = () => {
         try {
             const response = await getAllFileSchemes();
             if (response && response.data) {
-                // Transformer les données plates en structure arborescente
                 const treeData = transformToTreeData(response.data);
-                const fileStructure = transformToFileStructure(treeData);
-                setFiles(fileStructure);
+                setFiles(treeData);
             }
         } catch (error) {
             console.error("Erreur lors du chargement des données", error);
@@ -147,89 +149,138 @@ const AssistanceClassement = () => {
         }
     };
     
-    // Gérer la sélection d'un fichier
-    const handleFileSelect = (file) => {
-        setSelectedFile(file);
-        console.log("Fichier sélectionné:", file);
-    };
-    
-    // Gérer l'ajout d'un nouveau dossier
-    const handleAddFolder = (parentFile = null) => {
-        setEditingFile(null);
-        setFormData({
-            name: "",
-            isDirectory: true,
-            path: "",
-            description: "",
-            parentId: parentFile ? parentFile.file_scheme_id : null
-        });
-        setShowModal(true);
-    };
-    
-    // Gérer l'ajout d'un sous-dossier
-    const handleAddSubFolder = (parentFile) => {
-        if (!parentFile || !parentFile.file_scheme_id) {
-            message.error("Impossible d'ajouter un sous-dossier : parent invalide");
-            return;
-        }
-        handleAddFolder(parentFile);
-    };
-    
-    // Gérer la modification d'un dossier
-    const handleEditFolder = (file) => {
-        setEditingFile(file);
-        setFormData({
-            name: file.name,
-            isDirectory: file.isDirectory,
-            path: file.path,
-            description: file.description
-        });
-        setShowModal(true);
-    };
-    
-    // Gérer la suppression d'un dossier
-    const handleDeleteFolder = (file) => {
-        if (!file || !file.file_scheme_id) {
-            message.error("Impossible de supprimer ce dossier : ID manquant");
-            return;
+    // Obtenir les éléments du dossier actuel
+    const getCurrentItems = () => {
+        if (!currentFolder) {
+            return files.filter(item => 
+                searchText === "" || 
+                item.label.toLowerCase().includes(searchText.toLowerCase())
+            );
         }
         
+        const folder = findItemById(files, currentFolder.id);
+        return folder && folder.children ? 
+            folder.children.filter(item => 
+                searchText === "" || 
+                item.label.toLowerCase().includes(searchText.toLowerCase())
+            ) : [];
+    };
+    
+    // Trouver un élément par ID
+    const findItemById = (items, id) => {
+        for (const item of items) {
+            if (item.id === id) return item;
+            if (item.children) {
+                const found = findItemById(item.children, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+    
+    // Navigation dans les dossiers
+    const navigateToFolder = (folder) => {
+        setCurrentFolder(folder);
+        
+        // Construire le breadcrumb
+        const newBreadcrumb = [{ name: 'Racine', id: null }];
+        if (folder) {
+            // Ici vous pourriez construire le chemin complet si nécessaire
+            newBreadcrumb.push({ name: folder.label, id: folder.id });
+        }
+        setBreadcrumb(newBreadcrumb);
+    };
+    
+    // Navigation breadcrumb
+    const navigateToBreadcrumb = (item) => {
+        if (item.id === null) {
+            setCurrentFolder(null);
+            setBreadcrumb([{ name: 'Racine', id: null }]);
+        } else {
+            const folder = findItemById(files, item.id);
+            navigateToFolder(folder);
+        }
+    };
+    
+    // Obtenir l'icône selon le type
+    const getItemIcon = (item) => {
+        if (item.type === 'DOSSIER' || item.iconSeries === 'folder') {
+            return <FolderOutlined style={{ fontSize: '24px', color: item.colorSeries || '#1890ff' }} />;
+        }
+        
+        const docType = documentTypes.find(type => type.value === item.type);
+        return docType ? 
+            React.cloneElement(docType.icon, { style: { fontSize: '24px', color: item.colorSeries || '#52c41a' } }) :
+            <FileTextOutlined style={{ fontSize: '24px', color: item.colorSeries || '#52c41a' }} />;
+    };
+    
+    // Ouvrir le modal pour créer un dossier
+    const handleCreateFolder = () => {
+        setModalType('folder');
+        setEditingItem(null);
+        setFormData({
+            label: "",
+            description: "",
+            type: "DOSSIER",
+            colorSeries: "#1890ff",
+            iconSeries: "folder"
+        });
+        setShowModal(true);
+    };
+    
+    // Ouvrir le modal pour créer un document
+    const handleCreateDocument = () => {
+        setModalType('document');
+        setEditingItem(null);
+        setFormData({
+            label: "",
+            description: "",
+            type: "DOCUMENT",
+            colorSeries: "#52c41a",
+            iconSeries: "file"
+        });
+        setShowModal(true);
+    };
+    
+    // Modifier un élément
+    const handleEdit = (item) => {
+        setModalType(item.type === 'DOSSIER' ? 'folder' : 'document');
+        setEditingItem(item);
+        setFormData({
+            label: item.label,
+            description: item.description,
+            type: item.type,
+            colorSeries: item.colorSeries,
+            iconSeries: item.iconSeries
+        });
+        setShowModal(true);
+    };
+    
+    // Supprimer un élément
+    const handleDelete = (item) => {
         Modal.confirm({
-            title: t("Confirmation de suppression"),
-            content: t("Êtes-vous sûr de vouloir supprimer ce dossier ?"),
-            okText: t("Oui"),
-            cancelText: t("Non"),
+            title: `Supprimer ${item.type === 'DOSSIER' ? 'le dossier' : 'le document'}`,
+            content: `Êtes-vous sûr de vouloir supprimer "${item.label}" ?`,
+            okText: "Supprimer",
+            cancelText: "Annuler",
+            okType: "danger",
             onOk: async () => {
                 try {
                     setLoading(true);
-                    const response = await deleteFileScheme(file.file_scheme_id);
+                    const response = await deleteFileScheme(item.id);
                     if (response && response.success) {
-                        message.success("Dossier supprimé avec succès");
-                        
-                        // Recharger les données
-                        const apiResponse = await getAllFileSchemes();
-                        if (apiResponse && apiResponse.data) {
-                            const treeData = transformToTreeData(apiResponse.data);
-                            const fileStructure = transformToFileStructure(treeData);
-                            setFiles(fileStructure);
-                        }
-                        setSelectedFile(null);
+                        message.success(`${item.type === 'DOSSIER' ? 'Dossier' : 'Document'} supprimé avec succès`);
+                        await fetchData();
                         showToast({
                             title: "Succès",
-                            message: "Dossier supprimé avec succès.",
+                            message: `${item.type === 'DOSSIER' ? 'Dossier' : 'Document'} supprimé avec succès.`,
                             color: "green",
                             position: "topRight",
                         });
                     }
                 } catch (error) {
                     console.error("Erreur lors de la suppression", error);
-                    message.error("Erreur lors de la suppression du dossier");
-                    showToast({
-                        title: "Erreur",
-                        message: "Impossible de supprimer le dossier.",
-                        color: "red",
-                        position: "topRight",
-                    });
+                    message.error("Erreur lors de la suppression");
                 } finally {
                     setLoading(false);
                 }
@@ -237,183 +288,365 @@ const AssistanceClassement = () => {
         });
     };
     
-    // Gérer la soumission du formulaire
+    // Soumettre le formulaire
     const handleSubmit = (values) => {
         setLoading(true);
         
-        // Préparer les données pour l'API
         const apiData = {
-            name: values.name, // Le FileSchemeApi.jsx convertira name en label
+            label: values.label,
             description: values.description,
-            isDirectory: true,
-            parentId: editingFile?.parentId || formData.parentId || null,
-            colorSeries: values.colorSeries || "#3498db",
-            iconSeries: "folder", // Toujours un dossier
-            type: values.type || "1",
-            planId: values.planId || null,
-            documentId: values.documentId || null,
-            workflowId: values.workflowId || null
+            type: values.type,
+            colorSeries: values.colorSeries,
+            iconSeries: modalType === 'folder' ? 'folder' : 'file',
+            parentId: currentFolder ? currentFolder.id : 0,
+            planClassementId: null,
+            typeDocumentId: modalType === 'document' ? 1 : null,
+            workflowId: null
         };
         
-        console.log("Données envoyées au serveur:", apiData);
-        
-        // Déterminer si c'est une création ou une mise à jour
-        const isUpdate = editingFile && editingFile.file_scheme_id;
-        
+        const isUpdate = editingItem && editingItem.id;
         const apiCall = isUpdate
-            ? updateFileScheme(editingFile.file_scheme_id, apiData)
+            ? updateFileScheme(editingItem.id, apiData)
             : createFileScheme(apiData);
         
-        apiCall.then((response) => {
+        apiCall.then(async (response) => {
             if (response && response.success) {
-                message.success(isUpdate ? "Dossier mis à jour avec succès" : "Nouveau dossier créé avec succès");
-                showToast({
-                    title: "Succès",
-                    message: isUpdate ? "Dossier mis à jour avec succès" : "Nouveau dossier ajouté.",
-                    color: "green",
-                    position: "topRight",
-                });
+                message.success(isUpdate ? 
+                    `${modalType === 'folder' ? 'Dossier' : 'Document'} mis à jour avec succès` : 
+                    `${modalType === 'folder' ? 'Dossier' : 'Document'} créé avec succès`
+                );
                 
-                // Recharger les données
-                getAllFileSchemes().then(apiResponse => {
-                    if (apiResponse && apiResponse.data) {
-                        const treeData = transformToTreeData(apiResponse.data);
-                        const fileStructure = transformToFileStructure(treeData);
-                        setFiles(fileStructure);
-                    }
-                    
-                    setShowModal(false);
-                    setEditingFile(null);
-                    setFormData({
-                        name: "",
-                        isDirectory: true,
-                        path: "",
-                        description: ""
-                    });
-                });
-            } else {
-                message.error("Erreur lors de l'opération");
-                showToast({
-                    title: "Erreur",
-                    message: "Impossible de traiter votre demande.",
-                    color: "red",
-                    position: "topRight",
-                });
+                await fetchData();
+                setShowModal(false);
+                setEditingItem(null);
             }
         }).catch(error => {
             console.error("Erreur lors de la soumission", error);
             message.error("Erreur lors de la soumission du formulaire");
-            showToast({
-                title: "Erreur",
-                message: "Impossible de traiter votre demande.",
-                color: "red",
-                position: "topRight",
-            });
         }).finally(() => {
             setLoading(false);
         });
     };
     
-    // Rafraîchir les données
-    const refreshData = async () => {
-        setLoading(true);
-        try {
-            const response = await getAllFileSchemes();
-            if (response && response.data) {
-                const treeData = transformToTreeData(response.data);
-                const fileStructure = transformToFileStructure(treeData);
-                setFiles(fileStructure);
-                message.success("Données rafraîchies avec succès");
+    // Menu d'actions pour chaque élément
+    const getActionMenu = (item) => {
+        const menuItems = [
+            {
+                key: 'edit',
+                icon: <EditOutlined />,
+                label: 'Modifier',
+                onClick: () => handleEdit(item)
+            },
+            {
+                key: 'delete',
+                icon: <DeleteOutlined />,
+                label: 'Supprimer',
+                danger: true,
+                onClick: () => handleDelete(item)
             }
-        } catch (error) {
-            console.error("Erreur lors du rafraîchissement", error);
-            message.error("Impossible de rafraîchir les données");
-        } finally {
-            setLoading(false);
+        ];
+
+        if (item.type === 'DOSSIER') {
+            menuItems.unshift({
+                key: 'open',
+                icon: <FolderOpenOutlined />,
+                label: 'Ouvrir',
+                onClick: () => navigateToFolder(item)
+            });
+        } else {
+            menuItems.unshift({
+                key: 'download',
+                icon: <DownloadOutlined />,
+                label: 'Télécharger',
+                onClick: () => console.log('Télécharger', item)
+            });
         }
+
+        return <Menu items={menuItems} />;
     };
+    
+    const currentItems = getCurrentItems();
     
     return (
         <Spin spinning={loading} tip="Chargement...">
-            <div style={{ padding: '20px' }}>
-                <Card>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                        <Title level={4}>Assistance au classement - FileScheme</Title>
-                        <Space>
-                            <Button 
-                                type="primary" 
-                                icon={<PlusOutlined />} 
-                                onClick={handleAddFolder}
-                            >
-                                {t("Ajouter un dossier")}
-                            </Button>
-                            <Button 
-                                icon={<ReloadOutlined />} 
-                                onClick={refreshData}
-                            >
-                                {t("Rafraîchir")}
-                            </Button>
-                        </Space>
-                    </div>
+            <Layout style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+                {/* En-tête */}
+                <div style={{ 
+                    backgroundColor: 'white', 
+                    padding: '16px 24px', 
+                    borderBottom: '1px solid #f0f0f0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                    <Row justify="space-between" align="middle">
+                        <Col>
+                            <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+                                <FolderOpenOutlined style={{ marginRight: 8 }} />
+                                Assistance au classement
+                            </Title>
+                        </Col>
+                        <Col>
+                            <Space>
+                                <Button 
+                                    type="primary" 
+                                    icon={<FolderAddOutlined />}
+                                    onClick={handleCreateFolder}
+                                >
+                                    Nouveau dossier
+                                </Button>
+                                <Button 
+                                    type="default" 
+                                    icon={<FileAddOutlined />}
+                                    onClick={handleCreateDocument}
+                                >
+                                    Nouveau document
+                                </Button>
+                                <Button 
+                                    icon={<ReloadOutlined />}
+                                    onClick={fetchData}
+                                >
+                                    Rafraîchir
+                                </Button>
+                            </Space>
+                        </Col>
+                    </Row>
+                </div>
+                
+                <Content style={{ padding: '24px' }}>
+                    {/* Breadcrumb et recherche */}
+                    <Row justify="space-between" align="middle" style={{ marginBottom: '24px' }}>
+                        <Col>
+                            <Breadcrumb>
+                                <Breadcrumb.Item>
+                                    <HomeOutlined />
+                                </Breadcrumb.Item>
+                                {breadcrumb.map((item, index) => (
+                                    <Breadcrumb.Item 
+                                        key={index}
+                                        onClick={() => navigateToBreadcrumb(item)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        {item.name}
+                                    </Breadcrumb.Item>
+                                ))}
+                            </Breadcrumb>
+                        </Col>
+                        <Col>
+                            <Input
+                                placeholder="Rechercher..."
+                                prefix={<SearchOutlined />}
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                                style={{ width: 300 }}
+                                allowClear
+                            />
+                        </Col>
+                    </Row>
                     
-                    <div style={{ border: '1px solid #f0f0f0', borderRadius: '8px', padding: '16px' }}>
-                        <FileManager 
-                            files={files} 
-                            onFileSelect={handleFileSelect}
-                            actions={{
-                                onEditFile: handleEditFolder,
-                                onDeleteFile: handleDeleteFolder,
-                                onCreateFolder: handleAddSubFolder
-                            }}
-                        />
-                    </div>
-                </Card>
-            </div>
+                    {/* Grille des éléments */}
+                    <Card bodyStyle={{ padding: '16px' }}>
+                        {currentItems.length > 0 ? (
+                            <Row gutter={[16, 16]}>
+                                {currentItems.map((item) => (
+                                    <Col xs={24} sm={12} md={8} lg={6} xl={4} key={item.id}>
+                                        <Card
+                                            hoverable
+                                            style={{ 
+                                                textAlign: 'center', 
+                                                height: '200px',
+                                                border: '1px solid #f0f0f0',
+                                                transition: 'all 0.3s'
+                                            }}
+                                            bodyStyle={{ 
+                                                padding: '16px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                justifyContent: 'space-between',
+                                                height: '100%'
+                                            }}
+                                            actions={[
+                                                <Dropdown 
+                                                    overlay={getActionMenu(item)} 
+                                                    trigger={['click']}
+                                                    key="actions"
+                                                >
+                                                    <Button 
+                                                        type="text" 
+                                                        icon={<MoreOutlined />}
+                                                        size="small"
+                                                    />
+                                                </Dropdown>
+                                            ]}
+                                            onDoubleClick={() => {
+                                                if (item.type === 'DOSSIER') {
+                                                    navigateToFolder(item);
+                                                }
+                                            }}
+                                        >
+                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                <div style={{ marginBottom: '12px' }}>
+                                                    {getItemIcon(item)}
+                                                </div>
+                                                <Title level={5} style={{ margin: '8px 0 4px 0' }} ellipsis={{ rows: 2 }}>
+                                                    {item.label}
+                                                </Title>
+                                                <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>
+                                                    {item.description}
+                                                </Text>
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <Tag 
+                                                        color={item.type === 'DOSSIER' ? 'blue' : 'green'}
+                                                        size="small"
+                                                    >
+                                                        {item.type === 'DOSSIER' ? 'Dossier' : 'Document'}
+                                                    </Tag>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    </Col>
+                                ))}
+                            </Row>
+                        ) : (
+                            <Empty 
+                                description={
+                                    searchText ? 
+                                    `Aucun résultat pour "${searchText}"` : 
+                                    currentFolder ? 
+                                    "Ce dossier est vide" : 
+                                    "Aucun élément trouvé"
+                                }
+                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            >
+                                <Space>
+                                    <Button 
+                                        type="primary" 
+                                        icon={<FolderAddOutlined />}
+                                        onClick={handleCreateFolder}
+                                    >
+                                        Créer un dossier
+                                    </Button>
+                                    <Button 
+                                        icon={<FileAddOutlined />}
+                                        onClick={handleCreateDocument}
+                                    >
+                                        Créer un document
+                                    </Button>
+                                </Space>
+                            </Empty>
+                        )}
+                    </Card>
+                </Content>
+            </Layout>
             
+            {/* Modal de création/modification */}
             <Modal
-                title={editingFile ? t("Modifier un dossier") : t("Ajouter un nouveau dossier")}
+                title={
+                    <Space>
+                        {modalType === 'folder' ? <FolderOutlined /> : <FileAddOutlined />}
+                        {editingItem ? 
+                            `Modifier ${modalType === 'folder' ? 'le dossier' : 'le document'}` : 
+                            `Créer ${modalType === 'folder' ? 'un nouveau dossier' : 'un nouveau document'}`
+                        }
+                    </Space>
+                }
                 open={showModal}
                 onCancel={() => setShowModal(false)}
                 footer={null}
                 destroyOnClose={true}
+                width={600}
             >
                 <Form
                     layout="vertical"
                     onFinish={handleSubmit}
-                    initialValues={{
-                        name: formData.name,
-                        description: formData.description
-                    }}
-                    name="fileSchemeForm"
+                    initialValues={formData}
+                    name="itemForm"
                 >
                     <Form.Item 
-                        name="name" 
-                        label={t("Nom")} 
-                        rules={[{ required: true, message: 'Veuillez saisir un nom' }]}
+                        name="label" 
+                        label="Nom" 
+                        rules={[
+                            { required: true, message: 'Veuillez saisir un nom' },
+                            { min: 2, message: 'Le nom doit contenir au moins 2 caractères' }
+                        ]}
                     >
                         <Input 
-                            placeholder="Nom du dossier" 
+                            placeholder={`Nom du ${modalType === 'folder' ? 'dossier' : 'document'}`}
+                            prefix={modalType === 'folder' ? <FolderOutlined /> : <FileTextOutlined />}
                         />
                     </Form.Item>
                     
                     <Form.Item 
                         name="description" 
-                        label={t("Description")} 
-                        rules={[{ required: true, message: 'Veuillez saisir une description' }]}
+                        label="Description" 
+                        rules={[
+                            { required: true, message: 'Veuillez saisir une description' }
+                        ]}
                     >
                         <TextArea 
-                            rows={4} 
-                            placeholder="Description du dossier" 
+                            rows={3} 
+                            placeholder="Description détaillée" 
+                            showCount
+                            maxLength={500}
                         />
                     </Form.Item>
                     
-                    <Form.Item>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                            <Button onClick={() => setShowModal(false)}>Annuler</Button>
-                            <Button type="primary" htmlType="submit">
-                                {editingFile ? t("Mettre à jour") : t("Ajouter")}
-                            </Button>
+                    {modalType === 'document' && (
+                        <Form.Item 
+                            name="type" 
+                            label="Type de document" 
+                            rules={[{ required: true, message: 'Veuillez sélectionner un type' }]}
+                        >
+                            <Select placeholder="Sélectionnez le type de document">
+                                {documentTypes.map(type => (
+                                    <Option key={type.value} value={type.value}>
+                                        <Space>
+                                            {type.icon}
+                                            {type.label}
+                                        </Space>
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    )}
+                    
+                    <Form.Item 
+                        name="colorSeries" 
+                        label="Couleur" 
+                    >
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            {colors.map(color => (
+                                <div
+                                    key={color}
+                                    style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        backgroundColor: color,
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        border: formData.colorSeries === color ? '3px solid #000' : '1px solid #d9d9d9'
+                                    }}
+                                    onClick={() => setFormData(prev => ({ ...prev, colorSeries: color }))}
+                                />
+                            ))}
                         </div>
+                    </Form.Item>
+                    
+                    <Form.Item style={{ marginBottom: 0, marginTop: '24px' }}>
+                        <Row justify="end" gutter={8}>
+                            <Col>
+                                <Button onClick={() => setShowModal(false)}>
+                                    Annuler
+                                </Button>
+                            </Col>
+                            <Col>
+                                <Button 
+                                    type="primary" 
+                                    htmlType="submit"
+                                    icon={editingItem ? <EditOutlined /> : <PlusOutlined />}
+                                >
+                                    {editingItem ? 'Mettre à jour' : 'Créer'}
+                                </Button>
+                            </Col>
+                        </Row>
                     </Form.Item>
                 </Form>
             </Modal>

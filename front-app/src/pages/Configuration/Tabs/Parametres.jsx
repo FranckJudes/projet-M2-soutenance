@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, forwardRef, useImperat
 import { Card } from '../../../components/Card.jsx';
 import { styles } from '../../../utils/styles.jsx';
 import { useTranslation } from 'react-i18next';
-import NormalTabs from "../../../components/Tabs.jsx";
+import { NormalTabs } from "../../../components/Tabs.jsx";
 import InformationGeneral from './SubTabParametres/InformationGeneral.jsx';
 import Habilitation from '../../Configuration/Tabs/SubTabParametres/Habilitation.jsx';
 import Planification from './SubTabParametres/Planification.jsx';
@@ -577,12 +577,15 @@ const getResourceData = (taskId) => {
   const transformBpmnToXyflow = useCallback((data, direction) => {
     if (!data) return { nodes: [], edges: [] };
     
+    // Extraire les éléments BPMN de data.data si la structure est {success, message, data}
+    const bpmnElements = data.data ? data.data : data;
+    
     const nodes = [];
     const edges = [];
 
     // Ajouter les tâches qui ne sont pas dans un sous-processus
-    if (Array.isArray(data.tasks)) {
-      data.tasks.forEach((task) => {
+    if (Array.isArray(bpmnElements.tasks)) {
+      bpmnElements.tasks.forEach((task) => {
         if (!isInSubProcess(task.id)) {
           nodes.push({
             id: task.id,
@@ -595,8 +598,8 @@ const getResourceData = (taskId) => {
     }
 
     // Ajouter les événements qui ne sont pas dans un sous-processus
-    if (Array.isArray(data.events)) {
-      data.events.forEach((event) => {
+    if (Array.isArray(bpmnElements.events)) {
+      bpmnElements.events.forEach((event) => {
         if (!isInSubProcess(event.id)) {
           nodes.push({
             id: event.id,
@@ -609,8 +612,8 @@ const getResourceData = (taskId) => {
     }
 
     // Ajouter les passerelles qui ne sont pas dans un sous-processus
-    if (Array.isArray(data.gateways)) {
-      data.gateways.forEach((gateway) => {
+    if (Array.isArray(bpmnElements.gateways)) {
+      bpmnElements.gateways.forEach((gateway) => {
         if (!isInSubProcess(gateway.id)) {
           nodes.push({
             id: gateway.id,
@@ -623,8 +626,8 @@ const getResourceData = (taskId) => {
     }
 
     // Ajouter les sous-processus de premier niveau
-    if (Array.isArray(data.subProcesses)) {
-      data.subProcesses.forEach((subProcess) => {
+    if (Array.isArray(bpmnElements.subProcesses)) {
+      bpmnElements.subProcesses.forEach((subProcess) => {
         nodes.push({
           id: subProcess.id,
           type: "subProcess",
@@ -639,8 +642,8 @@ const getResourceData = (taskId) => {
     }
 
     // Ajouter les flux de séquence entre les éléments du diagramme principal
-    if (Array.isArray(data.sequenceFlows)) {
-      data.sequenceFlows.forEach((flow) => {
+    if (Array.isArray(bpmnElements.sequenceFlows)) {
+      bpmnElements.sequenceFlows.forEach((flow) => {
         if (flow.source && flow.target && !isInSubProcess(flow.source.id) && !isInSubProcess(flow.target.id)) {
           edges.push({
             id: flow.id,
@@ -830,6 +833,7 @@ const getResourceData = (taskId) => {
     for (const item of newBreadcrumb) {
       currentProcess = processes.find(p => p.id === item.id);
       if (!currentProcess) return;
+      
       processes = currentProcess.subProcesses || [];
     }
     
@@ -839,94 +843,6 @@ const getResourceData = (taskId) => {
       setCurrentSubProcessEdges(edges);
     }
   }, [breadcrumb, bpmnData, createSubProcessElements]);
-
-  // Fonctions pour le diagramme du bas
-  const handleLowerDiagramSubProcessClick = useCallback((subProcessId) => {
-    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return;
-    
-    const subProcess = bpmnData.subProcesses.find(sp => sp.id === subProcessId);
-    if (!subProcess) return;
-    
-    setLowerBreadcrumb([{
-      id: subProcess.id,
-      name: subProcess.name || "Sous-processus"
-    }]);
-    
-    const { nodes, edges } = createSubProcessElements(subProcess);
-    setLowerNodes(nodes);
-    setLowerEdges(edges);
-    
-    // Sélectionner le sous-processus
-    setSelectedEvent({
-      id: subProcess.id,
-      name: subProcess.name || "Sous-processus",
-      type: "subProcess"
-    });
-  }, [bpmnData, createSubProcessElements]);
-
-  const handleLowerNestedSubProcessClick = useCallback((subProcessId) => {
-    const currentSubProcess = getCurrentSubProcessFromBreadcrumb(lowerBreadcrumb);
-    if (!currentSubProcess || !Array.isArray(currentSubProcess.subProcesses)) return;
-    
-    const nestedSubProcess = currentSubProcess.subProcesses.find(sp => sp.id === subProcessId);
-    if (!nestedSubProcess) return;
-    
-    setLowerBreadcrumb(prev => [...prev, {
-      id: nestedSubProcess.id,
-      name: nestedSubProcess.name || "Sous-processus"
-    }]);
-    
-    const { nodes, edges } = createSubProcessElements(nestedSubProcess);
-    setLowerNodes(nodes);
-    setLowerEdges(edges);
-    
-    // Sélectionner le sous-processus
-    setSelectedEvent({
-      id: nestedSubProcess.id,
-      name: nestedSubProcess.name || "Sous-processus",
-      type: "subProcess"
-    });
-  }, [getCurrentSubProcessFromBreadcrumb, lowerBreadcrumb, createSubProcessElements]);
-
-  const navigateToLowerBreadcrumbLevel = useCallback((level) => {
-    if (level === 0) {
-      setLowerBreadcrumb([]);
-      setLowerNodes([]);
-      setLowerEdges([]);
-      
-      // Réinitialiser le diagramme du bas avec les nœuds principaux
-      const { nodes, edges } = transformBpmnToXyflow(bpmnData, direction);
-      setLowerNodes(nodes);
-      setLowerEdges(edges);
-      
-      return;
-    }
-    
-    const newBreadcrumb = lowerBreadcrumb.slice(0, level);
-    setLowerBreadcrumb(newBreadcrumb);
-    
-    let currentProcess = null;
-    let processes = bpmnData?.subProcesses || [];
-    
-    for (const item of newBreadcrumb) {
-      currentProcess = processes.find(p => p.id === item.id);
-      if (!currentProcess) return;
-      processes = currentProcess.subProcesses || [];
-    }
-    
-    if (currentProcess) {
-      const { nodes, edges } = createSubProcessElements(currentProcess);
-      setLowerNodes(nodes);
-      setLowerEdges(edges);
-      
-      // Sélectionner le sous-processus
-      setSelectedEvent({
-        id: currentProcess.id,
-        name: currentProcess.name || "Sous-processus",
-        type: "subProcess"
-      });
-    }
-  }, [lowerBreadcrumb, bpmnData, direction, transformBpmnToXyflow, createSubProcessElements]);
 
   // Fonction pour vider le localStorage des configurations de tâches
   const clearTaskConfigurationsFromLocalStorage = () => {
@@ -958,13 +874,27 @@ const getResourceData = (taskId) => {
   
   // Initialiser les données BPMN
   useEffect(() => {
+    console.log("sharedData reçu:", sharedData);
+    
     if (sharedData && sharedData.processElements) {
       console.log("Données du diagramme chargées:", sharedData.processElements);
+      
+      // Extraire les éléments BPMN de processElements.data si la structure est {success, message, data}
+      const bpmnElements = sharedData.processElements.data ? sharedData.processElements.data : sharedData.processElements;
+      
+      // Vérifier la structure des données
+      if (!Array.isArray(bpmnElements.tasks)) {
+        console.warn("Aucune tâche trouvée dans processElements");
+      } else {
+        console.log(`Nombre de tâches chargées: ${bpmnElements.tasks.length}`);
+      }
       
       // Vider le localStorage avant de charger un nouveau modèle BPMN
       clearTaskConfigurationsFromLocalStorage();
       
-      setBpmnData(sharedData.processElements);
+      setBpmnData(bpmnElements);
+    } else {
+      console.warn("Aucune donnée de diagramme trouvée dans sharedData");
     }
   }, [sharedData]);
 
@@ -972,6 +902,9 @@ const getResourceData = (taskId) => {
   useEffect(() => {
     if (bpmnData) {
       const { nodes, edges } = transformBpmnToXyflow(bpmnData, direction);
+      console.log('Nœuds générés pour ReactFlow:', nodes);
+      console.log('Arêtes générées pour ReactFlow:', edges);
+      
       setNodes(nodes);
       setEdges(edges);
       
