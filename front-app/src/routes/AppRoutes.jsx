@@ -15,6 +15,7 @@ import KanbanBoard from '../pages/Kanban/KanbanBoard';
 import NotificationsPage from '../pages/Notifications/NotificationsPage';
 import Workflows from '../pages/Workflows';
 import BpmnDeploymentStatus from '../pages/BpmnDeployment/BpmnDeploymentStatus';
+import AdvancedAnalytics from '../pages/AdvancedAnalytics';
 import ProtectedRoute from '../services/ProtectedRoute';
 import Organigramme from '../pages/organigramme';
 const router = createBrowserRouter([
@@ -151,6 +152,14 @@ const router = createBrowserRouter([
         element: (
             <ProtectedRoute>
                 <Organigramme />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/advanced-analytics",
+        element: (
+            <ProtectedRoute>
+                <AdvancedAnalytics />
             </ProtectedRoute>
         )
     },

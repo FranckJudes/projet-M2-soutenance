@@ -152,6 +152,12 @@ class SiderBar extends Component {
                 <span>{t('history_sidebar_title')}</span>
               </Link>
             </li>
+            <li>
+              <Link className="nav-link" to="/advanced-analytics">
+                <i data-feather="bar-chart"></i>
+                <span>Analyse avancée</span>
+              </Link>
+            </li>
           </ul>
         </aside>
       </div>
