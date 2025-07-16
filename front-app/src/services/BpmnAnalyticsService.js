@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { getToken } from '../utils/auth';
 
 // Configuration de base pour axios
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8200';
+const API_URL =  import.meta.env.VITE_BASE_SERVICE_ANALYTICS || 'http://localhost:5000';
 
 // Création d'une instance axios avec configuration par défaut
 const apiClient = axios.create({
@@ -11,11 +10,10 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
+const token = sessionStorage.getItem('token');
 // Intercepteur pour ajouter le token d'authentification à chaque requête
 apiClient.interceptors.request.use(
   (config) => {
-    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
