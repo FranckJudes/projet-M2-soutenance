@@ -34,12 +34,13 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
           timeout: 5000
         });
 
-        if (response.data && response.data.valid) {
+
+        // Vérifier que la réponse contient success: true
+        if (response.data && response.data.success === true) {
           // Vérifier le rôle si requis
           if (requiredRole) {
             const userRole = authService.getUserRole();
             if (userRole !== requiredRole) {
-              console.log(`Access denied. Required role: ${requiredRole}, User role: ${userRole}`);
               toast.error('Vous n\'avez pas les permissions nécessaires pour accéder à cette page.');
               setIsAuthenticated(false);
               setIsVerifying(false);
@@ -76,13 +77,21 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   }, [location.pathname, requiredRole]);
 
   if (isVerifying) {
-    return null;
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="sr-only">Chargement...</span>
+        </div>
+      </div>
+    );
   }
 
   if (isAuthenticated === false) {
+    console.log('ProtectedRoute - Redirection vers /login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  console.log('ProtectedRoute - Affichage du contenu protégé');
   return children;
 };
 

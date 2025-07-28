@@ -1,58 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../../api/authService';
 import { backendHealthMonitor } from '../../api/BackendHealthMonitor.jsx';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
-import { API_URL } from '../../config/urls.jsx';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const navigate = useNavigate();
   
-  const verifyAuthentication = useCallback(async () => {
-    if (!authService.isAuthenticated()) {
-      return;
-    }
-
-    try {
-      await axios.get(`${API_URL.SERVICE_HARMONI}/auth/verify-token`, {
-        headers: {
-          Authorization: `Bearer ${authService.getToken()}`
-        },
-        timeout: 3000
-      });
-      
+  useEffect(() => {
+    // Vérifier si l'utilisateur est déjà connecté
+    console.log('Login useEffect - Vérification de l\'authentification');
+    if (authService.isAuthenticated()) {
+      console.log('Login useEffect - Utilisateur déjà authentifié, redirection vers dashboard');
       // Démarrer le monitoring avant de rediriger
       backendHealthMonitor.startMonitoring();
       navigate('/dashboard');
-    } catch (error) {
-      if (!error.response) {
-        toast.error('Le serveur est indisponible. Vous serez automatiquement reconnecté lorsqu\'il sera de nouveau accessible.');
-      } else if (error.response.status === 401) {
-        toast.error('Votre session a expiré. Veuillez vous reconnecter.');
-        authService.logout();
-      }
     }
-  }, [navigate]);
-
-  useEffect(() => {
+    
+    // Restaurer l'email si "se souvenir de moi" était activé
     const storedEmail = sessionStorage.getItem('rememberedEmail');
     if (storedEmail) {
       setEmail(storedEmail);
       setRememberMe(true);
     }
-    
-    verifyAuthentication();
-  }, [verifyAuthentication]);
+  }, [navigate]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     
     if (!email || !password) {
       toast.error('Veuillez remplir tous les champs');
@@ -69,8 +47,11 @@ export default function Login() {
     setLoading(true);
     
     try {
+      console.log('Login - Tentative de connexion avec:', email);
       const response = await authService.login(email, password);
+      console.log('Login - Réponse reçue:', response);
       
+      // Gérer "se souvenir de moi"
       if (rememberMe) {
         sessionStorage.setItem('rememberedEmail', email);
       } else {
@@ -81,17 +62,16 @@ export default function Login() {
       backendHealthMonitor.startMonitoring();
       
       toast.success('Connexion réussie', { id: loadingToast });
+      console.log('Login - Redirection vers dashboard');
       navigate('/dashboard');
     } catch (err) {
+      console.error('Login - Erreur de connexion:', err);
       const errorMessage = err.message || 'Échec de la connexion. Veuillez vérifier vos identifiants.';
-      
       toast.error(errorMessage, { id: loadingToast });
-      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
-
 
   return (
     <div className="pt-5">
@@ -101,8 +81,6 @@ export default function Login() {
             <h4>Harmoni Authentification</h4>
           </div>
           <div className="card-body">
-            
-            
             <form onSubmit={handleSubmit} className="needs-validation" noValidate>
               <div className="form-group">
                 <label htmlFor="email">Email</label>

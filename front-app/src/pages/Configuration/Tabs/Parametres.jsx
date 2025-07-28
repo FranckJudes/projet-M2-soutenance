@@ -805,6 +805,70 @@ const getResourceData = (taskId) => {
     setCurrentSubProcessEdges(edges);
   }, [getCurrentSubProcessFromBreadcrumb, breadcrumb, createSubProcessElements]);
 
+  // Fonction pour gérer le clic sur un sous-processus dans le diagramme du bas
+  const handleLowerDiagramSubProcessClick = useCallback((subProcessId) => {
+    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return;
+    
+    const subProcess = bpmnData.subProcesses.find(sp => sp.id === subProcessId);
+    if (!subProcess) return;
+    
+    setLowerBreadcrumb([{
+      id: subProcess.id,
+      name: subProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(subProcess);
+    setLowerNodes(nodes);
+    setLowerEdges(edges);
+  }, [bpmnData, createSubProcessElements]);
+
+  // Fonction pour gérer le clic sur un sous-processus imbriqué dans le diagramme du bas
+  const handleLowerNestedSubProcessClick = useCallback((subProcessId) => {
+    const currentSubProcess = getCurrentSubProcessFromBreadcrumb(lowerBreadcrumb);
+    if (!currentSubProcess || !Array.isArray(currentSubProcess.subProcesses)) return;
+    
+    const nestedSubProcess = currentSubProcess.subProcesses.find(sp => sp.id === subProcessId);
+    if (!nestedSubProcess) return;
+    
+    setLowerBreadcrumb(prev => [...prev, {
+      id: nestedSubProcess.id,
+      name: nestedSubProcess.name || "Sous-processus"
+    }]);
+    
+    const { nodes, edges } = createSubProcessElements(nestedSubProcess);
+    setLowerNodes(nodes);
+    setLowerEdges(edges);
+  }, [getCurrentSubProcessFromBreadcrumb, lowerBreadcrumb, createSubProcessElements]);
+
+  // Fonction pour naviguer via le fil d'Ariane du diagramme du bas
+  const navigateToLowerBreadcrumbLevel = useCallback((level) => {
+    if (level === 0) {
+      setLowerBreadcrumb([]);
+      setLowerNodes(nodes);
+      setLowerEdges(edges);
+      return;
+    }
+    
+    const newBreadcrumb = lowerBreadcrumb.slice(0, level);
+    setLowerBreadcrumb(newBreadcrumb);
+    
+    let currentProcess = null;
+    let processes = bpmnData?.subProcesses || [];
+    
+    for (const item of newBreadcrumb) {
+      currentProcess = processes.find(p => p.id === item.id);
+      if (!currentProcess) return;
+      
+      processes = currentProcess.subProcesses || [];
+    }
+    
+    if (currentProcess) {
+      const { nodes, edges } = createSubProcessElements(currentProcess);
+      setLowerNodes(nodes);
+      setLowerEdges(edges);
+    }
+  }, [lowerBreadcrumb, bpmnData, createSubProcessElements, nodes, edges]);
+
   // Fonction pour naviguer via le fil d'Ariane
   const navigateToBreadcrumbLevel = useCallback((level) => {
     if (level === 0) {

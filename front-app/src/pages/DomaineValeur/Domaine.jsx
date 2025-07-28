@@ -1,226 +1,229 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Main from "../../layout/Main";
-import Breadcrumb from "../../components/Breadcrumb";
-import { Card as CardComponent } from "../../components/Card";
-import DataTable from "datatables.net-react";
-import "datatables.net-dt/css/dataTables.dataTables.css";
-import "datatables.net-select-dt";
-import "datatables.net-responsive-dt";
-import DT from "datatables.net-dt";
-import { getAllDomaine, updateDomaine, deleteDomaine, createDomaine } from "../../api/ProcessDomaineValeur";
-import { Textarea, Input } from "../../components/Input";
-import { showAlert } from "../../components/SweetAlert";
-import { useToast } from "../../components/Toast";
-
-// eslint-disable-next-line react-hooks/rules-of-hooks
-DataTable.use(DT);
+import { 
+  Card, 
+  Table, 
+  Button, 
+  Form, 
+  Input, 
+  Space, 
+  Popconfirm, 
+  message, 
+  Typography, 
+  Breadcrumb as AntBreadcrumb, 
+  Modal
+} from "antd";
+import { 
+  EditOutlined, 
+  DeleteOutlined, 
+  PlusOutlined, 
+  HomeOutlined, 
+  AppstoreOutlined 
+} from "@ant-design/icons";
+import DomaineValeurService from "../../services/DomaineValeurService";
+const { TextArea } = Input;
+const { Title } = Typography;
 
 export default function Domaine () {
   const { t } = useTranslation();
-  const { showToast } = useToast();
-
-
+  const [form] = Form.useForm();
+  
   const [domaines, setDomaines] = useState([]);
-  const [formData, setFormData] = useState({
-    libele: "",
-    description: "",
-    type : "1"
-  });
+  const [loading, setLoading] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingDomaine, setEditingDomaine] = useState(null);
 
- 
-
-  const fetchDomaines = useCallback(async () => {
+  const fetchDomaines = async () => {
+    setLoading(true);
     try {
-      const response = await getAllDomaine();
-      if (response) {
-        setDomaines(response);
-      } 
+      const response = await DomaineValeurService.getAllDomaineValeurs();
+      if (response.data && response.data.data) {
+        setDomaines(response.data.data);
+      } else {
+        message.error(t("Error loading domain values"));
+      }
     } catch (error) {
-      console.error("Erreur de chargement des domaines :", error);
+      console.error("Error loading domain values:", error);
+      message.error(t("Error loading domain values"));
+    } finally {
+      setLoading(false);
     }
-  }, [t]);
+  };
 
   useEffect(() => {
     fetchDomaines();
-  }, [fetchDomaines]);
+  }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleEdit = (metadata) => {
-    setEditingDomaine(metadata);
-    setFormData(metadata);
-  };
-
-  const handleDelete = useCallback(
-    async (id) => {
-      showAlert({
-        title: <p>Confirmez-vous cette action ?</p>,
-        text: "Cette action est irréversible.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Oui",
-        cancelButtonText: "Non",
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-              await deleteDomaine(id);
-              await fetchDomaines();
-              resetForm();
-               showToast({
-                    title: "Attention",
-                    message: "Domaine successfully deleted.",
-                    color: "green",
-                    position: "topRight",
-              });   
-        } else if (result.isDismissed) {
-            showToast({
-                title: "Attention",
-                message: "Annulation de la suppression.",
-                color: "red",
-                position: "topRight",
-            });                 
-        }
+  const showModal = (domaine = null) => {
+    if (domaine) {
+      setEditingDomaine(domaine);
+      form.setFieldsValue({
+        libele: domaine.libele,
+        description: domaine.description,
+        type: domaine.type || "1"
       });
-    },
-    [fetchDomaines, t]
-  );
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingDomaine) {
-        await updateDomaine(editingDomaine.id, formData);
-      } else {
-        await createDomaine(formData);
-      }
-      await fetchDomaines();
-      resetForm();
-      showToast({
-            title: "Attention",
-            message: "Domaine successfully edited.",
-            color: "green",
-            position: "topRight",
-      });   
-    } catch (error) {
-      showToast({
-        title: "Attention",
-        message: "Erreur de modification",
-        color: "red",
-        position: "topRight",
-    });  
+    } else {
+      setEditingDomaine(null);
+      form.resetFields();
     }
+    setIsModalVisible(true);
   };
 
-  const resetForm = () => {
-    setFormData({
-      libele: "",
-      description: "",
-      type:"1"
-    });
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    form.resetFields();
     setEditingDomaine(null);
   };
 
-  const tableContent = (
-    <DataTable
-      data={domaines.map((domaine, index) => ({
-        id: index + 1,
-        libelle: domaine.libele || t("Unknown"),
-        description: domaine.description || t("Not Specified"),
-        actions: domaine,
-      }))}
-      columns={[
-        { data: "id", title: t("ID") },
-        { data: "libelle", title: t("Libelle") },
-        { data: "description", title: t("Description") },
-        {
-          data: "actions",
-          title: t("Actions"),
-          render: (data) => {
-            const jsonData = JSON.stringify(data).replace(/"/g, "&quot;");
-            return `
-              <div class="dropdown">
-                <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton2"
-                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  ${t("Action")}
-                </button>
-                <div class="dropdown-menu">
-                  <a class="dropdown-item has-icon edit-btn" data-id="${jsonData}" href="#"><i class="far fa-edit"></i> ${t("Edit")}</a>
-                  <a class="dropdown-item has-icon delete-btn" data-id="${data._id}" href="#"><i class="fas fa-trash"></i> ${t("Delete")}</a>
-                </div>
-              </div>
-            `;
-          },
-        },
-      ]}
-      className="display table table-striped"
-      options={{
-        responsive: true,
-        rowId: "id",
-        drawCallback: function () {
-          document.querySelectorAll(".edit-btn").forEach((btn) => {
-            btn.addEventListener("click", (e) => {
-              e.preventDefault();
-              const jsonData = btn.getAttribute("data-id");
-              const metadata = JSON.parse(jsonData);
-              handleEdit(metadata);
-            });
-          });
+  const handleDelete = async (id) => {
+    try {
+      await DomaineValeurService.deleteDomaineValeur(id);
+      message.success(t("Domain value successfully deleted"));
+      fetchDomaines();
+    } catch (error) {
+      console.error("Error deleting domain value:", error);
+      message.error(t("Error deleting domain value"));
+    }
+  };
 
-          document.querySelectorAll(".delete-btn").forEach((btn) => {
-            btn.addEventListener("click", (e) => {
-              e.preventDefault();
-              const id = btn.getAttribute("data-id");
-              handleDelete(id);
-            });
-          });
-        },
-      }}
-    />
-  );
+  const handleSubmit = async (values) => {
+    try {
+      if (editingDomaine) {
+        await DomaineValeurService.updateDomaineValeur(editingDomaine.id, values);
+        message.success(t("Domain value successfully updated"));
+      } else {
+        await DomaineValeurService.createDomaineValeur(values);
+        message.success(t("Domain value successfully created"));
+      }
+      setIsModalVisible(false);
+      fetchDomaines();
+      form.resetFields();
+      setEditingDomaine(null);
+    } catch (error) {
+      console.error("Error saving domain value:", error);
+      message.error(t("Error saving domain value"));
+    }
+  };
+
+  const columns = [
+    {
+      title: t("ID"),
+      dataIndex: "id",
+      key: "id",
+      sorter: (a, b) => a.id - b.id,
+    },
+    {
+      title: t("Name"),
+      dataIndex: "libele",
+      key: "libele",
+      sorter: (a, b) => a.libele.localeCompare(b.libele),
+    },
+    {
+      title: t("Description"),
+      dataIndex: "description",
+      key: "description",
+    },
+    {
+      title: t("Actions"),
+      key: "actions",
+      render: (_, record) => (
+        <Space size="middle">
+          <Button 
+            type="primary" 
+            icon={<EditOutlined />} 
+            onClick={() => showModal(record)}
+          />
+          <Popconfirm
+            title={t("Are you sure you want to delete this domain value?")}
+            onConfirm={() => handleDelete(record.id)}
+            okText={t("Yes")}
+            cancelText={t("No")}
+          >
+            <Button type="primary" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <Main>
-      <Breadcrumb
-        items={[
-          { label: "Home", link: "#", icon: "fas fa-tachometer-alt", active: false },
-          { label: "Admin", link: "#", icon: "far fa-file", active: false },
-          { label: t("Domaine de valeur"), icon: "fas fa-list", active: true },
-        ]}
-      />
-      <div className="row">
-        <div className="col-8">
-          <CardComponent title={t("List of Values")}>{tableContent}</CardComponent>
-        </div>
-        <div className="col-4">
-          <CardComponent title={t("__sect_ajout__")}>
-            <form onSubmit={handleSubmit}>
-              <Input
-                name="libele"
-                value={formData.libele}
-                label={t("Name")}
-                placeholder={t("Enter name")}
-                onChange={handleInputChange}
-                required
-              />
-                  <Textarea
-                    name="description"
-                    value={formData.description}
-                    label={t("Description")}
-                    placeholder={t("Enter description")}
-                    onChange={handleInputChange}
-                    required
-                  />
-              <button type="submit" className="btn btn-success" style={{ float: "right" }}>
-                   {t(editingDomaine ? "update_metadata" : "add_index")}
-              </button>
-            </form>
-          </CardComponent>
-        </div>
+      <div style={{ marginBottom: 16 }}>
+        <AntBreadcrumb>
+          <AntBreadcrumb.Item href="#">
+            <HomeOutlined /> {t("Home")}
+          </AntBreadcrumb.Item>
+          <AntBreadcrumb.Item href="#">
+            <AppstoreOutlined /> {t("Admin")}
+          </AntBreadcrumb.Item>
+          <AntBreadcrumb.Item>{t("Domain Values")}</AntBreadcrumb.Item>
+        </AntBreadcrumb>
       </div>
+      
+      <Card 
+        title={<Title level={4}>{t("Domain Values Management")}</Title>}
+        extra={
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={() => showModal()}
+          >
+            {t("Add Domain Value")}
+          </Button>
+        }
+      >
+        <Table 
+          columns={columns} 
+          dataSource={domaines} 
+          rowKey="id" 
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+        />
+      </Card>
+
+      <Modal
+        title={editingDomaine ? t("Edit Domain Value") : t("Add Domain Value")}
+        open={isModalVisible}
+        onCancel={handleCancel}
+        footer={null}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={{
+            libele: "",
+            description: "",
+            type: "1"
+          }}
+        >
+          <Form.Item
+            name="libele"
+            label={t("Name")}
+            rules={[{ required: true, message: t("Please enter the name") }]}
+          >
+            <Input placeholder={t("Enter name")} />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label={t("Description")}
+            rules={[{ required: true, message: t("Please enter the description") }]}
+          >
+            <TextArea rows={4} placeholder={t("Enter description")} />
+          </Form.Item>
+          
+          <Form.Item>
+            <Button type="primary" htmlType="submit" style={{ marginRight: 8 }}>
+              {editingDomaine ? t("Update") : t("Create")}
+            </Button>
+            <Button onClick={handleCancel}>
+              {t("Cancel")}
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </Main>
   );
 };

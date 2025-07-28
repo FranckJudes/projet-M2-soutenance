@@ -1,46 +1,41 @@
-// eslint-disable-next-line no-unused-vars
 import React, { useEffect, useState } from "react";
-import DataTable from "datatables.net-react";
-import "datatables.net-dt/css/dataTables.dataTables.css";
-import "datatables.net-select-dt";
-import "datatables.net-responsive-dt";
-import DT from "datatables.net-dt";
 import { useTranslation } from "react-i18next";
-import { Card as CardComponent } from "../../../components/Card.jsx";
-import { ModalComponent } from "../../../components/Modal.jsx";
-import { Input } from "../../../components/Input.jsx";
-import Select from "react-select";
-import { showAlert } from "../../../components/SweetAlert.jsx";
-import { useToast } from "../../../components/Toast";
 import {
-    getAllMetadatas,
-    createMetadata,
-    updateMetadata,
-    deleteMetadata
-} from "../../../api/ProcessMetadaApi.jsx";
+  Card,
+  Table,
+  Button,
+  Form,
+  Input,
+  InputNumber,
+  Select,
+  Space,
+  Popconfirm,
+  message,
+  Typography,
+  Modal,
+  DatePicker,
+  Switch,
+  Breadcrumb
+} from "antd";
+import {
+  EditOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  HomeOutlined
+} from "@ant-design/icons";
+import MetadataService from "../../../services/MetadataService";
 
-// eslint-disable-next-line react-hooks/rules-of-hooks
-DataTable.use(DT);
+const { TextArea } = Input;
+const { Title } = Typography;
+const { Option } = Select;
 
-export default function Metadata (){
+export default function Metadata() {
     const { t } = useTranslation();
-    const [showModal, setShowModal] = useState(false);
+    const [form] = Form.useForm();
+    
     const [metadatas, setMetadatas] = useState([]);
-    const { showToast } = useToast();
-
-    const [formData, setFormData] = useState({
-        nom: "",
-        libelle: "",
-        question: "",
-        type_champ: "",
-        masque_saisie: "",
-        longeur: 0,
-        concept_lie: "",
-        domaine_valeur_lie: null,  // Changé de "" à null
-        valeur_defaut: "",
-        format_date: "",
-        champ_incrementiel: ""
-    });
+    const [loading, setLoading] = useState(false);
+    const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingMetadata, setEditingMetadata] = useState(null);
     const [fieldVisibility, setFieldVisibility] = useState({
         masque_saisie: false,
@@ -51,109 +46,121 @@ export default function Metadata (){
         format_date: false,
         champ_incrementiel: false,
     });
-    
 
     const fetchMetadatas = async () => {
-        try{
-            const response = await getAllMetadatas();
-            if (response?.data) {
-                setMetadatas(response.data);
+        setLoading(true);
+        try {
+            const response = await MetadataService.getAllMetadata();
+            if (response.data && response.data.data) {
+                setMetadatas(response.data.data);
             } else {
-                 
+                message.error(t("Error loading metadata"));
             }
         } catch (error) {
-            console.error("Erreur de chargement des métadonnées :", error);
-                
+            console.error("Error loading metadata:", error);
+            message.error(t("Error loading metadata"));
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
         fetchMetadatas();
     }, []);
-
-    const resetForm = () => {
-        setFormData({
-            nom: "",
-            libelle: "",
-            question: "",
-            type_champ: "",
-            masque_saisie: "",
-            longeur: 0,
-            concept_lie: null,  // Changé de "" à null
-            domaine_valeur_lie: null,  // Changé de "" à null
-            valeur_defaut: "",
-            format_date: "",
-            champ_incrementiel: ""
-        });
+    
+    const showModal = (metadata = null) => {
+        if (metadata) {
+            setEditingMetadata(metadata);
+            form.setFieldsValue({
+                nom: metadata.nom,
+                libelle: metadata.libelle,
+                question: metadata.question,
+                type_champ: metadata.type_champ,
+                masque_saisie: metadata.masque_saisie,
+                longeur: metadata.longeur,
+                concept_lie: metadata.concept_lie,
+                domaine_valeur_lie: metadata.domaine_valeur_lie,
+                valeur_defaut: metadata.valeur_defaut,
+                format_date: metadata.format_date,
+                champ_incrementiel: metadata.champ_incrementiel
+            });
+            handleTypeChange(metadata.type_champ);
+        } else {
+            setEditingMetadata(null);
+            form.resetFields();
+            setFieldVisibility({
+                masque_saisie: false,
+                longeur: false,
+                concept_lie: false,
+                domaine_valeur_lie: false,
+                valeur_defaut: false,
+                format_date: false,
+                champ_incrementiel: false,
+            });
+        }
+        setIsModalVisible(true);
+    };
+    
+    const handleCancel = () => {
+        setIsModalVisible(false);
+        form.resetFields();
         setEditingMetadata(null);
-        setFieldVisibility({
-            masque_saisie: false,
-            longeur: false,
-            concept_lie: false,
-            domaine_valeur_lie: false,
-            valeur_defaut: false,
-            format_date: false,
-            champ_incrementiel: false,
-        });
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (values) => {
         try {
             if (editingMetadata) {
-               await updateMetadata(editingMetadata.id, formData);
-            }else{
-               await createMetadata(formData);
+                await MetadataService.updateMetadata(editingMetadata.id, values);
+                message.success(t("Metadata successfully updated"));
+            } else {
+                await MetadataService.createMetadata(values);
+                message.success(t("Metadata successfully created"));
             }
-            await fetchMetadatas();
-            setShowModal(false);
-            resetForm();
-            showToast({
-                title: "Attention",
-                message: "Metadata successfully created.",
-                color: "green",
-                position: "topRight",
-            });    
+            setIsModalVisible(false);
+            fetchMetadatas();
+            form.resetFields();
+            setEditingMetadata(null);
         } catch (error) {
-            showToast({
-                title: "Erreur",
-                message: "Veuilez verifier les champs requis.",
-                color: "yellow",
-                position: "topCenter",
-            });           
+            console.error("Error saving metadata:", error);
+            message.error(t("Error saving metadata"));
         }
     };
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+    
+    const handleDelete = async (id) => {
+        try {
+            await MetadataService.deleteMetadata(id);
+            message.success(t("Metadata successfully deleted"));
+            fetchMetadatas();
+        } catch (error) {
+            console.error("Error deleting metadata:", error);
+            message.error(t("Error deleting metadata"));
+        }
     };
-
-
-    const handleSelectChange = (selectedOption, { name }) => {
-        setFormData(prev => ({
-            ...prev,
-            [name]: selectedOption ? selectedOption.value : null
-        }));
-    };
-
-    const handleTypeChange = (selectedOption) => {
-        const value = selectedOption.value;
-        setFormData(prev => ({ ...prev, type_champ: value }));
-
+    
+    const handleTypeChange = (value) => {
         const visibility = {
             masque_saisie: ["text", "number"].includes(value),
-            longueur: ["text", "number"].includes(value),
+            longeur: ["text", "number"].includes(value),
             concept_lie: ["selection", "selection_multiple"].includes(value),
             domaine_valeur_lie: ["selection", "selection_multiple"].includes(value),
             valeur_defaut: false,
-            valeur_defaut_logic: value === "logique",
             format_date: value === "date",
-            valeur_incrementiel: value === "incrementiel"
+            champ_incrementiel: value === "incrementiel"
         };
-
+        
         setFieldVisibility(visibility);
     };
+
+    const typeOptions = [
+        { value: "text", label: t("Text") },
+        { value: "number", label: t("Number") },
+        { value: "date", label: t("Date") },
+        { value: "selection", label: t("Selection") },
+        { value: "selection_multiple", label: t("Multiple Selection") },
+        { value: "logique", label: t("Boolean") },
+        { value: "incrementiel", label: t("Incremental") }
+    ];
+    
     const optionsConceptLie = [
         { value: "concept1", label: t("concept1") },
         { value: "concept2", label: t("concept2") },
@@ -165,293 +172,249 @@ export default function Metadata (){
         { value: "domaine2", label: t("domaine2") },
         { value: "domaine3", label: t("domaine3") }
     ];
-    // const handleEdit = (metadata) => {
-    //     setEditingMetadata(metadata);
-    //     setFormData(metadata);
-    //     handleTypeChange({ value: metadata.type_champ });
-    //     setShowModal(true);
-    // };
-
     
-    const handleEdit = (metadata) => {
-        setEditingMetadata(metadata);
-        setFormData(metadata);
-        handleTypeChange({ value: metadata.type_champ });
-        setShowModal(true);
-      };
-      
-      
-      const handleDelete = async (id) => {
-        showAlert({
-            title: <p>Confirmez-vous cette action ?</p>,
-            text: "Cette action est irréversible.",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: "Oui",
-            cancelButtonText: "Non",
-          }).then(async (result) => {
-            if (result.isConfirmed) {
-                  await deleteMetadata(id); 
-                  await fetchMetadatas(); 
-                   showToast({
-                        title: "Attention",
-                        message: "Metadata successfully deleted.",
-                        color: "green",
-                        position: "topRight",
-                    });   
-            } else if (result.isDismissed) {
-                showToast({
-                    title: "Attention",
-                    message: "Annulation de la suppression.",
-                    color: "red",
-                    position: "topRight",
-                });                 
+    const columns = [
+        {
+            title: t("ID"),
+            dataIndex: "id",
+            key: "id",
+            sorter: (a, b) => a.id - b.id,
+        },
+        {
+            title: t("Name"),
+            dataIndex: "nom",
+            key: "nom",
+            sorter: (a, b) => a.nom.localeCompare(b.nom),
+        },
+        {
+            title: t("Label"),
+            dataIndex: "libelle",
+            key: "libelle",
+        },
+        {
+            title: t("Field Type"),
+            dataIndex: "type_champ",
+            key: "type_champ",
+            render: (type) => {
+                const option = typeOptions.find(opt => opt.value === type);
+                return option ? option.label : type;
             }
-          });
-      };
-
-    const toggleModal = () => {
-        if (showModal) {
-            resetForm();
-        }
-        setShowModal(!showModal);
-    };
-
-    const optionsSelect = [
-        { value: "text", label: t("text") },
-        { value: "date", label: t("date") },
-        { value: "number", label: t("number") },
-        { value: "selection", label: t("selection") },
-        { value: "selection_multiple", label: t("selection_multiple") },
-        { value: "zone", label: t("zone") },
-        { value: "incrementiel", label: t("incremental_value") },
-        { value: "logique", label: t("logical_default") }
+        },
+        {
+            title: t("Actions"),
+            key: "actions",
+            render: (_, record) => (
+                <Space size="middle">
+                    <Button 
+                        type="primary" 
+                        icon={<EditOutlined />} 
+                        onClick={() => showModal(record)}
+                    />
+                    <Popconfirm
+                        title={t("Are you sure you want to delete this metadata?")}
+                        onConfirm={() => handleDelete(record.id)}
+                        okText={t("Yes")}
+                        cancelText={t("No")}
+                    >
+                        <Button 
+                            type="primary" 
+                            danger 
+                            icon={<DeleteOutlined />}
+                        />
+                    </Popconfirm>
+                </Space>
+            ),
+        },
     ];
-
-    const optionsSelectOuiNon = [
-        { value: "Oui", label: t("Vrai/Faux") },
-        { value: "Non", label: t("Oui/Non") }
-    ];
-
+    
     const formatDateOptions = [
-        { value: "normal_date", label: t("normal_date") },
-        { value: "plage_date", label: t("date_range") },
-        { value: "time_date", label: t("time") },
-        { value: "mois_annee", label: t("month_year") }
+        { value: "normal_date", label: t("Normal Date") },
+        { value: "plage_date", label: t("Date Range") },
+        { value: "time_date", label: t("Time") },
+        { value: "mois_annee", label: t("Month/Year") }
+    ];
+    
+    const booleanOptions = [
+        { value: "true", label: t("True/False") },
+        { value: "false", label: t("Yes/No") }
     ];
 
     return (
         <>
-            <CardComponent
-                title={t("list_of_values")}
-                titleAction={
-                    <button className="btn btn-success" onClick={toggleModal}>
-                        {t("add_index")}
-                    </button>
+            <Breadcrumb style={{ marginBottom: 16 }}>
+                <Breadcrumb.Item>
+                    <HomeOutlined />
+                </Breadcrumb.Item>
+                <Breadcrumb.Item>{t("Forms")}</Breadcrumb.Item>
+                <Breadcrumb.Item>{t("Metadata")}</Breadcrumb.Item>
+            </Breadcrumb>
+            
+            <Card 
+                title={<Title level={4}>{t("Metadata Management")}</Title>}
+                extra={
+                    <Button 
+                        type="primary" 
+                        icon={<PlusOutlined />} 
+                        onClick={() => showModal()}
+                    >
+                        {t("Add Metadata")}
+                    </Button>
                 }
-
             >
-                {/* <Toast message={toast.message} type={toast.type} /> */}
-
-
-                <DataTable
-                    data={metadatas.map((metadata, index) => ({
-                        id: index + 1,
-                        nom: metadata.nom || t("Unknown"),
-                        type: metadata.type_champ || t("Not Specified"),
-                        domaineValeurLie: metadata.domaine_valeur_lie || t("No Domain"),
-                        actions: metadata // Store full metadata object for actions
-                    }))}
-                    columns={[
-                        { data: "id", title: t("ID") },
-                        { data: "nom", title: t("Name") },
-                        { data: "type", title: t("Type") },
-                        { data: "domaineValeurLie", title: t("Domaine de valeur lié") },
-                        {
-                            data: "actions",
-                            title: t("Actions"),
-                            render: (data,row) => {
-                                const jsonData = JSON.stringify(data).replace(/"/g, '&quot;');
-                                return `
-                                
-                                      <div class="dropdown">
-                                        <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton2"
-                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        Action
-                                        </button>
-                                        <div class="dropdown-menu">
-                                            <a class="dropdown-item has-icon edit-btn"  data-id="${jsonData}"  href="#"><i class="far fa-edit"></i>${t("Edit")}</a>
-                                            <a class="dropdown-item has-icon  delete-btn" data-id="${data._id}"  href="#"><i class="fas fa-trash"></i> ${t("Delete")}</a>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        }
-                    ]}
-                    className="display table table-striped"
-                    options={{
-                        responsive: true,
-                        rowId: "id",
-                        drawCallback: function (settings) {
-                          // Gestion des événements pour les boutons Edit
-                          document.querySelectorAll(".edit-btn").forEach((btn) => {
-                            btn.addEventListener("click", (e) => {
-                              e.preventDefault();
-                              const jsonData = btn.getAttribute("data-id");
-                              const metadata = JSON.parse(jsonData);
-                              handleEdit(metadata);
-                            });
-                          });
-                    
-                          // Gestion des événements pour les boutons Delete
-                          document.querySelectorAll(".delete-btn").forEach((btn) => {
-                            btn.addEventListener("click", (e) => {
-                              e.preventDefault();
-                              const id = btn.getAttribute("data-id");
-                              handleDelete(id);
-                            });
-                          });
-                        },
-                      }}
+                <Table 
+                    dataSource={metadatas} 
+                    columns={columns} 
+                    rowKey="id"
+                    loading={loading}
+                    pagination={{ pageSize: 10 }}
                 />
-            </CardComponent>
-
-            <ModalComponent
-                showModal={showModal}
-                toggleModal={toggleModal}
-                titleModal={t(editingMetadata ? "edit_metadata" : "add_new_index")}
+            </Card>
+            
+            <Modal
+                title={editingMetadata ? t("Edit Metadata") : t("Add New Metadata")}
+                open={isModalVisible}
+                onCancel={handleCancel}
+                footer={null}
+                width={700}
             >
-                <form onSubmit={handleSubmit}>
-                    <Input
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSubmit}
+                    initialValues={{
+                        nom: "",
+                        libelle: "",
+                        question: "",
+                        type_champ: "",
+                        masque_saisie: "",
+                        longeur: 0,
+                        concept_lie: null,
+                        domaine_valeur_lie: null,
+                        valeur_defaut: "",
+                        format_date: "",
+                        champ_incrementiel: ""
+                    }}
+                >
+                    <Form.Item
                         name="nom"
-                        value={formData.nom}
-                        label={t("property_name")}
-                        placeholder={t("property_name")}
-                        onChange={handleInputChange}
-                        required
-                    />
-                    <Input
+                        label={t("Property Name")}
+                        rules={[{ required: true, message: t("Please enter property name") }]}
+                    >
+                        <Input placeholder={t("Enter property name")} />
+                    </Form.Item>
+                    
+                    <Form.Item
                         name="libelle"
-                        value={formData.libelle}
-                        label={t("label")}
-                        placeholder={t("label")}
-                        onChange={handleInputChange}
-                        required
-                    />
-                    <Input
+                        label={t("Label")}
+                        rules={[{ required: true, message: t("Please enter label") }]}
+                    >
+                        <Input placeholder={t("Enter label")} />
+                    </Form.Item>
+                    
+                    <Form.Item
                         name="question"
-                        value={formData.question}
-                        label={t("question")}
-                        placeholder={t("question")}
-                        onChange={handleInputChange}
-                        required
-                    />
-
-                    <div className="form-group mb-3">
-                        <label>{t("field_type")}</label>
-                        <Select
-                            name="type_champ"
-                            value={optionsSelect.find(opt => opt.value === formData.type_champ)}
-                            options={optionsSelect}
+                        label={t("Question")}
+                        rules={[{ required: true, message: t("Please enter question") }]}
+                    >
+                        <TextArea rows={2} placeholder={t("Enter question")} />
+                    </Form.Item>
+                    
+                    <Form.Item
+                        name="type_champ"
+                        label={t("Field Type")}
+                        rules={[{ required: true, message: t("Please select field type") }]}
+                    >
+                        <Select 
+                            placeholder={t("Select field type")} 
                             onChange={handleTypeChange}
-                            required
-                        />
-                    </div>
-
+                        >
+                            {typeOptions.map(option => (
+                                <Option key={option.value} value={option.value}>{option.label}</Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                    
                     {fieldVisibility.masque_saisie && (
-                        <Input
+                        <Form.Item
                             name="masque_saisie"
-                            value={formData.masque_saisie}
-                            label={t("input_mask")}
-                            placeholder={t("input_mask")}
-                            onChange={handleInputChange}
-                        />
+                            label={t("Input Mask")}
+                        >
+                            <Input placeholder={t("Enter input mask")} />
+                        </Form.Item>
                     )}
-
-                    {fieldVisibility.longueur && (
-                        <Input
+                    
+                    {fieldVisibility.longeur && (
+                        <Form.Item
                             name="longeur"
-                            value={formData.longeur}
-                            type="number"
-
-                            label={t("length")}
-                            placeholder={t("length")}
-                            onChange={handleInputChange}
-                        />
+                            label={t("Length")}
+                        >
+                            <InputNumber min={0} style={{ width: '100%' }} />
+                        </Form.Item>
                     )}
-
+                    
                     {fieldVisibility.concept_lie && (
-                        <div className="form-group mb-3">
-                            <label>{t("linked_concept")}</label>
-                            <Select
-                                name="concept_lie"
-                                value={optionsConceptLie.find(opt => opt.value === formData.concept_lie)}
-                                options={optionsConceptLie}
-                                onChange={handleSelectChange}
-                                required
-                                placeholder={t("select_concept")}
-                                isClearable
-                            />
-                        </div>
+                        <Form.Item
+                            name="concept_lie"
+                            label={t("Linked Concept")}
+                            rules={[{ required: true, message: t("Please select linked concept") }]}
+                        >
+                            <Select placeholder={t("Select linked concept")} allowClear>
+                                {optionsConceptLie.map(option => (
+                                    <Option key={option.value} value={option.value}>{option.label}</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
                     )}
-
+                    
                     {fieldVisibility.domaine_valeur_lie && (
-                        <div className="form-group mb-3">
-                            <label>{t("value_domain")}</label>
-                            <Select
-                                name="domaine_valeur_lie"
-                                value={optionsDomaineValeur.find(opt => opt.value === formData.domaine_valeur_lie)}
-                                options={optionsDomaineValeur}
-                                onChange={handleSelectChange}
-                                required
-                                placeholder={t("select_domain")}
-                                isClearable
-                            />
-                        </div>
+                        <Form.Item
+                            name="domaine_valeur_lie"
+                            label={t("Value Domain")}
+                            rules={[{ required: true, message: t("Please select value domain") }]}
+                        >
+                            <Select placeholder={t("Select value domain")} allowClear>
+                                {optionsDomaineValeur.map(option => (
+                                    <Option key={option.value} value={option.value}>{option.label}</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
                     )}
-                    {fieldVisibility.valeur_defaut_logic && (
-                        <div className="form-group mb-3">
-                            <label>{t("default_logic")}</label>
-                            <Select
-                                name="valeur_defaut"
-                                value={optionsSelectOuiNon.find(opt => opt.value === formData.valeur_defaut_logic)}
-                                options={optionsSelectOuiNon}
-                                onChange={handleSelectChange}
-                            />
-                        </div>
-                    )}
-
+                    
                     {fieldVisibility.format_date && (
-                        <div className="form-group mb-3">
-                            <label>{t("date_format")}</label>
-                            <Select
-                                name="format_date"
-                                value={formatDateOptions.find(opt => opt.value === formData.format_date)}
-                                options={formatDateOptions}
-                                onChange={handleSelectChange}
-                            />
-                        </div>
+                        <Form.Item
+                            name="format_date"
+                            label={t("Date Format")}
+                        >
+                            <Select placeholder={t("Select date format")}>
+                                {formatDateOptions.map(option => (
+                                    <Option key={option.value} value={option.value}>{option.label}</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
                     )}
-
-                    {fieldVisibility.valeur_incrementiel && (
-                        <Input
+                    
+                    {fieldVisibility.champ_incrementiel && (
+                        <Form.Item
                             name="champ_incrementiel"
-                            value={formData.valeur_incrementiel}
-                            type="number"
-                            label={t("incremental_value")}
-                            placeholder={t("incremental_value")}
-                            onChange={handleInputChange}
-                        />
+                            label={t("Incremental Value")}
+                        >
+                            <InputNumber min={0} style={{ width: '100%' }} />
+                        </Form.Item>
                     )}
-
-                    <div className="text-end mt-4">
-                        <button type="submit"  style={{float:"right"}} className="btn btn-success">
-                            {t(editingMetadata ? "update_metadata" : "add_index")}
-                        </button>
-                    </div>
-                </form>
-            </ModalComponent>
+                    
+                    <Form.Item>
+                        <Space style={{ float: 'right' }}>
+                            <Button onClick={handleCancel}>
+                                {t("Cancel")}
+                            </Button>
+                            <Button type="primary" htmlType="submit">
+                                {editingMetadata ? t("Update") : t("Create")}
+                            </Button>
+                        </Space>
+                    </Form.Item>
+                </Form>
+            </Modal>
         </>
     );
-};
+}
 

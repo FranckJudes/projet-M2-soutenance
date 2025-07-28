@@ -1,167 +1,60 @@
 import axios from 'axios';
-import { API_URL } from '../config/urls.jsx';
-import { toast } from 'react-hot-toast';
-
-let isRefreshing = false;
-let subscribers = [];
-let backendUnavailableTimeout = null;
-let consecutiveFailures = 0;
-let isBackendUnavailable = false;
-
-function subscribeTokenRefresh(callback) {
-  subscribers.push(callback);
-}
-
-function onRefreshed(newToken) {
-  subscribers.forEach((callback) => callback(newToken));
-  subscribers = [];
-}
-
-function clearAllAuthData() {
-  sessionStorage.removeItem('token');
-  sessionStorage.removeItem('refreshToken');
-  sessionStorage.removeItem('userId');
-  sessionStorage.removeItem('email');
-  sessionStorage.removeItem('role');
-  sessionStorage.removeItem('security_fingerprint');
-  sessionStorage.removeItem('expires_at');
-}
-
-function handleBackendUnavailable() {
-  if (isBackendUnavailable) return;
-  
-  isBackendUnavailable = true;
-  clearAllAuthData();
-  toast.error('Le serveur est indisponible. Vous avez été déconnecté automatiquement.');
-  
-  setTimeout(() => {
-    window.location.href = '/login';
-  }, 1000);
-}
+import { authService } from '../api/authService';
 
 const axiosInstance = axios.create({
-  baseURL: API_URL.SERVICE_HARMONI,
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080',
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
+// Intercepteur pour ajouter le token à chaque requête
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token');
+    const token = authService.getToken();
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
-);
-
-axiosInstance.interceptors.response.use(
-  (response) => {
-    consecutiveFailures = 0;
-    if (backendUnavailableTimeout) {
-      clearTimeout(backendUnavailableTimeout);
-      backendUnavailableTimeout = null;
-    }
-    return response;
-  },
-  async (error) => {
-    const { config, response } = error;
-    
-    if (response && response.status === 401 && !config._retry) {
-      config._retry = true;
-      
-      if (!isRefreshing) {
-        isRefreshing = true;
-        
-        try {
-          const refreshToken = sessionStorage.getItem('refreshToken');
-          if (!refreshToken) {
-            clearAllAuthData();
-            window.location.href = '/login';
-            return Promise.reject(error);
-          }
-          
-          const refreshResponse = await axios.post(
-            `${API_URL.AUTH_REFRESH_TOKEN}`,
-            { token: refreshToken },
-            { timeout: 5000 }
-          );
-          
-          const { accessToken } = refreshResponse.data.data;
-          sessionStorage.setItem('token', accessToken);
-          
-          isRefreshing = false;
-          onRefreshed(accessToken);
-          
-          return axiosInstance({
-            ...config,
-            headers: {
-              ...config.headers,
-              'Authorization': `Bearer ${accessToken}`
-            }
-          });
-          
-        } catch (refreshError) {
-          isRefreshing = false;
-          clearAllAuthData();
-          toast.error('Votre session a expiré. Veuillez vous reconnecter.');
-          window.location.href = '/login';
-          return Promise.reject(refreshError);
-        }
-      } else {
-        return new Promise((resolve) => {
-          subscribeTokenRefresh((newToken) => {
-            config.headers['Authorization'] = `Bearer ${newToken}`;
-            resolve(axiosInstance(config));
-          });
-        });
-      }
-    }
-    
-    if (error.code === 'ECONNABORTED' || 
-        error.code === 'ERR_NETWORK' || 
-        error.code === 'NETWORK_ERROR' ||
-        !error.response) {
-      
-      consecutiveFailures++;
-      
-      if (consecutiveFailures >= 2) {
-        if (backendUnavailableTimeout) {
-          clearTimeout(backendUnavailableTimeout);
-        }
-        
-        backendUnavailableTimeout = setTimeout(() => {
-          handleBackendUnavailable();
-        }, 3000);
-      }
-    }
-    
-    if (response && (response.status >= 500 || response.status === 503)) {
-      consecutiveFailures++;
-      
-      if (consecutiveFailures >= 3) {
-        handleBackendUnavailable();
-      }
-    }
-    
+  (error) => {
     return Promise.reject(error);
   }
 );
 
-window.addEventListener('online', () => {
-  consecutiveFailures = 0;
-  isBackendUnavailable = false;
-  if (backendUnavailableTimeout) {
-    clearTimeout(backendUnavailableTimeout);
-    backendUnavailableTimeout = null;
-  }
-});
+// Intercepteur pour gérer les erreurs 401 et le refresh token
+axiosInstance.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
 
-window.addEventListener('offline', () => {
-  handleBackendUnavailable();
-});
+    // Si l'erreur est 401 et qu'on n'a pas déjà tenté de refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      try {
+        // Tenter de rafraîchir le token
+        await authService.refreshToken();
+        
+        // Récupérer le nouveau token
+        const newToken = authService.getToken();
+        if (newToken) {
+          // Mettre à jour le header de la requête originale
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          // Retenter la requête originale
+          return axiosInstance(originalRequest);
+        }
+      } catch (refreshError) {
+        // Si le refresh échoue, déconnecter l'utilisateur
+        authService.logout();
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default axiosInstance;

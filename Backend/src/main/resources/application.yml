@@ -1,0 +1,32 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/harmony_db3
+    username: gallagher
+    password: gallagher09
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: gallagher
+    password: gallagher09
+
+logging:
+  level:
+    org.springframework.amqp: DEBUG
+    org.springframework: DEBUG
+
+server:
+  port: 8200
+
+jwt:
+  secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+  expiration: 86400000 # 24 hours in milliseconds
+  refreshExpiration: 604800000 # 7 days in milliseconds

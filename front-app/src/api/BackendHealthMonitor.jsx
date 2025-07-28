@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_URL } from '../config/urls.jsx';
 import { toast } from 'react-hot-toast';
+import { authService } from './authService';
 
 class BackendHealthMonitor {
   constructor() {
@@ -27,7 +28,6 @@ class BackendHealthMonitor {
     this.healthCheckInterval = setInterval(() => {
       this.checkBackendHealth();
     }, this.checkIntervalMs);
-    
   }
 
   stopMonitoring() {
@@ -39,32 +39,28 @@ class BackendHealthMonitor {
   }
 
   async checkBackendHealth() {
-    const token = sessionStorage.getItem('token');
-    
-    if (!token) {
+    if (!authService.isAuthenticated()) {
       this.stopMonitoring();
       return;
     }
 
-
     try {
       const response = await axios.get(`${API_URL.SERVICE_HARMONI}/auth/verify-token`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${authService.getToken()}`
         },
         timeout: this.healthCheckTimeout
       });
 
-      if (response.data && !response.data.valid) {
-        this.handleInvalidToken();
+      if (response.data && response.data.success) {
+        this.onBackendAvailable();
         return;
       }
 
-      this.onBackendAvailable();
+      this.handleBackendUnavailable();
       
     } catch (error) {
       if (error.response && error.response.status === 401) {
-        this.onBackendAvailable();
         this.handleInvalidToken();
         return;
       }
@@ -99,17 +95,8 @@ class BackendHealthMonitor {
   }
 
   clearAuthDataAndRedirect(message) {
-    
     this.stopMonitoring();
-    
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('refreshToken');
-    sessionStorage.removeItem('userId');
-    sessionStorage.removeItem('email');
-    sessionStorage.removeItem('role');
-    sessionStorage.removeItem('security_fingerprint');
-    sessionStorage.removeItem('expires_at');
-    
+    authService.logout();
     toast.error(message);
     
     setTimeout(() => {
