@@ -14,7 +14,9 @@ import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import toast from 'react-hot-toast';
 import BpmnModelService from '../../../services/BpmnModelService';
-import ProcessExecutionService from '../../../services/ProcessExecutionService';
+// import ProcessExecutionService from '../../../services/ProcessExecutionService';
+import ProcessEngineService from '../../../services/ProcessEngineService';
+import WebSocketService from '../../../services/WebSocketService';
 import { 
   mapPlanificationToBackend,
   mapNotificationToBackend,
@@ -110,6 +112,7 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
   // États pour l'automatisation
   const [isProcessDeployed, setIsProcessDeployed] = useState(false);
   const [processDefinitionKey, setProcessDefinitionKey] = useState(null);
+  const [deployOnSave, setDeployOnSave] = useState(true); // État pour contrôler si on déploie lors de la sauvegarde
 
   // Configuration pour le layout du diagramme
   const nodeWidth = 172;
@@ -805,70 +808,6 @@ const getResourceData = (taskId) => {
     setCurrentSubProcessEdges(edges);
   }, [getCurrentSubProcessFromBreadcrumb, breadcrumb, createSubProcessElements]);
 
-  // Fonction pour gérer le clic sur un sous-processus dans le diagramme du bas
-  const handleLowerDiagramSubProcessClick = useCallback((subProcessId) => {
-    if (!bpmnData || !Array.isArray(bpmnData.subProcesses)) return;
-    
-    const subProcess = bpmnData.subProcesses.find(sp => sp.id === subProcessId);
-    if (!subProcess) return;
-    
-    setLowerBreadcrumb([{
-      id: subProcess.id,
-      name: subProcess.name || "Sous-processus"
-    }]);
-    
-    const { nodes, edges } = createSubProcessElements(subProcess);
-    setLowerNodes(nodes);
-    setLowerEdges(edges);
-  }, [bpmnData, createSubProcessElements]);
-
-  // Fonction pour gérer le clic sur un sous-processus imbriqué dans le diagramme du bas
-  const handleLowerNestedSubProcessClick = useCallback((subProcessId) => {
-    const currentSubProcess = getCurrentSubProcessFromBreadcrumb(lowerBreadcrumb);
-    if (!currentSubProcess || !Array.isArray(currentSubProcess.subProcesses)) return;
-    
-    const nestedSubProcess = currentSubProcess.subProcesses.find(sp => sp.id === subProcessId);
-    if (!nestedSubProcess) return;
-    
-    setLowerBreadcrumb(prev => [...prev, {
-      id: nestedSubProcess.id,
-      name: nestedSubProcess.name || "Sous-processus"
-    }]);
-    
-    const { nodes, edges } = createSubProcessElements(nestedSubProcess);
-    setLowerNodes(nodes);
-    setLowerEdges(edges);
-  }, [getCurrentSubProcessFromBreadcrumb, lowerBreadcrumb, createSubProcessElements]);
-
-  // Fonction pour naviguer via le fil d'Ariane du diagramme du bas
-  const navigateToLowerBreadcrumbLevel = useCallback((level) => {
-    if (level === 0) {
-      setLowerBreadcrumb([]);
-      setLowerNodes(nodes);
-      setLowerEdges(edges);
-      return;
-    }
-    
-    const newBreadcrumb = lowerBreadcrumb.slice(0, level);
-    setLowerBreadcrumb(newBreadcrumb);
-    
-    let currentProcess = null;
-    let processes = bpmnData?.subProcesses || [];
-    
-    for (const item of newBreadcrumb) {
-      currentProcess = processes.find(p => p.id === item.id);
-      if (!currentProcess) return;
-      
-      processes = currentProcess.subProcesses || [];
-    }
-    
-    if (currentProcess) {
-      const { nodes, edges } = createSubProcessElements(currentProcess);
-      setLowerNodes(nodes);
-      setLowerEdges(edges);
-    }
-  }, [lowerBreadcrumb, bpmnData, createSubProcessElements, nodes, edges]);
-
   // Fonction pour naviguer via le fil d'Ariane
   const navigateToBreadcrumbLevel = useCallback((level) => {
     if (level === 0) {
@@ -1133,11 +1072,26 @@ const getResourceData = (taskId) => {
           />
          
           {selectedEvent && (
-            <div className="d-flex justify-content-end mt-3">
+            <div className="d-flex justify-content-end mt-4">
+              {/* Option de déploiement */}
+              <div className="form-check form-switch me-3 d-flex align-items-center">
+                <input
+                  className="form-check-input me-2"
+                  type="checkbox"
+                  id="deployOnSaveSwitch"
+                  checked={deployOnSave}
+                  onChange={(e) => setDeployOnSave(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <label className="form-check-label" htmlFor="deployOnSaveSwitch" style={{ cursor: 'pointer' }}>
+                  {t("Déployer vers Camunda")}
+                </label>
+              </div>
+              
               <button 
-                className="btn btn-outline-danger mr-2" 
-                onClick={() => {
-                  const loadingToast = toast.loading(t("Réinitialisation en cours..."));
+                className="btn btn-primary"
+                onClick={async () => {
+                  const loadingToast = toast.loading(t("Sauvegarde en cours..."));
                   
                   // Réinitialiser la configuration de la tâche sélectionnée
                   const taskId = selectedEvent.id;
@@ -1286,34 +1240,99 @@ const getResourceData = (taskId) => {
                         }
                     }
                     
-                    // 7. Envoyer au backend en utilisant BpmnModelService
+                    // 7. NOUVEAU: Intégration complète avec Camunda Process Engine
                     console.log("completeData", completeData);
                     console.log("allTaskConfigurations", allTaskConfigurations);
-                    let response;
-                    if (isUpdateMode && bpmnId) {
-                      console.log("Mode mise à jour pour BPMN ID:", bpmnId);
-                      response = await BpmnModelService.updateBpmnModel(
-                        bpmnId, 
-                        completeData, 
-                        allTaskConfigurations
-                      );
-                    } else {
-                      console.log("Mode création d'un nouveau modèle");
-                      response = await BpmnModelService.saveBpmnModel(
-                        completeData, 
-                        allTaskConfigurations
-                      );
-                    }
-
-                    console.log("Réponse du serveur:", response.data);
-                    toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
                     
-                    // 8. NOUVEAU: Déploiement automatique après sauvegarde réussie
-                    // await deployProcessAfterSave(response.data);
+                    // 7.1. D'abord sauvegarder le modèle BPMN (pour la compatibilité)
+                    let modelResponse;
+                    // if (isUpdateMode && bpmnId) {
+                    //   console.log("Mode mise à jour pour BPMN ID:", bpmnId);
+                    //   modelResponse = await BpmnModelService.updateBpmnModel(
+                    //     bpmnId, 
+                    //     completeData, 
+                    //     allTaskConfigurations
+                    //   );
+                    // } else {
+                    //   console.log("Mode création d'un nouveau modèle");
+                    //   modelResponse = await BpmnModelService.saveBpmnModel(
+                    //     completeData, 
+                    //     allTaskConfigurations
+                    //   );
+                    // }
+                    
+                    // console.log("Modèle sauvegardé:", modelResponse.data);
+                    // toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
+                    
+                    // 7.2. Déploiement conditionnel vers Camunda après sauvegarde réussie
+                    if (deployOnSave) {
+                      try {
+                        // Créer un fichier BPMN à partir du XML
+                        const bpmnBlob = new Blob([xmlContent.xml], { type: 'application/xml' });
+                        const bpmnFile = new File([bpmnBlob], `${completeData.processInfo.name || 'process'}.bpmn`, {
+                          type: 'application/xml'
+                        });
+                        
+                        // Transformer les configurations pour le backend Camunda
+                        const camundaConfigurations = ProcessEngineService.transformTaskConfigurations(allTaskConfigurations);
+                        
+                        console.log("Déploiement vers Camunda avec:", {
+                          fileName: bpmnFile.name,
+                          configurationsCount: camundaConfigurations.length
+                        });
+                        
+                        // Déployer vers Camunda avec le paramètre deployOnSave
+                        const deploymentResponse = await ProcessEngineService.deployProcess(
+                          bpmnFile,
+                          camundaConfigurations,
+                          deployOnSave // Transmettre l'état de la case à cocher au service
+                        );
+                        
+                        console.log("Processus déployé avec succès:", deploymentResponse.data);
+                        toast.success(t("Processus déployé avec succès vers Camunda !"));
+                        
+                        // Stocker les informations de déploiement
+                        setProcessDefinitionKey(deploymentResponse.data.processDefinitionKey);
+                        setIsProcessDeployed(true);
+                        
+                        // 7.3. Initialiser les notifications WebSocket pour ce processus
+                        try {
+                          await WebSocketService.connect();
+                          
+                          // S'abonner aux notifications de tâches
+                          const userId = localStorage.getItem('userId') || 'current-user';
+                          WebSocketService.subscribeToTaskAssignments(userId, (notification) => {
+                            console.log('Nouvelle assignation de tâche:', notification);
+                            toast.info(`Nouvelle tâche assignée: ${notification.taskName}`);
+                          });
+                          
+                          // S'abonner aux mises à jour de processus
+                          WebSocketService.subscribeToProcessUpdates((notification) => {
+                            console.log('Mise à jour de processus:', notification);
+                            if (notification.type === 'PROCESS_STARTED') {
+                              toast.success(`Processus démarré: ${notification.processDefinitionKey}`);
+                            }
+                          });
+                          
+                          console.log('Notifications WebSocket initialisées pour le processus');
+                        } catch (wsError) {
+                          console.warn('Erreur lors de l\'initialisation WebSocket:', wsError);
+                          // Ne pas faire échouer le déploiement pour un problème WebSocket
+                        }
+                        
+                      } catch (deploymentError) {
+                        console.error('Erreur lors du déploiement Camunda:', deploymentError);
+                        toast.error(t("Erreur lors du déploiement vers Camunda: " + (deploymentError.message || 'Erreur inconnue')));
+                        // Le modèle est sauvegardé mais pas déployé
+                      }
+                    } else {
+                      console.log("Déploiement vers Camunda ignoré selon le choix de l'utilisateur");
+                      toast.info(t("Modèle sauvegardé sans déploiement vers Camunda"));
+                    }
                     
                     // 9. Appeler le callback de succès si fourni
                     if (onSaveSuccess) {
-                      onSaveSuccess(response.data);
+                      onSaveSuccess(modelResponse.data);
                     }
                   } catch (error) {
                     console.error('Erreur lors de la sauvegarde:', error);
@@ -1323,7 +1342,10 @@ const getResourceData = (taskId) => {
                   }
                 }}
               >
-                {t(isUpdateMode ? "Mettre à jour et déployer" : "Sauvegarder et déployer")}
+                {t(isUpdateMode 
+                  ? (deployOnSave ? "Mettre à jour et déployer" : "Mettre à jour sans déployer") 
+                  : (deployOnSave ? "Sauvegarder et déployer" : "Sauvegarder sans déployer")
+                )}
               </button>
 
               {/* NOUVEAU: Bouton pour démarrer le processus si déployé */}
@@ -1335,23 +1357,27 @@ const getResourceData = (taskId) => {
                       const processVariables = {
                         processName: sharedData?.processData?.processName || "Test Process",
                         initiatedFrom: "WebInterface",
-                        timestamp: new Date().toISOString()
+                        timestamp: new Date().toISOString(),
+                        userId: localStorage.getItem('userId') || 'current-user'
                       };
                       
-                      const result = await ProcessExecutionService.startProcess(
+                      console.log('Démarrage du processus avec variables:', processVariables);
+                      
+                      // Utiliser le nouveau ProcessEngineService
+                      const result = await ProcessEngineService.startProcess(
                         processDefinitionKey, 
                         processVariables
                       );
                       
                       toast.success(t("Instance de processus démarrée avec succès !"));
-                      console.log("Instance créée:", result);
+                      console.log("Instance Camunda créée:", result);
                       
                       // Optionnel: rediriger vers la liste des tâches
                       // navigate('/tasks');
                       
                     } catch (error) {
                       console.error("Erreur lors du démarrage:", error);
-                      toast.error(t("Erreur lors du démarrage du processus"));
+                      toast.error(t("Erreur lors du démarrage du processus: " + (error.message || 'Erreur inconnue')));
                     }
                   }}
                 >

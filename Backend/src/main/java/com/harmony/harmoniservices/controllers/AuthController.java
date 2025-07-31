@@ -9,7 +9,7 @@ import com.harmony.harmoniservices.models.RefreshToken;
 import com.harmony.harmoniservices.models.UserEntity;
 import com.harmony.harmoniservices.repository.UserRepository;
 import com.harmony.harmoniservices.security.JwtUtil;
-import com.harmony.harmoniservices.service.RefreshTokenService;
+import com.harmony.harmoniservices.services.RefreshTokenService;
 
 import jakarta.validation.Valid;
 

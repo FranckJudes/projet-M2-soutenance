@@ -35,6 +35,8 @@ import {
 } from '@ant-design/icons';
 import Main from "../layout/Main";
 import UserTaskService from '../services/UserTaskService';
+import ProcessEngineService from '../services/ProcessEngineService';
+import WebSocketService from '../services/WebSocketService';
 
 const { Option } = Select;
 const { Title, Text, Paragraph } = Typography;
@@ -82,16 +84,48 @@ const KanbanBoardAntd = () => {
     }
   };
 
-  // Charger les tâches BPMN d'un utilisateur
+  // Charger les tâches BPMN d'un utilisateur avec intégration Camunda
   const loadUserBpmnTasks = async (userId) => {
     try {
       setLoading(true);
       console.log('🔄 Chargement des tâches BPMN pour l\'utilisateur:', userId);
       
-      const response = await UserTaskService.getUserTasksImproved(userId);
-      const bpmnTasks = response.data;
+      // NOUVEAU: Utiliser ProcessEngineService pour récupérer les tâches Camunda
+      let bpmnTasks = [];
+      try {
+        // Récupérer les tâches Camunda assignées à l'utilisateur
+        const camundaResponse = await ProcessEngineService.getMyTasks();
+        const camundaTasks = camundaResponse.data;
+        
+        console.log('✅ Tâches Camunda récupérées:', camundaTasks);
+        
+        // Transformer les tâches Camunda au format attendu
+        bpmnTasks = camundaTasks.map(task => ({
+          id: task.id,
+          name: task.name || task.taskDefinitionKey,
+          description: task.description || `Tâche du processus ${task.processDefinitionKey}`,
+          assignee: task.assignee,
+          created: task.created,
+          due: task.due,
+          priority: task.priority || 50,
+          processInstanceId: task.processInstanceId,
+          processDefinitionKey: task.processDefinitionKey,
+          taskDefinitionKey: task.taskDefinitionKey,
+          variables: task.variables || {},
+          status: task.suspended ? 'suspended' : 'active',
+          // Mapper vers les statuts Kanban
+          kanbanStatus: task.assignee ? 'inprogress' : 'todo'
+        }));
+        
+      } catch (camundaError) {
+        console.warn('Erreur lors de la récupération des tâches Camunda, fallback vers UserTaskService:', camundaError);
+        
+        // Fallback vers l'ancien système
+        const response = await UserTaskService.getUserTasksImproved(userId);
+        bpmnTasks = response.data;
+      }
       
-      console.log('✅ Tâches BPMN récupérées:', bpmnTasks);
+      console.log('✅ Tâches BPMN finales récupérées:', bpmnTasks);
       
       const convertedData = convertBpmnTasksToKanban(bpmnTasks);
       
@@ -288,23 +322,50 @@ const KanbanBoardAntd = () => {
         return;
       }
 
-      console.log('🔄 Completion de la tâche BPMN:', taskId);
+      console.log('🔄 Completion de la tâche BPMN avec Camunda:', taskId);
       
-      const response = await UserTaskService.completeTask(taskId, {
-        completedViaKanban: true,
-        completedAt: new Date().toISOString(),
-        completedBy: selectedUserId
-      });
+      // NOUVEAU: Utiliser ProcessEngineService pour compléter la tâche Camunda
+      let response;
+      try {
+        // Préparer les variables de completion
+        const completionVariables = {
+          completedViaKanban: true,
+          completedAt: new Date().toISOString(),
+          completedBy: selectedUserId,
+          // Ajouter les variables spécifiques à la tâche si disponibles
+          ...task.variables
+        };
+        
+        console.log('Variables de completion:', completionVariables);
+        
+        // Compléter la tâche via Camunda
+        response = await ProcessEngineService.completeTask(taskId, completionVariables);
+        
+        console.log('✅ Tâche Camunda complétée:', response.data);
+        
+      } catch (camundaError) {
+        console.warn('Erreur lors de la completion Camunda, fallback vers UserTaskService:', camundaError);
+        
+        // Fallback vers l'ancien système
+        response = await UserTaskService.completeTask(taskId, {
+          completedViaKanban: true,
+          completedAt: new Date().toISOString(),
+          completedBy: selectedUserId
+        });
+      }
       
-      console.log('✅ Tâche complétée:', response.data);
+      console.log('✅ Tâche complétée avec succès:', response.data);
       
       message.success(`Tâche "${task.title}" complétée avec succès!`);
       
+      // Afficher des informations sur les prochaines tâches si disponibles
       if (response.data.nextTasks && response.data.nextTasks.length > 0) {
         message.info(`${response.data.nextTasks.length} nouvelle(s) tâche(s) créée(s)`);
+      } else if (response.data.message) {
+        message.info(response.data.message);
       }
       
-      // Recharger les tâches
+      // Recharger les tâches pour refléter les changements
       await loadUserBpmnTasks(selectedUserId);
       
     } catch (error) {
@@ -334,6 +395,119 @@ const KanbanBoardAntd = () => {
       loadUserBpmnTasks(selectedUserId);
     }
   }, [selectedUserId]);
+
+  // NOUVEAU: Initialiser les notifications WebSocket pour les tâches Camunda
+  useEffect(() => {
+    const initializeWebSocket = async () => {
+      try {
+        console.log('🔌 Initialisation des notifications WebSocket pour les tâches');
+        
+        // Se connecter au WebSocket
+        await WebSocketService.connect();
+        
+        // S'abonner aux notifications d'assignation de tâches
+        const userId = localStorage.getItem('userId') || selectedUserId || 'current-user';
+        WebSocketService.subscribeToTaskAssignments(userId, (notification) => {
+          console.log('📋 Nouvelle assignation de tâche reçue:', notification);
+          
+          // Afficher une notification à l'utilisateur
+          message.info({
+            content: `Nouvelle tâche assignée: ${notification.taskName}`,
+            duration: 5,
+            icon: <InfoCircleOutlined style={{ color: '#1890ff' }} />
+          });
+          
+          // Recharger les tâches pour afficher la nouvelle tâche
+          if (selectedUserId) {
+            loadUserBpmnTasks(selectedUserId);
+          }
+        });
+        
+        // S'abonner aux mises à jour de tâches
+        WebSocketService.subscribeToTaskUpdates((notification) => {
+          console.log('🔄 Mise à jour de tâche reçue:', notification);
+          
+          if (notification.type === 'TASK_COMPLETED') {
+            message.success({
+              content: `Tâche complétée: ${notification.taskName}`,
+              duration: 3,
+              icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            });
+          } else if (notification.type === 'TASK_ASSIGNED') {
+            message.info({
+              content: `Tâche réassignée: ${notification.taskName}`,
+              duration: 4,
+              icon: <UserOutlined style={{ color: '#faad14' }} />
+            });
+          }
+          
+          // Recharger les tâches pour refléter les changements
+          if (selectedUserId) {
+            loadUserBpmnTasks(selectedUserId);
+          }
+        });
+        
+        // S'abonner aux notifications de processus
+        WebSocketService.subscribeToProcessUpdates((notification) => {
+          console.log('⚙️ Mise à jour de processus reçue:', notification);
+          
+          if (notification.type === 'PROCESS_STARTED') {
+            message.success({
+              content: `Nouveau processus démarré: ${notification.processDefinitionKey}`,
+              duration: 4,
+              icon: <PlayCircleOutlined style={{ color: '#52c41a' }} />
+            });
+          } else if (notification.type === 'PROCESS_COMPLETED') {
+            message.success({
+              content: `Processus terminé: ${notification.processDefinitionKey}`,
+              duration: 4,
+              icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />
+            });
+          }
+          
+          // Recharger les tâches car de nouvelles tâches peuvent être créées
+          if (selectedUserId) {
+            loadUserBpmnTasks(selectedUserId);
+          }
+        });
+        
+        // S'abonner aux rappels d'échéance
+        WebSocketService.subscribeToDeadlineReminders((notification) => {
+          console.log('⏰ Rappel d\'échéance reçu:', notification);
+          
+          message.warning({
+            content: `Échéance proche: ${notification.taskName} (${notification.timeRemaining})`,
+            duration: 8,
+            icon: <ClockCircleOutlined style={{ color: '#faad14' }} />
+          });
+        });
+        
+        console.log('✅ Notifications WebSocket initialisées avec succès');
+        
+      } catch (error) {
+        console.warn('⚠️ Erreur lors de l\'initialisation WebSocket:', error);
+        // Ne pas faire échouer le composant pour un problème WebSocket
+      }
+    };
+    
+    // Initialiser les WebSockets après un court délai pour s'assurer que le composant est monté
+    const timer = setTimeout(initializeWebSocket, 1000);
+    
+    // Cleanup function
+    return () => {
+      clearTimeout(timer);
+      try {
+        // Se désabonner des notifications lors du démontage
+        WebSocketService.unsubscribeFromTaskAssignments();
+        WebSocketService.unsubscribeFromTaskUpdates();
+        WebSocketService.unsubscribeFromProcessUpdates();
+        WebSocketService.unsubscribeFromDeadlineReminders();
+        console.log('🔌 Désabonnement des notifications WebSocket');
+      } catch (error) {
+        console.warn('Erreur lors du désabonnement WebSocket:', error);
+      }
+    };
+  }, []); // Exécuter une seule fois au montage
 
   // Rendu des composants
   const getPriorityIcon = (priority) => {

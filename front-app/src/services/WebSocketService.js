@@ -182,6 +182,8 @@ class WebSocketService {
       if (this.subscriptions.count) {
         this.subscriptions.count.unsubscribe();
       }
+      // Unsubscribe from Camunda notifications
+      this.unsubscribeFromCamundaNotifications();
       this.subscriptions = {};
     }
   }
@@ -201,6 +203,166 @@ class WebSocketService {
     });
     
     return Promise.resolve(true);
+  }
+
+  // Camunda Process Engine notification methods
+  subscribeToTaskAssignments(userId, callback) {
+    if (!this.connected || !this.stompClient) {
+      console.error('Cannot subscribe to task assignments: WebSocket not connected');
+      return Promise.reject('WebSocket not connected');
+    }
+
+    const subscription = this.stompClient.subscribe(
+      `/user/${userId}/queue/notifications`,
+      message => {
+        try {
+          const notification = JSON.parse(message.body);
+          if (notification.type === 'TASK_ASSIGNED') {
+            console.log('Received task assignment:', notification);
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('Error parsing task assignment notification:', error);
+        }
+      }
+    );
+
+    // Store subscription for cleanup
+    if (!this.subscriptions.camunda) {
+      this.subscriptions.camunda = {};
+    }
+    this.subscriptions.camunda.taskAssignments = subscription;
+    
+    return subscription;
+  }
+
+  subscribeToTaskUpdates(callback) {
+    if (!this.connected || !this.stompClient) {
+      console.error('Cannot subscribe to task updates: WebSocket not connected');
+      return Promise.reject('WebSocket not connected');
+    }
+
+    const subscription = this.stompClient.subscribe(
+      '/topic/task-updates',
+      message => {
+        try {
+          const notification = JSON.parse(message.body);
+          if (['TASK_COMPLETED', 'TASK_UPDATED'].includes(notification.type)) {
+            console.log('Received task update:', notification);
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('Error parsing task update notification:', error);
+        }
+      }
+    );
+
+    if (!this.subscriptions.camunda) {
+      this.subscriptions.camunda = {};
+    }
+    this.subscriptions.camunda.taskUpdates = subscription;
+    
+    return subscription;
+  }
+
+  subscribeToProcessUpdates(callback) {
+    if (!this.connected || !this.stompClient) {
+      console.error('Cannot subscribe to process updates: WebSocket not connected');
+      return Promise.reject('WebSocket not connected');
+    }
+
+    const subscription = this.stompClient.subscribe(
+      '/topic/process-updates',
+      message => {
+        try {
+          const notification = JSON.parse(message.body);
+          if (['PROCESS_STARTED', 'PROCESS_COMPLETED'].includes(notification.type)) {
+            console.log('Received process update:', notification);
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('Error parsing process update notification:', error);
+        }
+      }
+    );
+
+    if (!this.subscriptions.camunda) {
+      this.subscriptions.camunda = {};
+    }
+    this.subscriptions.camunda.processUpdates = subscription;
+    
+    return subscription;
+  }
+
+  subscribeToGroupNotifications(callback) {
+    if (!this.connected || !this.stompClient) {
+      console.error('Cannot subscribe to group notifications: WebSocket not connected');
+      return Promise.reject('WebSocket not connected');
+    }
+
+    const subscription = this.stompClient.subscribe(
+      '/topic/group-notifications',
+      message => {
+        try {
+          const notification = JSON.parse(message.body);
+          if (notification.type === 'TASK_ASSIGNED') {
+            console.log('Received group task assignment:', notification);
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('Error parsing group notification:', error);
+        }
+      }
+    );
+
+    if (!this.subscriptions.camunda) {
+      this.subscriptions.camunda = {};
+    }
+    this.subscriptions.camunda.groupNotifications = subscription;
+    
+    return subscription;
+  }
+
+  subscribeToDeadlineReminders(userId, callback) {
+    if (!this.connected || !this.stompClient) {
+      console.error('Cannot subscribe to deadline reminders: WebSocket not connected');
+      return Promise.reject('WebSocket not connected');
+    }
+
+    const subscription = this.stompClient.subscribe(
+      `/user/${userId}/queue/notifications`,
+      message => {
+        try {
+          const notification = JSON.parse(message.body);
+          if (notification.type === 'DEADLINE_REMINDER') {
+            console.log('Received deadline reminder:', notification);
+            callback(notification);
+          }
+        } catch (error) {
+          console.error('Error parsing deadline reminder:', error);
+        }
+      }
+    );
+
+    if (!this.subscriptions.camunda) {
+      this.subscriptions.camunda = {};
+    }
+    this.subscriptions.camunda.deadlineReminders = subscription;
+    
+    return subscription;
+  }
+
+  // Enhanced unsubscribe method to handle Camunda subscriptions
+  unsubscribeFromCamundaNotifications() {
+    if (this.subscriptions.camunda) {
+      Object.values(this.subscriptions.camunda).forEach(subscription => {
+        if (subscription && subscription.unsubscribe) {
+          subscription.unsubscribe();
+        }
+      });
+      this.subscriptions.camunda = {};
+      console.log('Unsubscribed from all Camunda notifications');
+    }
   }
 }
 

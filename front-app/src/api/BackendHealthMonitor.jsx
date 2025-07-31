@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { API_URL } from '../config/urls.jsx';
 import { toast } from 'react-hot-toast';
-import { authService } from './authService';
 
 class BackendHealthMonitor {
   constructor() {
@@ -28,6 +27,7 @@ class BackendHealthMonitor {
     this.healthCheckInterval = setInterval(() => {
       this.checkBackendHealth();
     }, this.checkIntervalMs);
+    
   }
 
   stopMonitoring() {
@@ -39,15 +39,18 @@ class BackendHealthMonitor {
   }
 
   async checkBackendHealth() {
-    if (!authService.isAuthenticated()) {
+    const token = sessionStorage.getItem('token');
+    
+    if (!token) {
       this.stopMonitoring();
       return;
     }
 
+
     try {
       const response = await axios.get(`${API_URL.SERVICE_HARMONI}/auth/verify-token`, {
         headers: {
-          'Authorization': `Bearer ${authService.getToken()}`
+          'Authorization': `Bearer ${token}`
         },
         timeout: this.healthCheckTimeout
       });
@@ -95,8 +98,17 @@ class BackendHealthMonitor {
   }
 
   clearAuthDataAndRedirect(message) {
+    
     this.stopMonitoring();
-    authService.logout();
+    
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('userId');
+    sessionStorage.removeItem('email');
+    sessionStorage.removeItem('role');
+    sessionStorage.removeItem('security_fingerprint');
+    sessionStorage.removeItem('expires_at');
+    
     toast.error(message);
     
     setTimeout(() => {

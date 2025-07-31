@@ -1,4 +1,4 @@
-package com.harmony.harmoniservices.service;
+package com.harmony.harmoniservices.services;
 
 import com.harmony.harmoniservices.models.RefreshToken;
 import com.harmony.harmoniservices.models.UserEntity;
