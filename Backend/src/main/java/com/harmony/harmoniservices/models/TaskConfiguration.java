@@ -8,6 +8,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"processDefinitionKey", "taskId"}, name = "uk_process_task")
+})
 public class TaskConfiguration {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

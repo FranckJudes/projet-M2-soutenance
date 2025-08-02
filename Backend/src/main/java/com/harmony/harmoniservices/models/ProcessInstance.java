@@ -22,6 +22,9 @@ public class ProcessInstance {
     private String processDefinitionId;
     private String businessKey;
     private String startUserId;
+
+    @Column(name = "process_id", nullable = true)
+    private String processId; // Ajouter ce champ
     
     private LocalDateTime startTime;
     private LocalDateTime endTime;

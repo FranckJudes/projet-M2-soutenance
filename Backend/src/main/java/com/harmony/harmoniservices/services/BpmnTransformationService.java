@@ -1,6 +1,8 @@
 package com.harmony.harmoniservices.services;
 
 import com.harmony.harmoniservices.models.TaskConfiguration;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.model.bpmn.Bpmn;
 import org.camunda.bpm.model.bpmn.BpmnModelInstance;
 import org.camunda.bpm.model.bpmn.instance.*;
@@ -14,6 +16,8 @@ import java.util.Collection;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class BpmnTransformationService {
 
     /**
@@ -95,12 +99,21 @@ public class BpmnTransformationService {
     }
 
     private void applyConfigurationToUserTask(UserTask userTask, TaskConfiguration config) {
-        // Set assignee information
+       
+        log.info("Task {} configuration:", userTask.getId());
+        log.info(" - Assignee: {}", userTask.getCamundaAssignee());
+        log.info(" - Candidate Groups: {}", userTask.getCamundaCandidateGroups());
+        log.info(" - Candidate Users: {}", userTask.getCamundaCandidateUsers());
+        
         if (config.getAssigneeUser() != null) {
+            // Utiliser directement l'ID métier (email) comme assignee
+            log.info("Setting task assignee: {}", config.getAssigneeUser());
             userTask.setCamundaAssignee(config.getAssigneeUser());
         }
         
         if (config.getAssigneeGroup() != null) {
+            // Utiliser directement l'ID métier comme groupe candidat
+            log.info("Setting task candidate group: {}", config.getAssigneeGroup());
             userTask.setCamundaCandidateGroups(config.getAssigneeGroup());
         }
         

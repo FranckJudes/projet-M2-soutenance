@@ -8,6 +8,7 @@ import org.camunda.bpm.engine.task.Task;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +28,7 @@ public class NotificationService {
     /**
      * Send WebSocket notification for task assignment
      */
+    @Async
     public void sendTaskAssignmentNotification(Task task) {
         try {
             TaskConfiguration config = getTaskConfiguration(task);

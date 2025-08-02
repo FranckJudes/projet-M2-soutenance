@@ -41,7 +41,6 @@ import java.io.StringReader;
 @Slf4j
 public class ProcessEngineService {
 
-    private final ProcessEngine processEngine;
     private final RepositoryService repositoryService;
     private final RuntimeService runtimeService;
     private final TaskService taskService;
@@ -66,10 +65,19 @@ public class ProcessEngineService {
     @Transactional
     public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations, String deployedBy, boolean deployToEngine) {
         try {
+            // Log détaillé des configurations reçues
+            log.info("Déploiement du processus avec {} configurations de tâches", taskConfigurations.size());
+            for (TaskConfigurationDTO dto : taskConfigurations) {
+                log.info("Configuration de tâche reçue: taskId={}, assigneeUser={}, assigneeGroup={}, assigneeEntity={}",
+                        dto.getTaskId(), dto.getAssigneeUser(), dto.getAssigneeGroup(), dto.getAssigneeEntity());
+            }
+            
             // Convert DTOs to entities
             List<TaskConfiguration> configurations = taskConfigurations.stream()
                     .map(dto -> modelMapper.map(dto, TaskConfiguration.class))
                     .collect(Collectors.toList());
+
+            System.out.println("========Configurations:============ " + configurations);
 
             // Transform BPMN XML to add userTask configuration
             String transformedBpmn = bpmnTransformationService.transformBpmnWithConfigurations(bpmnXml, configurations);
@@ -164,6 +172,22 @@ public class ProcessEngineService {
             // Save task configurations and ensure users/groups exist in Camunda
             for (TaskConfiguration config : configurations) {
                 config.setProcessDefinitionKey(camundaProcessDef.getKey());
+                
+                // Vérifier si une configuration existe déjà pour ce processDefinitionKey et taskId
+                Optional<TaskConfiguration> existingConfig = taskConfigurationRepository
+                    .findByProcessDefinitionKeyAndTaskId(camundaProcessDef.getKey(), config.getTaskId());
+                
+                if (existingConfig.isPresent()) {
+                    // Mettre à jour la configuration existante
+                    TaskConfiguration existing = existingConfig.get();
+                    log.info("Updating existing task configuration for task: {} in process: {}", 
+                            config.getTaskId(), camundaProcessDef.getKey());
+                    
+                    // Conserver l'ID de la configuration existante
+                    config.setId(existing.getId());
+                }
+                
+                // Sauvegarder la configuration (nouvelle ou mise à jour)
                 taskConfigurationRepository.save(config);
                 
                 // Ensure assignees exist in Camunda identity system
@@ -217,6 +241,7 @@ public class ProcessEngineService {
                     .processInstanceId(camundaInstance.getId())
                     .processDefinitionKey(processDefinitionKey)
                     .processDefinitionId(camundaInstance.getProcessDefinitionId())
+                    .processId(camundaInstance.getId()) // Ajouter cette ligne
                     .businessKey(camundaInstance.getBusinessKey())
                     .startUserId(startUserId)
                     .state(ProcessInstance.ProcessInstanceState.ACTIVE)
@@ -243,8 +268,9 @@ public class ProcessEngineService {
      * Get tasks assigned to a user
      */
     public List<Task> getTasksForUser(String userId) {
-        // Ensure the user exists in Camunda
-        camundaIdentityService.ensureUserExists(userId);
+        log.info("=== DÉBUT getTasksForUser pour userId: {} ===", userId);
+        
+        log.info("Searching tasks for user {}", userId);
         
         // Get tasks assigned directly to the user
         List<Task> assignedTasks = taskService.createTaskQuery()
@@ -252,13 +278,59 @@ public class ProcessEngineService {
                 .active()
                 .list();
         
+        log.info("Found {} tasks directly assigned to user {}", assignedTasks.size(), userId);
+        if (!assignedTasks.isEmpty()) {
+            for (Task task : assignedTasks) {
+                log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
+                        task.getId(), task.getName(), task.getProcessDefinitionId());
+            }
+        }
+        
         // Get tasks where the user is a candidate
         List<Task> candidateTasks = taskService.createTaskQuery()
                 .taskCandidateUser(userId)
                 .active()
                 .list();
         
-        // Combine the lists (avoiding duplicates)
+        log.info("Found {} tasks where user {} is candidate", candidateTasks.size(), userId);
+        if (!candidateTasks.isEmpty()) {
+            for (Task task : candidateTasks) {
+                log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
+                        task.getId(), task.getName(), task.getProcessDefinitionId());
+            }
+        }
+        
+        // Récupérer les groupes dont l'utilisateur est membre
+        List<String> userGroups = new ArrayList<>();
+        List<org.camunda.bpm.engine.identity.Group> camundaGroups = camundaIdentityService.getIdentityService().createGroupQuery()
+                .groupMember(userId)
+                .list();
+        
+        log.info("User {} is member of {} groups", userId, camundaGroups.size());
+        
+        for (org.camunda.bpm.engine.identity.Group group : camundaGroups) {
+            userGroups.add(group.getId());
+            log.info("  - Group: {} ({})", group.getId(), group.getName());
+        }
+        
+        // Get tasks assigned to user's groups
+        List<Task> groupTasks = new ArrayList<>();
+        if (!userGroups.isEmpty()) {
+            groupTasks = taskService.createTaskQuery()
+                    .taskCandidateGroupIn(userGroups)
+                    .active()
+                    .list();
+            
+            log.info("Found {} tasks assigned to user's groups", groupTasks.size());
+            if (!groupTasks.isEmpty()) {
+                for (Task task : groupTasks) {
+                    log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
+                            task.getId(), task.getName(), task.getProcessDefinitionId());
+                }
+            }
+        }
+        
+        // Combine all lists (avoiding duplicates)
         Set<String> taskIds = new HashSet<>();
         List<Task> allTasks = new ArrayList<>();
         
@@ -269,11 +341,21 @@ public class ProcessEngineService {
         
         for (Task task : candidateTasks) {
             if (!taskIds.contains(task.getId())) {
+                taskIds.add(task.getId());
                 allTasks.add(task);
             }
         }
         
-        log.info("Found {} tasks for user {}", allTasks.size(), userId);
+        for (Task task : groupTasks) {
+            if (!taskIds.contains(task.getId())) {
+                taskIds.add(task.getId());
+                allTasks.add(task);
+            }
+        }
+        
+        log.info("Total unique tasks for user {}: {}", userId, allTasks.size());
+        log.info("=== FIN getTasksForUser pour userId: {} ===", userId);
+        
         return allTasks;
     }
 
@@ -285,10 +367,7 @@ public class ProcessEngineService {
             return new ArrayList<>();
         }
         
-        // Ensure all groups exist in Camunda
-        for (String groupId : groupIds) {
-            camundaIdentityService.ensureGroupExists(groupId);
-        }
+        log.info("Searching tasks for groups {}", groupIds);
         
         List<Task> tasks = taskService.createTaskQuery()
                 .taskCandidateGroupIn(groupIds)
@@ -311,14 +390,23 @@ public class ProcessEngineService {
                 throw new RuntimeException("Task not found: " + taskId);
             }
 
-            // Complete task in Camunda
+            // Complete the task
+            taskService.claim(taskId, userId);
             taskService.complete(taskId, variables);
-
-            // Send completion notifications
+            
+            // Send notification for task completion
             notificationService.sendTaskCompletionNotification(taskId, userId);
-
+            
+            // Get next tasks and send notifications
+            String processInstanceId = task.getProcessInstanceId();
+            List<Task> nextTasks = taskService.createTaskQuery().processInstanceId(processInstanceId).list();
+            
+            for (Task nextTask : nextTasks) {
+                notificationService.sendTaskAssignmentNotification(nextTask);
+            }
+            
             log.info("Task {} completed by user {}", taskId, userId);
-
+            
         } catch (Exception e) {
             log.error("Error completing task", e);
             throw new RuntimeException("Failed to complete task: " + e.getMessage(), e);

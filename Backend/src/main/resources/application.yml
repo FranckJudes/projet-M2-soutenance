@@ -12,6 +12,10 @@ spring:
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  flyway:
+    validate-on-migrate: false
+    baseline-on-migrate: true
+
   rabbitmq:
     host: localhost
     port: 5672
@@ -53,7 +57,7 @@ camunda:
       create: All tasks
     history-level: full
     authorization:
-      enabled: true
+      enabled: false # Désactive la gestion fine des permissions pour utiliser directement les IDs métier
     job-execution:
       enabled: true
     database:

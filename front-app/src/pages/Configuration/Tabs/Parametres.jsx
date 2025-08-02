@@ -1303,7 +1303,7 @@ const getResourceData = (taskId) => {
                           const userId = localStorage.getItem('userId') || 'current-user';
                           WebSocketService.subscribeToTaskAssignments(userId, (notification) => {
                             console.log('Nouvelle assignation de tâche:', notification);
-                            toast.info(`Nouvelle tâche assignée: ${notification.taskName}`);
+                            toast.success(`Nouvelle tâche assignée: ${notification.taskName}`);
                           });
                           
                           // S'abonner aux mises à jour de processus
@@ -1327,7 +1327,7 @@ const getResourceData = (taskId) => {
                       }
                     } else {
                       console.log("Déploiement vers Camunda ignoré selon le choix de l'utilisateur");
-                      toast.info(t("Modèle sauvegardé sans déploiement vers Camunda"));
+                      toast.success(t("Modèle sauvegardé sans déploiement vers Camunda"));
                     }
                     
                     // 9. Appeler le callback de succès si fourni

@@ -178,96 +178,141 @@ class ProcessEngineService {
    * @returns {Array} - Backend formatted configurations
    */
   transformTaskConfigurations(frontendConfigurations) {
-    return frontendConfigurations.map(config => ({
-      taskId: config.taskId,
-      taskName: config.taskName,
-      taskType: config.taskType || 'userTask',
+    // Log la structure complète des configurations pour débogage
+    console.log('Structure complète des configurations:', JSON.stringify(frontendConfigurations, null, 2));
+    
+    // Récupérer l'ID utilisateur courant comme valeur par défaut
+    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'admin';
+    console.log('ID utilisateur courant pour assignation par défaut:', currentUserId);
+    
+    return frontendConfigurations.map(config => {
+      // Log détaillé de chaque configuration
+      console.log('Configuration de tâche:', {
+        taskId: config.taskId,
+        habilitation: config.habilitation
+      });
       
-      // Assignation
-      assigneeUser: config.assignation?.assigneeUser,
-      assigneeGroup: config.assignation?.assigneeGroup,
-      assigneeEntity: config.assignation?.assigneeEntity,
-      assigneeType: config.assignation?.assigneeType,
-      returnAllowed: config.assignation?.returnAllowed,
-      responsibleUser: config.assignation?.responsibleUser,
-      interestedUser: config.assignation?.interestedUser,
+      // Extraire directement les champs d'habilitation avec les bons noms
+      const habilitationData = config.habilitation || {};
       
-      // Information générale
-      board: config.informationGeneral?.board,
-      workInstructions: config.informationGeneral?.workInstructions,
-      expectedDeliverable: config.informationGeneral?.expectedDeliverable,
-      category: config.informationGeneral?.category,
+      // Déterminer les valeurs d'assignation avec garantie de non-null
+      let assigneeUser = habilitationData.assignedUser;
+      let assigneeGroup = habilitationData.assignedGroup;
+      let assigneeEntity = habilitationData.assignedEntity;
+      let assigneeType = habilitationData.assigneeType;
       
-      // Planification
-      allDay: config.planification?.allDay,
-      durationValue: config.planification?.durationValue,
-      durationUnit: config.planification?.durationUnit,
-      criticality: config.planification?.criticality,
-      priority: config.planification?.priority,
-      viewHistoryEnabled: config.planification?.viewHistoryEnabled,
+      // Vérifier si au moins un type d'assignation est présent
+      if (!assigneeUser && !assigneeGroup && !assigneeEntity) {
+        console.log(`Aucune assignation définie pour la tâche ${config.taskId}, utilisation de l'utilisateur courant par défaut`);
+        assigneeUser = currentUserId;
+        assigneeType = 'user';
+      }
       
-      // KPIs
-      kpiTasksProcessed: config.planification?.kpiTasksProcessed,
-      kpiReturnRate: config.planification?.kpiReturnRate,
-      kpiAvgInteractions: config.planification?.kpiAvgInteractions,
-      kpiDeadlineCompliance: config.planification?.kpiDeadlineCompliance,
-      kpiValidationWaitTime: config.planification?.kpiValidationWaitTime,
-      kpiPriorityCompliance: config.planification?.kpiPriorityCompliance,
-      kpiEmergencyManagement: config.planification?.kpiEmergencyManagement,
+      // Créer la configuration backend avec les noms de champs corrects
+      const backendConfig = {
+        taskId: config.taskId,
+        taskName: config.taskName,
+        taskType: config.taskType || 'userTask',
+        
+        // Assignation - Mapper directement les champs avec les noms attendus par le backend
+        // et garantir des valeurs non-nulles
+        assigneeUser: assigneeUser,
+        assigneeGroup: assigneeGroup,
+        assigneeEntity: assigneeEntity,
+        assigneeType: assigneeType,
+        returnAllowed: habilitationData.returnAllowed || false,
+        responsibleUser: habilitationData.responsibleUser || null,
+        interestedUser: habilitationData.interestedUser || null,
       
-      // Actions d'escalade
-      notifierSuperviseur: config.planification?.notifierSuperviseur,
-      reassignerTache: config.planification?.reassignerTache,
-      envoyerRappel: config.planification?.envoyerRappel,
-      escaladeHierarchique: config.planification?.escaladeHierarchique,
-      changementPriorite: config.planification?.changementPriorite,
-      bloquerWorkflow: config.planification?.bloquerWorkflow,
-      genererAlerteEquipe: config.planification?.genererAlerteEquipe,
-      demanderJustification: config.planification?.demanderJustification,
-      activerActionCorrective: config.planification?.activerActionCorrective,
-      escaladeExterne: config.planification?.escaladeExterne,
-      cloturerDefaut: config.planification?.cloturerDefaut,
-      suiviParKpi: config.planification?.suiviParKpi,
-      planBOuTacheAlternative: config.planification?.planBOuTacheAlternative,
+        // Information générale
+        board: config.information?.board,
+        workInstructions: config.information?.workInstructions,
+        expectedDeliverable: config.information?.expectedDeliverable,
+        category: config.information?.category,
+        
+        // Planification
+        allDay: config.planification?.allDay,
+        durationValue: config.planification?.durationValue,
+        durationUnit: config.planification?.durationUnit,
+        criticality: config.planification?.criticality,
+        priority: config.planification?.priority || 1,
+        
+        // Condition
+        conditionConfig: config.condition?.conditionConfig || JSON.stringify({conditionVariables: []}),
+        
+        // KPIs et métriques
+        viewHistoryEnabled: config.kpis?.viewHistoryEnabled,
+        kpiTasksProcessed: config.kpis?.tasksProcessed,
+        kpiReturnRate: config.kpis?.returnRate,
+        kpiAvgInteractions: config.kpis?.avgInteractions,
+        kpiDeadlineCompliance: config.kpis?.deadlineCompliance,
+        kpiValidationWaitTime: config.kpis?.validationWaitTime,
+        kpiPriorityCompliance: config.kpis?.priorityCompliance,
+        kpiEmergencyManagement: config.kpis?.emergencyManagement,
+        
+        // Escalades et actions
+        notifierSuperviseur: config.escalades?.notifierSuperviseur,
+        reassignerTache: config.escalades?.reassignerTache,
+        envoyerRappel: config.escalades?.envoyerRappel,
+        escaladeHierarchique: config.escalades?.escaladeHierarchique,
+        changementPriorite: config.escalades?.changementPriorite,
+        bloquerWorkflow: config.escalades?.bloquerWorkflow,
+        genererAlerteEquipe: config.escalades?.genererAlerteEquipe,
+        demanderJustification: config.escalades?.demanderJustification,
+        activerActionCorrective: config.escalades?.activerActionCorrective,
+        escaladeExterne: config.escalades?.escaladeExterne,
+        cloturerDefaut: config.escalades?.cloturerDefaut,
+        suiviParKpi: config.escalades?.suiviParKpi,
+        planBOuTacheAlternative: config.escalades?.planBOuTacheAlternative,
+        
+        // Pièces jointes et documents
+        attachmentsEnabled: config.attachments?.enabled,
+        attachmentType: config.attachments?.type,
+        securityLevel: config.attachments?.securityLevel,
+        externalTools: config.attachments?.externalTools,
+        linkToOtherTask: config.attachments?.linkToOtherTask,
+        scriptBusinessRule: config.attachments?.scriptBusinessRule,
+        addFormResource: config.attachments?.addFormResource,
+        archiveAttachment: config.attachments?.archiveAttachment,
+        shareArchivePdf: config.attachments?.shareArchivePdf,
+        describeFolderDoc: config.attachments?.describeFolderDoc,
+        deleteAttachmentDoc: config.attachments?.deleteAttachmentDoc,
+        consultAttachmentDoc: config.attachments?.consultAttachmentDoc,
+        downloadZip: config.attachments?.downloadZip,
+        importAttachment: config.attachments?.importAttachment,
+        editAttachment: config.attachments?.editAttachment,
+        annotateDocument: config.attachments?.annotateDocument,
+        verifyAttachmentDoc: config.attachments?.verifyAttachmentDoc,
+        searchInDocument: config.attachments?.searchInDocument,
+        removeDocument: config.attachments?.removeDocument,
+        addNewAttachment: config.attachments?.addNewAttachment,
+        convertAttachmentPdf: config.attachments?.convertAttachmentPdf,
+        downloadAttachmentPdf: config.attachments?.downloadAttachmentPdf,
+        downloadOriginalFormat: config.attachments?.downloadOriginalFormat,
+        
+        // Notifications
+        notifyOnCreation: config.notifications?.notifyOnCreation,
+        notifyOnDeadline: config.notifications?.notifyOnDeadline,
+        reminderBeforeDeadline: config.notifications?.reminderBeforeDeadline,
+        notificationSensitivity: config.notifications?.sensitivity,
+        notificationType: config.notifications?.type,
+        selectedReminders: config.notifications?.selectedReminders ? 
+          JSON.stringify(config.notifications.selectedReminders) : null,
+        
+        // Condition et extension
+        extraConfig: config.extraConfig ? JSON.stringify(config.extraConfig) : null
+      };
       
-      // Ressources
-      attachmentsEnabled: config.ressources?.attachmentsEnabled,
-      attachmentType: config.ressources?.attachmentType,
-      securityLevel: config.ressources?.securityLevel,
-      externalTools: config.ressources?.externalTools,
-      linkToOtherTask: config.ressources?.linkToOtherTask,
-      scriptBusinessRule: config.ressources?.scriptBusinessRule,
-      addFormResource: config.ressources?.addFormResource,
-      archiveAttachment: config.ressources?.archiveAttachment,
-      shareArchivePdf: config.ressources?.shareArchivePdf,
-      describeFolderDoc: config.ressources?.describeFolderDoc,
-      deleteAttachmentDoc: config.ressources?.deleteAttachmentDoc,
-      consultAttachmentDoc: config.ressources?.consultAttachmentDoc,
-      downloadZip: config.ressources?.downloadZip,
-      importAttachment: config.ressources?.importAttachment,
-      editAttachment: config.ressources?.editAttachment,
-      annotateDocument: config.ressources?.annotateDocument,
-      verifyAttachmentDoc: config.ressources?.verifyAttachmentDoc,
-      searchInDocument: config.ressources?.searchInDocument,
-      removeDocument: config.ressources?.removeDocument,
-      addNewAttachment: config.ressources?.addNewAttachment,
-      convertAttachmentPdf: config.ressources?.convertAttachmentPdf,
-      downloadAttachmentPdf: config.ressources?.downloadAttachmentPdf,
-      downloadOriginalFormat: config.ressources?.downloadOriginalFormat,
+      // Log de la configuration transformée pour débogage
+      console.log('Configuration transformée:', {
+        taskId: backendConfig.taskId,
+        assigneeUser: backendConfig.assigneeUser,
+        assigneeGroup: backendConfig.assigneeGroup,
+        assigneeEntity: backendConfig.assigneeEntity
+      });
       
-      // Notifications
-      notifyOnCreation: config.notifications?.notifyOnCreation,
-      notifyOnDeadline: config.notifications?.notifyOnDeadline,
-      reminderBeforeDeadline: config.notifications?.reminderBeforeDeadline,
-      notificationSensitivity: config.notifications?.notificationSensitivity,
-      notificationType: config.notifications?.notificationType,
-      selectedReminders: config.notifications?.selectedReminders ? 
-        JSON.stringify(config.notifications.selectedReminders) : null,
-      
-      // Condition et extension
-      conditionConfig: config.condition ? JSON.stringify(config.condition) : null,
-      extraConfig: config.extraConfig ? JSON.stringify(config.extraConfig) : null
-    }));
+      return backendConfig;
+    });
   }
 }
 
