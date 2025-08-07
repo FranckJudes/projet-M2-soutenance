@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harmony.harmoniservices.dto.ProcessDefinitionDTO;
 import com.harmony.harmoniservices.dto.ProcessInstanceDTO;
 import com.harmony.harmoniservices.dto.TaskConfigurationDTO;
+import com.harmony.harmoniservices.dto.TaskDTO;
 import com.harmony.harmoniservices.dto.responses.ApiResponse;
+import com.harmony.harmoniservices.services.CamundaIdentityService;
 import com.harmony.harmoniservices.services.ProcessEngineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.camunda.bpm.engine.task.Task;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,6 +29,7 @@ import java.util.Map;
 public class ProcessEngineController {
 
     private final ProcessEngineService processEngineService;
+    private final CamundaIdentityService camundaIdentityService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -119,7 +122,7 @@ public class ProcessEngineController {
      * Get tasks assigned to current user
      */
     @GetMapping("/tasks/my-tasks")
-    public ResponseEntity<ApiResponse<List<Task>>> getMyTasks(Authentication authentication) {
+    public ResponseEntity<ApiResponse<List<TaskDTO>>> getMyTasks(Authentication authentication) {
         try {
             if (authentication == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -127,7 +130,8 @@ public class ProcessEngineController {
             }
 
             String userId = authentication.getName();
-            List<Task> tasks = processEngineService.getTasksForUser(userId);
+            System.out.println("========================? User ID: " + userId);
+            List<TaskDTO> tasks = processEngineService.getTasksForUser(userId);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Tasks retrieved successfully", tasks));
@@ -143,9 +147,9 @@ public class ProcessEngineController {
      * Get tasks assigned to a specific user
      */
     @GetMapping("/tasks/user/{userId}")
-    public ResponseEntity<ApiResponse<List<Task>>> getUserTasks(@PathVariable String userId) {
+    public ResponseEntity<ApiResponse<List<TaskDTO>>> getUserTasks(@PathVariable String userId) {
         try {
-            List<Task> tasks = processEngineService.getTasksForUser(userId);
+            List<TaskDTO> tasks = processEngineService.getTasksForUser(userId);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Tasks retrieved successfully for user: " + userId, tasks));
@@ -161,9 +165,9 @@ public class ProcessEngineController {
      * Get tasks for a specific group
      */
     @GetMapping("/tasks/group/{groupId}")
-    public ResponseEntity<ApiResponse<List<Task>>> getGroupTasks(@PathVariable String groupId) {
+    public ResponseEntity<ApiResponse<List<TaskDTO>>> getGroupTasks(@PathVariable String groupId) {
         try {
-            List<Task> tasks = processEngineService.getTasksForUserGroups(List.of(groupId));
+            List<TaskDTO> tasks = processEngineService.getTasksForUserGroups(List.of(groupId));
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Tasks retrieved successfully for group: " + groupId, tasks));
@@ -237,15 +241,71 @@ public class ProcessEngineController {
     @GetMapping("/processes")
     public ResponseEntity<ApiResponse<List<ProcessInstanceDTO>>> getActiveProcesses() {
         try {
-            List<ProcessInstanceDTO> activeProcesses = processEngineService.getActiveProcesses();
-
+            List<ProcessInstanceDTO> processes = processEngineService.getActiveProcesses();
             return ResponseEntity.ok(ApiResponse.success(
-                    "Active processes retrieved successfully", activeProcesses));
+                    "Active processes retrieved successfully", processes));
 
         } catch (Exception e) {
             log.error("Error retrieving active processes", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Failed to retrieve active processes: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Endpoint de diagnostic pour déboguer les problèmes d'assignation de tâches
+     */
+    @GetMapping("/diagnose/{processDefinitionKey}/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> diagnoseTaskAssignment(
+            @PathVariable String processDefinitionKey,
+            @PathVariable String userId) {
+        try {
+            Map<String, Object> diagnosticResult = processEngineService.diagnoseTaskAssignmentIssues(processDefinitionKey, userId);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Diagnostic completed successfully", 
+                    diagnosticResult));
+
+        } catch (Exception e) {
+            log.error("Error during diagnostic", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Diagnostic failed: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Endpoint pour lister tous les utilisateurs Camunda et leurs mappings
+     */
+    @GetMapping("/diagnose/users")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> listCamundaUsers() {
+        try {
+            Map<String, Object> usersInfo = processEngineService.listAllCamundaUsers();
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Users information retrieved successfully", 
+                    usersInfo));
+
+        } catch (Exception e) {
+            log.error("Error retrieving users information", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve users information: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Endpoint de test pour l'assignation flexible (utilisateur/groupe/entité)
+     */
+    @PostMapping("/test-flexible-assignment")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> testFlexibleAssignment(
+            @RequestBody Map<String, Object> testData) {
+        try {
+            Map<String, Object> result = processEngineService.testFlexibleAssignment(testData);
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Test d'assignation flexible réussi", 
+                    result));
+
+        } catch (Exception e) {
+            log.error("Error testing flexible assignment", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Test d'assignation flexible échoué: " + e.getMessage()));
         }
     }
 
@@ -268,6 +328,41 @@ public class ProcessEngineController {
             log.error("Error retrieving process definition: {}", processDefinitionKey, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Failed to retrieve process definition: " + e.getMessage()));
+        }
+    }
+    
+    /**
+     * Synchroniser un utilisateur avec Camunda
+     * Crée l'utilisateur dans Camunda s'il n'existe pas déjà
+     * et retourne l'ID Camunda correspondant
+     */
+    @PostMapping("/sync-user/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> syncUser(
+            @PathVariable String userId) {
+        
+        try {
+            log.info("Synchronizing user with Camunda: {}", userId);
+            
+            // Assurer que l'utilisateur existe dans Camunda
+            camundaIdentityService.ensureUserExists(userId);
+            
+            // Récupérer l'ID Camunda pour cet utilisateur (créer si nécessaire)
+            String camundaId = camundaIdentityService.getCamundaId(userId, true);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("originalId", userId);
+            result.put("camundaId", camundaId);
+            result.put("synchronized", true);
+            
+            log.info("User synchronized successfully: {} -> {}", userId, camundaId);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "User synchronized successfully with Camunda", result));
+            
+        } catch (Exception e) {
+            log.error("Error synchronizing user: {}", userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to synchronize user: " + e.getMessage()));
         }
     }
 }

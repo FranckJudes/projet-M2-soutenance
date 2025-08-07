@@ -3,6 +3,9 @@ package com.harmony.harmoniservices.services;
 import com.harmony.harmoniservices.dto.ProcessDefinitionDTO;
 import com.harmony.harmoniservices.dto.ProcessInstanceDTO;
 import com.harmony.harmoniservices.dto.TaskConfigurationDTO;
+import com.harmony.harmoniservices.dto.TaskDTO;
+import com.harmony.harmoniservices.mappers.TaskMapper;
+import com.harmony.harmoniservices.models.CamundaIdMapping;
 import com.harmony.harmoniservices.models.ProcessDefinition;
 import com.harmony.harmoniservices.models.ProcessInstance;
 import com.harmony.harmoniservices.models.TaskConfiguration;
@@ -267,19 +270,30 @@ public class ProcessEngineService {
     /**
      * Get tasks assigned to a user
      */
-    public List<Task> getTasksForUser(String userId) {
-        log.info("=== DÉBUT getTasksForUser pour userId: {} ===", userId);
+    public List<TaskDTO> getTasksForUser(String userId) {
+        if (userId == null || userId.isEmpty()) {
+            log.warn("getTasksForUser called with null or empty userId");
+            return new ArrayList<>();
+        }
         
-        log.info("Searching tasks for user {}", userId);
+        // Récupérer l'ID Camunda correspondant à l'ID original (sans créer de nouveau mapping)
+        String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
         
-        // Get tasks assigned directly to the user
+        if (camundaUserId == null) {
+            log.warn("No Camunda ID mapping found for user ID: {}", userId);
+            return new ArrayList<>();
+        }
+        
+        System.out.println("==================> >>>>>>>" + camundaUserId);
+        
+        // Get tasks assigned directly to the user's Camunda ID
         List<Task> assignedTasks = taskService.createTaskQuery()
-                .taskAssignee(userId)
+                .taskAssignee(camundaUserId)
                 .active()
                 .list();
         
-        log.info("Found {} tasks directly assigned to user {}", assignedTasks.size(), userId);
         if (!assignedTasks.isEmpty()) {
+            log.info("Found {} tasks assigned directly to user {}", assignedTasks.size(), userId);
             for (Task task : assignedTasks) {
                 log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
                         task.getId(), task.getName(), task.getProcessDefinitionId());
@@ -288,11 +302,11 @@ public class ProcessEngineService {
         
         // Get tasks where the user is a candidate
         List<Task> candidateTasks = taskService.createTaskQuery()
-                .taskCandidateUser(userId)
+                .taskCandidateUser(camundaUserId)
                 .active()
                 .list();
         
-        log.info("Found {} tasks where user {} is candidate", candidateTasks.size(), userId);
+        log.info("Found {} tasks where user ID {} is candidate", candidateTasks.size(), userId);
         if (!candidateTasks.isEmpty()) {
             for (Task task : candidateTasks) {
                 log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
@@ -303,10 +317,10 @@ public class ProcessEngineService {
         // Récupérer les groupes dont l'utilisateur est membre
         List<String> userGroups = new ArrayList<>();
         List<org.camunda.bpm.engine.identity.Group> camundaGroups = camundaIdentityService.getIdentityService().createGroupQuery()
-                .groupMember(userId)
+                .groupMember(camundaUserId)
                 .list();
         
-        log.info("User {} is member of {} groups", userId, camundaGroups.size());
+        log.info("User ID {} (Camunda ID: {}) is member of {} groups", userId, camundaUserId, camundaGroups.size());
         
         for (org.camunda.bpm.engine.identity.Group group : camundaGroups) {
             userGroups.add(group.getId());
@@ -356,26 +370,44 @@ public class ProcessEngineService {
         log.info("Total unique tasks for user {}: {}", userId, allTasks.size());
         log.info("=== FIN getTasksForUser pour userId: {} ===", userId);
         
-        return allTasks;
+        // Convertir les tâches Camunda en DTOs pour éviter les problèmes de sérialisation
+        return TaskMapper.toDTOList(allTasks);
     }
 
     /**
      * Get tasks for a user's groups
      */
-    public List<Task> getTasksForUserGroups(List<String> groupIds) {
+    public List<TaskDTO> getTasksForUserGroups(List<String> groupIds) {
         if (groupIds == null || groupIds.isEmpty()) {
             return new ArrayList<>();
         }
         
-        log.info("Searching tasks for groups {}", groupIds);
+        // Convertir les IDs originaux en IDs Camunda
+        List<String> camundaGroupIds = new ArrayList<>();
+        for (String groupId : groupIds) {
+            String camundaGroupId = camundaIdentityService.getCamundaId(groupId, false);
+            if (camundaGroupId != null) {
+                camundaGroupIds.add(camundaGroupId);
+                log.info("Mapped group ID {} to Camunda ID {}", groupId, camundaGroupId);
+            } else {
+                log.warn("No Camunda ID mapping found for group ID: {}", groupId);
+            }
+        }
+        
+        if (camundaGroupIds.isEmpty()) {
+            log.warn("No valid Camunda group IDs found for the provided group IDs");
+            return new ArrayList<>();
+        }
+        
+        log.info("Searching tasks for Camunda group IDs: {}", camundaGroupIds);
         
         List<Task> tasks = taskService.createTaskQuery()
-                .taskCandidateGroupIn(groupIds)
+                .taskCandidateGroupIn(camundaGroupIds)
                 .active()
                 .list();
                 
-        log.info("Found {} tasks for groups {}", tasks.size(), groupIds);
-        return tasks;
+        log.info("Found {} tasks for groups {}", tasks.size(), camundaGroupIds);
+        return TaskMapper.toDTOList(tasks);
     }
 
     /**
@@ -390,11 +422,27 @@ public class ProcessEngineService {
                 throw new RuntimeException("Task not found: " + taskId);
             }
 
-            // Complete the task
-            taskService.claim(taskId, userId);
+            // Récupérer l'ID Camunda correspondant à l'ID original
+            String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
+            if (camundaUserId == null) {
+                log.warn("No Camunda ID mapping found for user ID: {}. Creating a new mapping.", userId);
+                // Créer un nouvel utilisateur et obtenir son ID Camunda
+                camundaIdentityService.ensureUserExists(userId);
+                camundaUserId = camundaIdentityService.getCamundaId(userId, true);
+                
+                if (camundaUserId == null) {
+                    log.error("Failed to create Camunda ID mapping for user: {}", userId);
+                    throw new RuntimeException("Failed to create Camunda ID mapping for user: " + userId);
+                }
+            }
+            
+            log.info("Completing task {} with user ID: {} (Camunda ID: {})", taskId, userId, camundaUserId);
+
+            // Complete the task with the Camunda user ID
+            taskService.claim(taskId, camundaUserId);
             taskService.complete(taskId, variables);
             
-            // Send notification for task completion
+            // Send notification for task completion (using original user ID for notifications)
             notificationService.sendTaskCompletionNotification(taskId, userId);
             
             // Get next tasks and send notifications
@@ -624,7 +672,6 @@ public class ProcessEngineService {
         
         List<String> userIds = new ArrayList<>();
         List<String> groupIds = new ArrayList<>();
-        Map<String, List<String>> userGroupMappings = new HashMap<>();
         
         // Extraire tous les utilisateurs et groupes des configurations
         for (TaskConfiguration config : configurations) {
@@ -653,7 +700,245 @@ public class ProcessEngineService {
         // Synchroniser avec Camunda
         if (!userIds.isEmpty() || !groupIds.isEmpty()) {
             log.info("Synchronisation de {} utilisateurs et {} groupes/entités avec Camunda", userIds.size(), groupIds.size());
-            camundaIdentityService.synchronizeWithCamunda(userIds, groupIds, userGroupMappings);
+            
+            // Synchroniser les utilisateurs
+            for (String userId : userIds) {
+                try {
+                    log.info("Synchronisation de l'utilisateur: {}", userId);
+                    camundaIdentityService.ensureUserExists(userId);
+                    String camundaId = camundaIdentityService.getCamundaId(userId, true);
+                    log.info("Utilisateur {} synchronisé avec ID Camunda: {}", userId, camundaId);
+                } catch (Exception e) {
+                    log.error("Erreur lors de la synchronisation de l'utilisateur {}: {}", userId, e.getMessage(), e);
+                }
+            }
+            
+            // Synchroniser les groupes et entités
+            for (String groupId : groupIds) {
+                try {
+                    log.info("Synchronisation du groupe/entité: {}", groupId);
+                    camundaIdentityService.ensureGroupExists(groupId);
+                    String camundaId = camundaIdentityService.getCamundaId(groupId, true);
+                    log.info("Groupe/Entité {} synchronisé avec ID Camunda: {}", groupId, camundaId);
+                } catch (Exception e) {
+                    log.error("Erreur lors de la synchronisation du groupe/entité {}: {}", groupId, e.getMessage(), e);
+                }
+            }
         }
+        
+        log.info("=== FIN synchronizeTaskAssignees ===");
+    }
+    
+    /**
+     * Méthode de diagnostic pour vérifier l'état des tâches et des utilisateurs
+     */
+    public Map<String, Object> diagnoseTaskAssignmentIssues(String processDefinitionKey, String userId) {
+        Map<String, Object> result = new HashMap<>();
+        log.info("=== DIAGNOSTIC TASK ASSIGNMENT pour processus {} et utilisateur {} ===", processDefinitionKey, userId);
+        
+        // 1. Vérifier si l'utilisateur existe dans Camunda
+        String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
+        log.info("Mapping utilisateur: {} -> {}", userId, camundaUserId);
+        
+        if (camundaUserId == null) {
+            log.error("PROBLÈME: Aucun mapping Camunda trouvé pour l'utilisateur {}", userId);
+            result.put("error", "Aucun mapping Camunda trouvé pour l'utilisateur " + userId);
+            result.put("success", false);
+            return result;
+        }
+        
+        result.put("userId", userId);
+        result.put("camundaUserId", camundaUserId);
+        result.put("processDefinitionKey", processDefinitionKey);
+        
+        // 2. Vérifier si l'utilisateur existe dans Camunda
+        long userCount = camundaIdentityService.getIdentityService().createUserQuery()
+                .userId(camundaUserId)
+                .count();
+        log.info("Utilisateur {} existe dans Camunda: {}", camundaUserId, userCount > 0);
+        
+        // 3. Lister tous les groupes de l'utilisateur
+        List<org.camunda.bpm.engine.identity.Group> userGroups = camundaIdentityService.getIdentityService()
+                .createGroupQuery()
+                .groupMember(camundaUserId)
+                .list();
+        log.info("Utilisateur {} appartient à {} groupes:", camundaUserId, userGroups.size());
+        for (org.camunda.bpm.engine.identity.Group group : userGroups) {
+            log.info("  - Groupe: {} ({})", group.getId(), group.getName());
+        }
+        
+        // 4. Lister toutes les tâches actives du processus
+        List<Task> allTasks = taskService.createTaskQuery()
+                .processDefinitionKey(processDefinitionKey)
+                .active()
+                .list();
+        log.info("Tâches actives pour le processus {}: {}", processDefinitionKey, allTasks.size());
+        
+        for (Task task : allTasks) {
+            log.info("  - Tâche [id={}, name={}, assignee={}, candidateGroups={}]", 
+                    task.getId(), task.getName(), task.getAssignee(), 
+                    taskService.getIdentityLinksForTask(task.getId()));
+        }
+        
+        // 5. Tester les requêtes de tâches
+        List<Task> assignedTasks = taskService.createTaskQuery()
+                .taskAssignee(camundaUserId)
+                .active()
+                .list();
+        log.info("Tâches assignées directement à {}: {}", camundaUserId, assignedTasks.size());
+        
+        List<Task> candidateTasks = taskService.createTaskQuery()
+                .taskCandidateUser(camundaUserId)
+                .active()
+                .list();
+        log.info("Tâches où {} est candidat: {}", camundaUserId, candidateTasks.size());
+        
+        if (!userGroups.isEmpty()) {
+            List<String> groupIds = userGroups.stream()
+                    .map(org.camunda.bpm.engine.identity.Group::getId)
+                    .collect(Collectors.toList());
+            
+            List<Task> groupTasks = taskService.createTaskQuery()
+                    .taskCandidateGroupIn(groupIds)
+                    .active()
+                    .list();
+            log.info("Tâches assignées aux groupes de {}: {}", camundaUserId, groupTasks.size());
+        }
+        
+        log.info("=== FIN DIAGNOSTIC ===");
+        
+        // Compiler les résultats
+        result.put("userExists", userCount > 0);
+        result.put("userGroupsCount", userGroups.size());
+        result.put("totalActiveTasks", allTasks.size());
+        result.put("assignedTasksCount", assignedTasks.size());
+        result.put("candidateTasksCount", candidateTasks.size());
+        result.put("success", true);
+        
+        return result;
+    }
+    
+    /**
+     * Lister tous les utilisateurs Camunda et leurs mappings
+     */
+    public Map<String, Object> listAllCamundaUsers() {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            // Utiliser le service d'identité pour récupérer les mappings
+            Map<String, String> mappings = new HashMap<>();
+            
+            // Récupérer tous les utilisateurs Camunda
+            List<org.camunda.bpm.engine.identity.User> camundaUsers = 
+                camundaIdentityService.getIdentityService().createUserQuery().list();
+            
+            for (org.camunda.bpm.engine.identity.User user : camundaUsers) {
+                // Le mapping inverse n'est pas directement disponible, mais on peut lister les IDs Camunda
+                mappings.put(user.getId(), user.getFirstName() + " " + user.getLastName());
+            }
+            
+            result.put("camundaUsers", mappings);
+            result.put("totalUsers", camundaUsers.size());
+            result.put("success", true);
+            
+            log.info("Found {} Camunda users", camundaUsers.size());
+            
+        } catch (Exception e) {
+            log.error("Error listing Camunda users", e);
+            result.put("error", e.getMessage());
+            result.put("success", false);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Méthode de test pour valider l'assignation flexible (utilisateur/groupe/entité)
+     */
+    public Map<String, Object> testFlexibleAssignment(Map<String, Object> testData) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            String assigneeType = (String) testData.get("assigneeType");
+            String assigneeId = (String) testData.get("assigneeId");
+            
+            log.info("Test d'assignation flexible - Type: {}, ID: {}", assigneeType, assigneeId);
+            
+            // Vérifier le mapping selon le type
+            String camundaId = null;
+            boolean exists = false;
+            
+            switch (assigneeType) {
+                case "user":
+                    camundaId = camundaIdentityService.getCamundaId(assigneeId, false);
+                    if (camundaId != null) {
+                        exists = camundaIdentityService.getIdentityService()
+                                .createUserQuery().userId(camundaId).count() > 0;
+                    }
+                    break;
+                    
+                case "group":
+                case "entity":
+                    camundaId = camundaIdentityService.getCamundaId(assigneeId, false);
+                    if (camundaId != null) {
+                        exists = camundaIdentityService.getIdentityService()
+                                .createGroupQuery().groupId(camundaId).count() > 0;
+                    }
+                    break;
+                    
+                default:
+                    result.put("error", "Type d'assignation non supporté: " + assigneeType);
+                    result.put("success", false);
+                    return result;
+            }
+            
+            // Compiler les résultats
+            result.put("assigneeType", assigneeType);
+            result.put("originalId", assigneeId);
+            result.put("camundaId", camundaId);
+            result.put("mappingExists", camundaId != null);
+            result.put("entityExists", exists);
+            result.put("success", true);
+            
+            // Informations supplémentaires
+            if (camundaId != null && exists) {
+                result.put("status", "OK - Assignation valide");
+                
+                // Pour les utilisateurs, récupérer les tâches assignées
+                if ("user".equals(assigneeType)) {
+                    List<Task> assignedTasks = taskService.createTaskQuery()
+                            .taskAssignee(camundaId).active().list();
+                    List<Task> candidateTasks = taskService.createTaskQuery()
+                            .taskCandidateUser(camundaId).active().list();
+                    
+                    result.put("assignedTasksCount", assignedTasks.size());
+                    result.put("candidateTasksCount", candidateTasks.size());
+                }
+                
+                // Pour les groupes/entités, récupérer les tâches candidates
+                if ("group".equals(assigneeType) || "entity".equals(assigneeType)) {
+                    List<Task> groupTasks = taskService.createTaskQuery()
+                            .taskCandidateGroup(camundaId).active().list();
+                    
+                    result.put("candidateTasksCount", groupTasks.size());
+                }
+                
+            } else if (camundaId == null) {
+                result.put("status", "ERREUR - Mapping manquant");
+                result.put("recommendation", "Exécuter la synchronisation avant le déploiement");
+            } else {
+                result.put("status", "ERREUR - Entité inexistante dans Camunda");
+                result.put("recommendation", "Vérifier la création de l'entité");
+            }
+            
+            log.info("Test d'assignation flexible terminé: {}", result.get("status"));
+            
+        } catch (Exception e) {
+            log.error("Erreur lors du test d'assignation flexible", e);
+            result.put("error", e.getMessage());
+            result.put("success", false);
+        }
+        
+        return result;
     }
 }

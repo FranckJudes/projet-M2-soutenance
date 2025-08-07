@@ -5,6 +5,9 @@ import { backendHealthMonitor } from '../../api/BackendHealthMonitor.jsx';
 import { toast } from 'react-hot-toast';
 import axios from 'axios';
 import { API_URL } from '../../config/urls.jsx';
+import { Form, Input, Button, Checkbox, Card, Typography, Row, Col, Spin, Alert, Divider } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined, MailOutlined } from '@ant-design/icons';
+import '../../../src/styles/login.css';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -94,99 +97,105 @@ export default function Login() {
   };
 
 
+  const { Title, Text } = Typography;
+
+  const onFinish = (values) => {
+    handleSubmit({
+      preventDefault: () => {}
+    });
+  };
+
   return (
-    <div className="pt-5">
-      <div className="col-12 col-sm-8 offset-sm-2 col-md-6 offset-md-3 col-lg-6 offset-lg-3 col-xl-4 offset-xl-4">
-        <div className="card card-primary">
-          <div className="card-header">
-            <h4>Harmoni Authentification</h4>
-          </div>
-          <div className="card-body">
-            
-            
-            <form onSubmit={handleSubmit} className="needs-validation" noValidate>
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  className="form-control"
-                  name="email"
-                  tabIndex="1"
-                  required
-                  autoFocus
-                  autoComplete="email"
-                  value={email}
+    <div className="login-container">
+      <Row justify="center" align="middle" className="login-row">
+        <Col xs={22} sm={16} md={12} lg={8} xl={6}>
+          <Card 
+            className="login-card" 
+            bordered={false}
+            cover={
+              <div className="login-header">
+                <Title level={2} className="login-title">Harmoni</Title>
+                <Text type="secondary">Plateforme de gestion des processus métier</Text>
+              </div>
+            }
+          >
+            <Form
+              name="login"
+              className="login-form"
+              initialValues={{ remember: rememberMe, email: email }}
+              onFinish={onFinish}
+              size="large"
+            >
+              <Form.Item
+                name="email"
+                rules={[
+                  { required: true, message: 'Veuillez saisir votre email' },
+                  { type: 'email', message: 'Veuillez saisir un email valide' }
+                ]}
+              >
+                <Input 
+                  prefix={<UserOutlined className="site-form-item-icon" />} 
+                  placeholder="Email" 
+                  disabled={loading}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
+                  value={email}
+                  autoComplete="email"
                 />
-                <div className="invalid-feedback">
-                  Veuillez renseigner votre email
-                </div>
-              </div>
-              <div className="form-group">
-                <div className="d-block">
-                  <label htmlFor="password" className="control-label">
-                    Mot de passe
-                  </label>
-                  <div className="float-right">
-                    <Link to="/forgot-password" className="text-small">
-                      Mot de passe oublié ?
-                    </Link>
-                  </div>
-                </div>
-                <input
-                  id="password"
-                  type="password"
-                  className="form-control"
-                  name="password"
-                  tabIndex="2"
-                  required
-                  autoComplete="current-password"
-                  value={password}
+              </Form.Item>
+              
+              <Form.Item
+                name="password"
+                rules={[{ required: true, message: 'Veuillez saisir votre mot de passe' }]}
+              >
+                <Input.Password
+                  prefix={<LockOutlined className="site-form-item-icon" />}
+                  placeholder="Mot de passe"
+                  disabled={loading}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
+                  value={password}
+                  autoComplete="current-password"
                 />
-                <div className="invalid-feedback">
-                  Veuillez renseigner votre mot de passe
-                </div>
-              </div>
-              <div className="form-group">
-                <div className="custom-control custom-checkbox">
-                  <input
-                    type="checkbox"
-                    name="remember"
-                    className="custom-control-input"
-                    tabIndex="3"
-                    id="remember-me"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                  />
-                  <label
-                    className="custom-control-label"
-                    htmlFor="remember-me"
-                  >
-                    Se souvenir de moi
-                  </label>
-                </div>
-              </div>
-              <div className="form-group">
-                <button 
-                  type="submit" 
-                  className="btn btn-primary btn-lg btn-block" 
-                  tabIndex="4"
+              </Form.Item>
+              
+              <Form.Item>
+                <Row justify="space-between" align="middle">
+                  <Col>
+                    <Checkbox 
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                    >
+                      Se souvenir de moi
+                    </Checkbox>
+                  </Col>
+                  <Col>
+                    <Link to="/forgot-password" className="login-form-forgot">
+                      Mot de passe oublié
+                    </Link>
+                  </Col>
+                </Row>
+              </Form.Item>
+
+              <Form.Item>
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  className="login-form-button" 
+                  block
+                  icon={<LoginOutlined />}
+                  loading={loading}
                   disabled={loading}
                 >
                   {loading ? 'Connexion en cours...' : 'Se connecter'}
-                </button>
-              </div>
-            </form>
-            <div className="mt-5 text-center">
-              <p>Vous n'avez pas de compte ? <Link to="/register">Inscrivez-vous</Link></p>
+                </Button>
+              </Form.Item>
+            </Form>
+            
+            <div className="login-footer">
+              <Text type="secondary">© {new Date().getFullYear()} Harmoni - Tous droits réservés</Text>
             </div>
-          </div>
-        </div>
-      </div>
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

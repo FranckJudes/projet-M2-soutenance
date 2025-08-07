@@ -1,0 +1,98 @@
+/* Styles pour la page de connexion avec Ant Design */
+
+.login-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.login-row {
+  width: 100%;
+  min-height: 80vh;
+}
+
+.login-card {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.login-header {
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+  padding: 40px 20px;
+  text-align: center;
+  color: white;
+}
+
+.login-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background-color: white;
+  padding: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.login-title {
+  color: white !important;
+  margin-bottom: 8px !important;
+}
+
+.login-form {
+  padding: 24px 0;
+}
+
+.login-form-button {
+  height: 46px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.login-form-forgot {
+  float: right;
+  color: #1890ff;
+}
+
+.login-alert {
+  margin-bottom: 24px;
+}
+
+.login-options {
+  margin-top: 16px;
+}
+
+.register-button {
+  height: 40px;
+  border: 1px dashed #d9d9d9;
+  background-color: transparent;
+  transition: all 0.3s;
+}
+
+.register-button:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .login-header {
+    padding: 30px 15px;
+  }
+  
+  .login-logo {
+    width: 60px;
+    height: 60px;
+  }
+}

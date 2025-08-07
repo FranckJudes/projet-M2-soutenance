@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Configuration de base pour axios
-const API_URL =  import.meta.env.VITE_BASE_SERVICE_ANALYTICS || 'http://localhost:5000';
+// Configuration de base pour axios - utiliser le backend Spring Boot
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8200';
 
 // Création d'une instance axios avec configuration par défaut
 const apiClient = axios.create({
@@ -129,14 +129,147 @@ const BpmnAnalyticsService = {
   // Exécuter une analyse avancée avec PM4Py
   runPm4pyAnalysis: async (processDefinitionId, analysisType, options = {}) => {
     try {
-      const response = await apiClient.post('/api/bpmn/analytics/pm4py', {
+      const response = await apiClient.post('/api/pm4py/analyze', {
         processDefinitionId,
         analysisType,
         options
       });
       return response.data;
     } catch (error) {
-      console.error('Erreur lors de l\'exécution de l\'analyse PM4Py:', error);
+      console.error('Erreur lors de l\'analyse PM4Py:', error);
+      throw error;
+    }
+  },
+
+  // === NOUVELLES MÉTHODES POUR LES ANALYTICS INTÉGRÉS ===
+
+  // Découverte de processus
+  processDiscovery: async (logs, algorithm = 'alpha') => {
+    try {
+      const response = await apiClient.post('/api/analytics/process-discovery', {
+        logs,
+        algorithm
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la découverte de processus:', error);
+      throw error;
+    }
+  },
+
+  // Analyse des variantes de processus
+  processVariants: async (logs, maxVariants = 10) => {
+    try {
+      const response = await apiClient.post('/api/analytics/process-variants', {
+        logs,
+        maxVariants
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse des variantes:', error);
+      throw error;
+    }
+  },
+
+  // Analyse des goulots d'étranglement
+  bottleneckAnalysis: async (logs, analysisType = 'waiting_time') => {
+    try {
+      const response = await apiClient.post('/api/analytics/bottleneck-analysis', {
+        logs,
+        analysisType
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse des goulots d\'étranglement:', error);
+      throw error;
+    }
+  },
+
+  // Prédiction de performance
+  performancePrediction: async (logs, predictionType = 'completion_time', parameters = {}) => {
+    try {
+      const response = await apiClient.post('/api/analytics/performance-prediction', {
+        logs,
+        predictionType,
+        parameters
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la prédiction de performance:', error);
+      throw error;
+    }
+  },
+
+  // Analyse de réseau social
+  socialNetworkAnalysis: async (logs, analysisType = 'handover_of_work') => {
+    try {
+      const response = await apiClient.post('/api/analytics/social-network-analysis', {
+        logs,
+        analysisType
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse de réseau social:', error);
+      throw error;
+    }
+  },
+
+  // Récupérer les logs de processus pour analytics
+  getProcessLogsForAnalytics: async (processDefinitionKey, startDate = null, endDate = null) => {
+    try {
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      
+      const response = await apiClient.get(`/api/analytics/process-logs/${processDefinitionKey}?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des logs pour analytics:', error);
+      throw error;
+    }
+  },
+
+  // Méthode utilitaire pour exécuter une analyse complète
+  runCompleteAnalysis: async (processDefinitionKey, analysisTypes = ['process-discovery', 'process-variants', 'bottleneck-analysis']) => {
+    try {
+      // Récupérer les logs
+      const logsResponse = await BpmnAnalyticsService.getProcessLogsForAnalytics(processDefinitionKey);
+      const logs = logsResponse.data;
+      
+      if (!logs || logs.length === 0) {
+        throw new Error('Aucun log disponible pour l\'analyse');
+      }
+
+      const results = {};
+      
+      // Exécuter les analyses demandées
+      for (const analysisType of analysisTypes) {
+        switch (analysisType) {
+          case 'process-discovery':
+            results.processDiscovery = await BpmnAnalyticsService.processDiscovery(logs);
+            break;
+          case 'process-variants':
+            results.processVariants = await BpmnAnalyticsService.processVariants(logs);
+            break;
+          case 'bottleneck-analysis':
+            results.bottleneckAnalysis = await BpmnAnalyticsService.bottleneckAnalysis(logs);
+            break;
+          case 'performance-prediction':
+            results.performancePrediction = await BpmnAnalyticsService.performancePrediction(logs);
+            break;
+          case 'social-network-analysis':
+            results.socialNetworkAnalysis = await BpmnAnalyticsService.socialNetworkAnalysis(logs);
+            break;
+        }
+      }
+      
+      return {
+        success: true,
+        data: results,
+        logsCount: logs.length
+      };
+    } catch (error) {
+      console.error('Erreur lors de l\'analyse complète:', error);
       throw error;
     }
   }

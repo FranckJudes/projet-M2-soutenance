@@ -37,7 +37,7 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
         };
       }
       
-      // Déterminer le type d'assigné
+      // Déterminer le type d'assigné avec priorité explicite
       let assigneeType = null;
       let assignedUser = null;
       let assignedEntity = null;
@@ -45,32 +45,35 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
       let interestedUser = null;
       let responsibleUser = null;
 
-      // Assignation utilisateur principal
+      // Priorité 1: Assignation utilisateur principal
       if (taskConfig.isChecked && taskConfig.selectedUser) {
-        assignedUser = taskConfig.selectedUser;
+        assignedUser = taskConfig.selectedUser.value || taskConfig.selectedUser;
         assigneeType = 'user';
+        console.log('Assignation utilisateur détectée:', assignedUser);
+      }
+      // Priorité 2: Assignation groupe (si pas d'utilisateur)
+      else if (taskConfig.groupUser && taskConfig.selectedGroup) {
+        assignedGroup = taskConfig.selectedGroup.value || taskConfig.selectedGroup;
+        assigneeType = 'group';
+        console.log('Assignation groupe détectée:', assignedGroup);
+      }
+      // Priorité 3: Assignation entité (si pas d'utilisateur ni groupe)
+      else if (taskConfig.entity && taskConfig.selectedEntity) {
+        assignedEntity = taskConfig.selectedEntity.value || taskConfig.selectedEntity;
+        assigneeType = 'entity';
+        console.log('Assignation entité détectée:', assignedEntity);
       }
 
-      // Assignation entité
-      if (taskConfig.entity && taskConfig.selectedEntity) {
-        assignedEntity = taskConfig.selectedEntity;
-        if (!assigneeType) assigneeType = 'entity';
-      }
-
-      // Assignation groupe
-      if (taskConfig.groupUser && taskConfig.selectedGroup) {
-        assignedGroup = taskConfig.selectedGroup;
-        if (!assigneeType) assigneeType = 'group';
-      }
-
-      // Personne intéressée
+      // Personne intéressée (indépendante de l'assignation principale)
       if (taskConfig.persInteress && taskConfig.selectedInterestedUser) {
-        interestedUser = taskConfig.selectedInterestedUser;
+        interestedUser = taskConfig.selectedInterestedUser.value || taskConfig.selectedInterestedUser;
+        console.log('Utilisateur intéressé détecté:', interestedUser);
       }
 
-      // Responsable pour point de contrôle
-      if (taskConfig.isChecked && taskConfig.checkPointDetails) {
-        responsibleUser = taskConfig.checkPointDetails;
+      // Responsable pour point de contrôle (indépendant de l'assignation principale)
+      if (taskConfig.selectPointControl && taskConfig.checkPointDetails) {
+        responsibleUser = taskConfig.checkPointDetails.value || taskConfig.checkPointDetails;
+        console.log('Utilisateur responsable détecté:', responsibleUser);
       }
 
       return {

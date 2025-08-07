@@ -6,30 +6,26 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
-/**
- * Repository pour gérer les mappings entre identifiants originaux et identifiants Camunda
- */
 @Repository
 public interface CamundaIdMappingRepository extends JpaRepository<CamundaIdMapping, Long> {
 
     /**
-     * Trouve un mapping par identifiant original
-     * @param originalId L'identifiant original
-     * @return Le mapping s'il existe
+     * Trouve un mapping par ID original
      */
     Optional<CamundaIdMapping> findByOriginalId(String originalId);
 
     /**
-     * Trouve un mapping par identifiant Camunda
-     * @param camundaId L'identifiant Camunda
-     * @return Le mapping s'il existe
+     * Trouve un mapping par ID Camunda
      */
     Optional<CamundaIdMapping> findByCamundaId(String camundaId);
 
     /**
-     * Trouve tous les mappings d'un type spécifique
-     * @param resourceType Le type de ressource (user, group, etc.)
-     * @return La liste des mappings
+     * Trouve un mapping par ID original et type d'entité
      */
-    java.util.List<CamundaIdMapping> findByResourceType(String resourceType);
+    Optional<CamundaIdMapping> findByOriginalIdAndEntityType(String originalId, CamundaIdMapping.EntityType entityType);
+
+    /**
+     * Trouve un mapping par ID Camunda et type d'entité
+     */
+    Optional<CamundaIdMapping> findByCamundaIdAndEntityType(String camundaId, CamundaIdMapping.EntityType entityType);
 }

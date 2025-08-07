@@ -15,7 +15,7 @@ from pm4py.algo.evaluation.generalization import algorithm as generalization_eva
 from pm4py.algo.evaluation.simplicity import algorithm as simplicity_evaluator
 from pm4py.statistics.traces.generic.log import case_statistics
 from pm4py.statistics.variants.log import get as variants_module
-from pm4py.statistics.sojourn_time.log import get as soj_time_get
+from pm4py.statistics.service_time.log import get as soj_time_get
 from pm4py.statistics.attributes.log import get as attr_get
 from pm4py.algo.filtering.log.attributes import attributes_filter
 from pm4py.algo.filtering.log.variants import variants_filter
@@ -25,8 +25,10 @@ from pm4py.algo.filtering.log.start_activities import start_activities_filter
 from pm4py.algo.filtering.log.end_activities import end_activities_filter
 from pm4py.algo.organizational_mining.roles import algorithm as roles_discovery
 from pm4py.algo.organizational_mining.sna import algorithm as sna
-from pm4py.algo.enhancement.decision import algorithm as decision_mining
-from pm4py.algo.prediction.lstm import algorithm as lstm
+# Note: decision_mining and lstm modules are not available in PM4Py 2.7.16
+# Commenting out these imports as they're not available in this version
+# from pm4py.algo.enhancement.decision import algorithm as decision_mining
+# from pm4py.algo.prediction.lstm import algorithm as lstm
 import os
 import tempfile
 import json

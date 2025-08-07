@@ -31,7 +31,7 @@ public class CamundaIdentityService {
 
     /**
      * Ensure a user exists in Camunda identity system
-     * Génère un ID propre pour Camunda et stocke l'email comme information utilisateur
+     * Utilise un mapping entre l'ID original et un ID Camunda conforme
      */
     @Transactional
     public void ensureUserExists(String userId) {
@@ -39,28 +39,25 @@ public class CamundaIdentityService {
             return;
         }
         
-        // Vérifier si on a déjà un mapping pour cet utilisateur
-        Optional<CamundaIdMapping> existingMapping = camundaIdMappingRepository.findByOriginalId(userId);
-        String camundaId;
+        log.debug("==================================>>> Ensuring user exists for ID: {}", userId);
         
-        // Si pas de mapping, en créer un nouveau
-        if (existingMapping.isEmpty()) {
-            camundaId = generateCamundaId("user");
-            CamundaIdMapping mapping = CamundaIdMapping.builder()
-                .originalId(userId)
-                .camundaId(camundaId)
-                .resourceType("USER")
-                .build();
-            camundaIdMappingRepository.save(mapping);
-            log.info("Created new Camunda ID mapping: {} -> {}", userId, camundaId);
-        } else {
+        // Vérifier d'abord si un mapping existe déjà
+        Optional<CamundaIdMapping> existingMapping = camundaIdMappingRepository.findByOriginalId(userId);
+        
+        String camundaId;
+        if (existingMapping.isPresent()) {
+            // Utiliser le mapping existant
             camundaId = existingMapping.get().getCamundaId();
-            log.debug("Found existing Camunda ID mapping: {} -> {}", userId, camundaId);
+            log.debug("==================================>>> Found existing mapping: {} -> {}", userId, camundaId);
+        } else {
+            // Créer un nouveau mapping seulement si nécessaire
+            camundaId = getCamundaId(userId);
+            log.debug("==================================>>> Created new mapping: {} -> {}", userId, camundaId);
         }
         
-        // Check if user exists
+        // Vérifier si l'utilisateur existe dans Camunda
         if (identityService.createUserQuery().userId(camundaId).count() == 0) {
-            log.info("Creating Camunda user: {} (original: {})", camundaId, userId);
+            log.info("==================================>>> Creating Camunda user with ID: {} (original: {})", camundaId, userId);
             org.camunda.bpm.engine.identity.User user = identityService.newUser(camundaId);
             
             // Extraire les informations de l'email si possible
@@ -85,8 +82,11 @@ public class CamundaIdentityService {
             user.setFirstName(firstName);
             user.setLastName(lastName);
             user.setEmail(email);
-            user.setPassword(camundaId); // Mot de passe simple pour les tests
+            user.setPassword("password"); // Mot de passe simple pour les tests
             identityService.saveUser(user);
+            log.info("==================================>>> Successfully created Camunda user: {} -> {}", userId, camundaId);
+        } else {
+            log.debug("==================================>>> User already exists in Camunda: {} -> {}", userId, camundaId);
         }
     }
     
@@ -112,10 +112,6 @@ public class CamundaIdentityService {
         // Créer un ID strictement alphanumérique (pas de tiret ni underscore)
         String id = prefix + uuid;
         
-        // S'assurer que l'ID est valide selon les règles Camunda
-        // 1. Commence par une lettre (garanti par le préfixe)
-        // 2. Contient uniquement a-z, A-Z, 0-9
-        // 3. Longueur maximale de 64 caractères
         if (id.length() > 64) {
             id = id.substring(0, 64);
         }
@@ -125,7 +121,7 @@ public class CamundaIdentityService {
 
     /**
      * Ensure a group exists in Camunda identity system
-     * Génère un ID propre pour Camunda et stocke l'ID original comme nom du groupe
+     * Utilise un mapping entre l'ID original et un ID Camunda conforme
      */
     @Transactional
     public void ensureGroupExists(String groupId) {
@@ -133,28 +129,11 @@ public class CamundaIdentityService {
             return;
         }
         
-        // Vérifier si on a déjà un mapping pour ce groupe
-        Optional<CamundaIdMapping> existingMapping = camundaIdMappingRepository.findByOriginalId(groupId);
-        String camundaId;
-        
-        // Si pas de mapping, en créer un nouveau
-        if (existingMapping.isEmpty()) {
-            camundaId = generateCamundaId("group");
-            CamundaIdMapping mapping = CamundaIdMapping.builder()
-                .originalId(groupId)
-                .camundaId(camundaId)
-                .resourceType("GROUP")
-                .build();
-            camundaIdMappingRepository.save(mapping);
-            log.info("Created new Camunda ID mapping for group: {} -> {}", groupId, camundaId);
-        } else {
-            camundaId = existingMapping.get().getCamundaId();
-            log.debug("Found existing Camunda ID mapping for group: {} -> {}", groupId, camundaId);
-        }
+        String camundaId = getCamundaId(groupId);
 
         // Check if group exists
         if (identityService.createGroupQuery().groupId(camundaId).count() == 0) {
-            log.info("Creating Camunda group: {} (original: {})", camundaId, groupId);
+            log.info("Creating Camunda group with ID: {} (original: {})", camundaId, groupId);
             org.camunda.bpm.engine.identity.Group group = identityService.newGroup(camundaId);
             group.setName(groupId); // Garder l'ID original comme nom pour référence
             group.setType("WORKFLOW");
@@ -198,7 +177,8 @@ public class CamundaIdentityService {
         }
 
         // Create membership
-        log.info("Adding user {} to group {} (original: {} to {})", camundaUserId, camundaGroupId, userId, groupId);
+        log.info("Adding user {} to group {} (Camunda IDs: {} -> {})", 
+            userId, groupId, camundaUserId, camundaGroupId);
         identityService.createMembership(camundaUserId, camundaGroupId);
         
         // Vérifier que le membership a bien été créé
@@ -217,30 +197,79 @@ public class CamundaIdentityService {
         }
     }
 
+
     /**
-     * Initialize some default users and groups for testing
+     * Obtient l'ID Camunda correspondant à un ID original
+     * Si aucun mapping n'existe et createIfMissing est true, crée un nouveau mapping
+     * 
+     * @param originalId L'ID original
+     * @param createIfMissing Si true, crée un nouveau mapping si aucun n'existe
+     * @return L'ID Camunda correspondant, ou null si aucun mapping n'existe et createIfMissing est false
      */
-    // @Transactional
-    // public void initializeDefaultUsers() {
-    //     // Create default users
-    //     List<String> defaultUsers = List.of("admin", "user1", "user2", "manager");
-    //     for (String user : defaultUsers) {
-    //         ensureUserExists(user);
-    //     }
-
-    //     // Create default groups
-    //     List<String> defaultGroups = List.of("admins", "users", "managers");
-    //     for (String group : defaultGroups) {
-    //         ensureGroupExists(group);
-    //     }
-
-    //     // Create memberships
-    //     ensureUserInGroup("admin", "admins");
-    //     ensureUserInGroup("user1", "users");
-    //     ensureUserInGroup("user2", "users");
-    //     ensureUserInGroup("manager", "managers");
-    // }
+    @Transactional
+    public String getCamundaId(String originalId, boolean createIfMissing) {
+        if (originalId == null || originalId.isEmpty()) {
+            log.warn("getCamundaId called with null or empty originalId");
+            return null;
+        }
+        
+        log.debug("Searching Camunda ID mapping for original ID: {}", originalId);
+        Optional<CamundaIdMapping> mapping = camundaIdMappingRepository.findByOriginalId(originalId);
+        
+        if (mapping.isPresent()) {
+            String camundaId = mapping.get().getCamundaId();
+            log.debug("Found Camunda ID mapping: {} -> {}", originalId, camundaId);
+            return camundaId;
+        }
+        
+        // Aucun mapping existant
+        if (!createIfMissing) {
+            log.info("No Camunda ID mapping found for original ID: {} and createIfMissing is false", originalId);
+            return null;
+        }
+        
+        // Générer un nouvel ID Camunda
+        log.info("No Camunda ID mapping found for original ID: {}. Creating a new mapping.", originalId);
+        
+        // Déterminer le type d'entité (utilisateur ou groupe) en fonction du format
+        // Par défaut, on suppose que c'est un utilisateur
+        CamundaIdMapping.EntityType entityType = CamundaIdMapping.EntityType.USER;
+        String prefix = "user";
+        
+        // Si l'ID ressemble à un nom de groupe (pas d'@), on le considère comme un groupe
+        if (!originalId.contains("@")) {
+            entityType = CamundaIdMapping.EntityType.GROUP;
+            prefix = "group";
+        }
+        
+        // Générer un ID Camunda conforme
+        String camundaId = generateCamundaId(prefix);
+        
+        // Sauvegarder le mapping
+        CamundaIdMapping newMapping = CamundaIdMapping.builder()
+            .originalId(originalId)
+            .camundaId(camundaId)
+            .entityType(entityType)
+            .build();
+        
+        camundaIdMappingRepository.save(newMapping);
+        log.info("Created new Camunda ID mapping: {} -> {}", originalId, camundaId);
+        
+        return camundaId;
+    }
     
+    /**
+     * Méthode de compatibilité pour l'ancienne signature
+     * Crée toujours un nouveau mapping si aucun n'existe
+     * 
+     * @param originalId L'ID original
+     * @return L'ID Camunda correspondant
+     */
+    @Transactional
+    public String getCamundaId(String originalId) {
+        return getCamundaId(originalId, true);
+    }
+
     /**
      * Synchronise les utilisateurs et groupes entre l'application et Camunda
      * Cette méthode peut être appelée périodiquement ou lors des déploiements
@@ -253,6 +282,8 @@ public class CamundaIdentityService {
      */
     @Transactional
     public void synchronizeWithCamunda(List<String> userIds, List<String> groupIds, Map<String, List<String>> userGroupMappings) {
+        log.info("Starting synchronization with Camunda identity service");
+        
         // Ensure users exist
         if (userIds != null) {
             for (String userId : userIds) {
@@ -273,68 +304,27 @@ public class CamundaIdentityService {
                 String userId = entry.getKey();
                 List<String> groups = entry.getValue();
                 
-                // Récupérer l'ID Camunda de l'utilisateur
-                String camundaUserId = getCamundaId(userId);
-                if (camundaUserId == null) {
-                    // Cet utilisateur n'a pas encore été synchronisé, on le fait maintenant
-                    ensureUserExists(userId);
-                    camundaUserId = getCamundaId(userId);
-                }
-                
                 // Ensure user exists
                 ensureUserExists(userId);
                 
                 // Add user to groups
                 if (groups != null) {
                     for (String groupId : groups) {
-                        // Récupérer l'ID Camunda du groupe
-                        String camundaGroupId = getCamundaId(groupId);
-                        if (camundaGroupId == null) {
-                            // Ce groupe n'a pas encore été synchronisé, on le fait maintenant
-                            ensureGroupExists(groupId);
-                            camundaGroupId = getCamundaId(groupId);
-                        }
-                        
                         // Ensure group exists
                         ensureGroupExists(groupId);
                         
                         // Create membership if it doesn't exist
                         if (identityService.createUserQuery()
-                                .userId(camundaUserId)
-                                .memberOfGroup(camundaGroupId)
+                                .userId(userId)
+                                .memberOfGroup(groupId)
                                 .count() == 0) {
                             
-                            log.info("Adding user {} to group {}", camundaUserId, camundaGroupId);
-                            identityService.createMembership(camundaUserId, camundaGroupId);
+                            log.info("Adding user {} to group {}", userId, groupId);
+                            identityService.createMembership(userId, groupId);
                         }
                     }
                 }
             }
-        }
-    }
-    
-    /**
-     * Récupère l'ID Camunda correspondant à un ID original
-     * Utile pour les services qui ont besoin de connaître l'ID Camunda
-     * @param originalId L'ID original (email, nom de groupe, etc.)
-     * @return L'ID Camunda correspondant ou null si non trouvé
-     */
-    public String getCamundaId(String originalId) {
-        if (originalId == null || originalId.isEmpty()) {
-            log.warn("getCamundaId called with null or empty originalId");
-            return null;
-        }
-        
-        log.debug("Searching Camunda ID mapping for original ID: {}", originalId);
-        Optional<CamundaIdMapping> mapping = camundaIdMappingRepository.findByOriginalId(originalId);
-        
-        if (mapping.isPresent()) {
-            String camundaId = mapping.get().getCamundaId();
-            log.debug("Found Camunda ID mapping: {} -> {}", originalId, camundaId);
-            return camundaId;
-        } else {
-            log.warn("No Camunda ID mapping found for original ID: {}", originalId);
-            return null;
         }
     }
 

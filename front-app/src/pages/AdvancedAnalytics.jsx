@@ -14,6 +14,7 @@ import "../styles/bpmn-analytics.css";
 import "../styles/advanced-analytics.css";
 
 // Importer les composants d'analyse
+import ProcessAnalyticsPanel from '../components/analytics/ProcessAnalyticsPanel';
 import ProcessDiscoveryTab from '../components/analytics/ProcessDiscoveryTab';
 import ProcessVariantsTab from '../components/analytics/ProcessVariantsTab';
 import BottleneckAnalysisTab from '../components/analytics/BottleneckAnalysisTab';
