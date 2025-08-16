@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -160,6 +162,152 @@ public class BpmnAnalyticsController {
             log.error("Error retrieving process logs", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Failed to retrieve process logs: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint pour récupérer tous les logs d'événements
+     */
+    @GetMapping("/logs")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllEventLogs(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            Authentication authentication) {
+        try {
+            log.info("All event logs request from user: {}", 
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            List<Map<String, Object>> logs = bpmnAnalyticsService.getAllEventLogs(startDate, endDate);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Event logs retrieved successfully", logs));
+                    
+        } catch (Exception e) {
+            log.error("Error retrieving event logs", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve event logs: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint de test pour diagnostiquer les problèmes de connectivité
+     */
+    @GetMapping("/test")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> testConnection(
+            Authentication authentication) {
+        try {
+            log.info("Test connection request from user: {}", 
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            Map<String, Object> testData = new HashMap<>();
+            testData.put("message", "Backend analytics is working!");
+            testData.put("timestamp", new Date());
+            testData.put("user", authentication != null ? authentication.getName() : "anonymous");
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Test connection successful", testData));
+                    
+        } catch (Exception e) {
+            log.error("Error in test connection", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Test connection failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint pour récupérer les définitions de processus
+     */
+    @GetMapping("/process-definitions")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getProcessDefinitions(
+            Authentication authentication) {
+        try {
+            log.info("Process definitions request from user: {}", 
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            List<Map<String, Object>> processDefinitions = bpmnAnalyticsService.getProcessDefinitions();
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Process definitions retrieved successfully", processDefinitions));
+                    
+        } catch (Exception e) {
+            log.error("Error retrieving process definitions", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve process definitions: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint pour récupérer les métriques d'un processus
+     */
+    @GetMapping("/metrics/{processDefinitionId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getProcessMetrics(
+            @PathVariable String processDefinitionId,
+            Authentication authentication) {
+        try {
+            log.info("Process metrics request for process: {} from user: {}", 
+                    processDefinitionId,
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            Map<String, Object> metrics = bpmnAnalyticsService.getProcessMetrics(processDefinitionId);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Process metrics retrieved successfully", metrics));
+                    
+        } catch (Exception e) {
+            log.error("Error retrieving process metrics", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve process metrics: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint pour récupérer les données de carte de processus
+     */
+    @GetMapping("/process-map/{processDefinitionId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getProcessMapData(
+            @PathVariable String processDefinitionId,
+            Authentication authentication) {
+        try {
+            log.info("Process map data request for process: {} from user: {}", 
+                    processDefinitionId,
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            Map<String, Object> processMapData = bpmnAnalyticsService.getProcessMapData(processDefinitionId);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Process map data retrieved successfully", processMapData));
+                    
+        } catch (Exception e) {
+            log.error("Error retrieving process map data", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve process map data: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Endpoint pour exporter les logs en CSV
+     */
+    @GetMapping("/export/csv")
+    public ResponseEntity<byte[]> exportLogsAsCsv(
+            @RequestParam(required = false) String processDefinitionId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            Authentication authentication) {
+        try {
+            log.info("CSV export request from user: {}", 
+                    authentication != null ? authentication.getName() : "anonymous");
+            
+            byte[] csvData = bpmnAnalyticsService.exportLogsAsCsv(processDefinitionId, startDate, endDate);
+            
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/csv")
+                    .header("Content-Disposition", "attachment; filename=process_logs.csv")
+                    .body(csvData);
+                    
+        } catch (Exception e) {
+            log.error("Error exporting logs as CSV", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
         }
     }
 }

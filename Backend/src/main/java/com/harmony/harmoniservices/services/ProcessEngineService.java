@@ -20,6 +20,7 @@ import org.camunda.bpm.engine.runtime.ProcessInstanceWithVariables;
 import org.camunda.bpm.engine.task.Task;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -68,13 +69,7 @@ public class ProcessEngineService {
     @Transactional
     public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations, String deployedBy, boolean deployToEngine) {
         try {
-            // Log détaillé des configurations reçues
-            log.info("Déploiement du processus avec {} configurations de tâches", taskConfigurations.size());
-            for (TaskConfigurationDTO dto : taskConfigurations) {
-                log.info("Configuration de tâche reçue: taskId={}, assigneeUser={}, assigneeGroup={}, assigneeEntity={}",
-                        dto.getTaskId(), dto.getAssigneeUser(), dto.getAssigneeGroup(), dto.getAssigneeEntity());
-            }
-            
+          
             // Convert DTOs to entities
             List<TaskConfiguration> configurations = taskConfigurations.stream()
                     .map(dto -> modelMapper.map(dto, TaskConfiguration.class))
@@ -280,7 +275,7 @@ public class ProcessEngineService {
         String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
         
         if (camundaUserId == null) {
-            log.warn("No Camunda ID mapping found for user ID: {}", userId);
+            System.out.println("No Camunda ID mapping found for user ID: " + userId);
             return new ArrayList<>();
         }
         
@@ -412,54 +407,10 @@ public class ProcessEngineService {
 
     /**
      * Complete a task
+     * Méthode modifiée pour éviter l'erreur "Activity is contained in normal flow and cannot be executed using executeActivity()"
+     * et pour gérer correctement les transactions
      */
-    @Transactional
-    public void completeTask(String taskId, Map<String, Object> variables, String userId) {
-        try {
-            // Get task configuration for notifications
-            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-            if (task == null) {
-                throw new RuntimeException("Task not found: " + taskId);
-            }
-
-            // Récupérer l'ID Camunda correspondant à l'ID original
-            String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
-            if (camundaUserId == null) {
-                log.warn("No Camunda ID mapping found for user ID: {}. Creating a new mapping.", userId);
-                // Créer un nouvel utilisateur et obtenir son ID Camunda
-                camundaIdentityService.ensureUserExists(userId);
-                camundaUserId = camundaIdentityService.getCamundaId(userId, true);
-                
-                if (camundaUserId == null) {
-                    log.error("Failed to create Camunda ID mapping for user: {}", userId);
-                    throw new RuntimeException("Failed to create Camunda ID mapping for user: " + userId);
-                }
-            }
-            
-            log.info("Completing task {} with user ID: {} (Camunda ID: {})", taskId, userId, camundaUserId);
-
-            // Complete the task with the Camunda user ID
-            taskService.claim(taskId, camundaUserId);
-            taskService.complete(taskId, variables);
-            
-            // Send notification for task completion (using original user ID for notifications)
-            notificationService.sendTaskCompletionNotification(taskId, userId);
-            
-            // Get next tasks and send notifications
-            String processInstanceId = task.getProcessInstanceId();
-            List<Task> nextTasks = taskService.createTaskQuery().processInstanceId(processInstanceId).list();
-            
-            for (Task nextTask : nextTasks) {
-                notificationService.sendTaskAssignmentNotification(nextTask);
-            }
-            
-            log.info("Task {} completed by user {}", taskId, userId);
-            
-        } catch (Exception e) {
-            log.error("Error completing task", e);
-            throw new RuntimeException("Failed to complete task: " + e.getMessage(), e);
-        }
-    }
+  
 
     /**
      * Get active process instances
@@ -471,6 +422,52 @@ public class ProcessEngineService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // Use a new transaction
+    public void completeTask(String taskId, Map<String, Object> variables, String userId) {
+        try {
+            // Get task and validate
+            Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
+            if (task == null) {
+                throw new RuntimeException("Task not found: " + taskId);
+            }
+
+            // Get Camunda user ID
+            String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
+            if (camundaUserId == null) {
+                camundaIdentityService.ensureUserExists(userId);
+                camundaUserId = camundaIdentityService.getCamundaId(userId, true);
+            }
+
+            log.info("Completing task {} with user ID: {} (Camunda ID: {})", 
+                    taskId, userId, camundaUserId);
+
+            // Claim and complete the task
+            taskService.claim(taskId, camundaUserId);
+            taskService.complete(taskId, variables);
+            
+            // Send notifications
+            notificationService.sendTaskCompletionNotification(taskId, userId);
+            
+            // Handle next tasks
+            String processInstanceId = task.getProcessInstanceId();
+            List<Task> nextTasks = taskService.createTaskQuery()
+                    .processInstanceId(processInstanceId)
+                    .list();
+                
+            for (Task nextTask : nextTasks) {
+                notificationService.sendTaskAssignmentNotification(nextTask);
+            }
+            
+            log.info("Task {} completed by user {}", taskId, userId);
+            
+        } catch (ProcessEngineException e) {
+            log.error("Camunda process engine error completing task", e);
+            throw new RuntimeException("Process engine error: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("General error completing task", e);
+            throw new RuntimeException("Failed to complete task: " + e.getMessage(), e);
+        }
+    }
     /**
      * Get task configuration for a specific task
      */
@@ -940,5 +937,264 @@ public class ProcessEngineService {
         }
         
         return result;
+    }
+
+    /**
+     * Get deployed processes by user
+     */
+    public List<ProcessDefinitionDTO> getDeployedProcessesByUser(String userId) {
+        try {
+            log.info("Retrieving deployed processes for user: {}", userId);
+            
+            // Get process definitions from our database deployed by the user
+            List<ProcessDefinition> userProcesses = processDefinitionRepository.findByDeployedBy(userId);
+            
+            // Convert to DTOs and add Camunda information
+            List<ProcessDefinitionDTO> processDefinitions = new ArrayList<>();
+            
+            for (ProcessDefinition process : userProcesses) {
+                ProcessDefinitionDTO dto = modelMapper.map(process, ProcessDefinitionDTO.class);
+                
+                // Try to get additional info from Camunda if process is deployed
+                try {
+                    if (process.getProcessDefinitionId() != null) {
+                        org.camunda.bpm.engine.repository.ProcessDefinition camundaProcess = 
+                            repositoryService.createProcessDefinitionQuery()
+                                .processDefinitionId(process.getProcessDefinitionId())
+                                .singleResult();
+                        
+                        if (camundaProcess != null) {
+                            dto.setDeploymentId(camundaProcess.getDeploymentId());
+                            dto.setVersion(camundaProcess.getVersion());
+                            // Note: ProcessDefinitionDTO doesn't have suspended field, we use active instead
+                            dto.setActive(!camundaProcess.isSuspended());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not get Camunda info for process {}: {}", process.getProcessDefinitionKey(), e.getMessage());
+                }
+                
+                processDefinitions.add(dto);
+            }
+            
+            log.info("Found {} deployed processes for user: {}", processDefinitions.size(), userId);
+            return processDefinitions;
+            
+        } catch (Exception e) {
+            log.error("Error retrieving deployed processes for user: {}", userId, e);
+            throw new RuntimeException("Failed to retrieve deployed processes for user: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Get deployed processes with general information
+     */
+    public List<Map<String, Object>> getDeployedProcessesWithInfo(String userId) {
+        try {
+            log.info("Retrieving deployed processes with info for user: {}", userId);
+            
+            List<ProcessDefinition> userProcesses = processDefinitionRepository.findByDeployedBy(userId);
+            List<Map<String, Object>> processesWithInfo = new ArrayList<>();
+            
+            for (ProcessDefinition process : userProcesses) {
+                Map<String, Object> processInfo = new HashMap<>();
+                
+                // Basic process information
+                processInfo.put("id", process.getId());
+                processInfo.put("processDefinitionKey", process.getProcessDefinitionKey());
+                processInfo.put("processDefinitionId", process.getProcessDefinitionId());
+                processInfo.put("name", process.getName());
+                processInfo.put("description", process.getDescription());
+                processInfo.put("deployedBy", process.getDeployedBy());
+                processInfo.put("deployedAt", process.getDeployedAt());
+                processInfo.put("version", process.getVersion());
+                processInfo.put("isActive", process.getActive());
+                
+                // Camunda-specific information
+                try {
+                    if (process.getProcessDefinitionId() != null) {
+                        org.camunda.bpm.engine.repository.ProcessDefinition camundaProcess = 
+                            repositoryService.createProcessDefinitionQuery()
+                                .processDefinitionId(process.getProcessDefinitionId())
+                                .singleResult();
+                        
+                        if (camundaProcess != null) {
+                            processInfo.put("deploymentId", camundaProcess.getDeploymentId());
+                            processInfo.put("camundaVersion", camundaProcess.getVersion());
+                            processInfo.put("suspended", camundaProcess.isSuspended());
+                            
+                            // Get instance count
+                            long instanceCount = runtimeService.createProcessInstanceQuery()
+                                .processDefinitionKey(process.getProcessDefinitionKey())
+                                .count();
+                            processInfo.put("instanceCount", instanceCount);
+                            
+                            // Get active instance count
+                            long activeInstanceCount = runtimeService.createProcessInstanceQuery()
+                                .processDefinitionKey(process.getProcessDefinitionKey())
+                                .active()
+                                .count();
+                            processInfo.put("activeInstanceCount", activeInstanceCount);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not get Camunda info for process {}: {}", process.getProcessDefinitionKey(), e.getMessage());
+                    processInfo.put("instanceCount", 0);
+                    processInfo.put("activeInstanceCount", 0);
+                }
+                
+                processesWithInfo.add(processInfo);
+            }
+            
+            log.info("Retrieved {} processes with info for user: {}", processesWithInfo.size(), userId);
+            return processesWithInfo;
+            
+        } catch (Exception e) {
+            log.error("Error retrieving processes with info for user: {}", userId, e);
+            throw new RuntimeException("Failed to retrieve processes with info for user: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Get process definition information
+     */
+    public Map<String, Object> getProcessDefinitionInfo(String processDefinitionKey) {
+        try {
+            log.info("Retrieving process definition info for: {}", processDefinitionKey);
+            
+            Map<String, Object> processInfo = new HashMap<>();
+            
+            // Get from our database first
+            Optional<ProcessDefinition> processDefOpt = processDefinitionRepository
+                .findFirstByProcessDefinitionKeyOrderByVersionDesc(processDefinitionKey);
+            
+            if (processDefOpt.isPresent()) {
+                ProcessDefinition processDef = processDefOpt.get();
+                processInfo.put("id", processDef.getId());
+                processInfo.put("processDefinitionKey", processDef.getProcessDefinitionKey());
+                processInfo.put("name", processDef.getName());
+                processInfo.put("description", processDef.getDescription());
+                processInfo.put("deployedBy", processDef.getDeployedBy());
+                processInfo.put("deployedAt", processDef.getDeployedAt());
+                processInfo.put("version", processDef.getVersion());
+                processInfo.put("isActive", processDef.getActive());
+            }
+            
+            // Get additional info from Camunda
+            try {
+                org.camunda.bpm.engine.repository.ProcessDefinition camundaProcess = 
+                    repositoryService.createProcessDefinitionQuery()
+                        .processDefinitionKey(processDefinitionKey)
+                        .latestVersion()
+                        .singleResult();
+                
+                if (camundaProcess != null) {
+                    processInfo.put("processDefinitionId", camundaProcess.getId());
+                    processInfo.put("deploymentId", camundaProcess.getDeploymentId());
+                    processInfo.put("camundaVersion", camundaProcess.getVersion());
+                    processInfo.put("suspended", camundaProcess.isSuspended());
+                    processInfo.put("resourceName", camundaProcess.getResourceName());
+                    
+                    // Get instance statistics
+                    long totalInstances = historyService.createHistoricProcessInstanceQuery()
+                        .processDefinitionKey(processDefinitionKey)
+                        .count();
+                    processInfo.put("totalInstances", totalInstances);
+                    
+                    long activeInstances = runtimeService.createProcessInstanceQuery()
+                        .processDefinitionKey(processDefinitionKey)
+                        .active()
+                        .count();
+                    processInfo.put("activeInstances", activeInstances);
+                    
+                    long completedInstances = historyService.createHistoricProcessInstanceQuery()
+                        .processDefinitionKey(processDefinitionKey)
+                        .finished()
+                        .count();
+                    processInfo.put("completedInstances", completedInstances);
+                    
+                } else {
+                    processInfo.put("message", "Process not found in Camunda engine");
+                }
+                
+            } catch (Exception e) {
+                log.warn("Could not get Camunda info for process {}: {}", processDefinitionKey, e.getMessage());
+                processInfo.put("camundaError", e.getMessage());
+            }
+            
+            return processInfo;
+            
+        } catch (Exception e) {
+            log.error("Error retrieving process definition info for: {}", processDefinitionKey, e);
+            throw new RuntimeException("Failed to retrieve process definition info: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Get process instances by user
+     */
+    public List<ProcessInstanceDTO> getProcessInstancesByUser(String userId) {
+        try {
+            log.info("Retrieving process instances for user: {}", userId);
+            
+            // Get from our database first
+            List<ProcessInstance> userProcessInstances = processInstanceRepository.findByStartUserId(userId);
+            
+            List<ProcessInstanceDTO> processInstances = new ArrayList<>();
+            
+            for (ProcessInstance instance : userProcessInstances) {
+                ProcessInstanceDTO dto = modelMapper.map(instance, ProcessInstanceDTO.class);
+                
+                // Try to get additional info from Camunda
+                try {
+                    if (instance.getProcessInstanceId() != null) {
+                        // Check if still active in Camunda
+                        org.camunda.bpm.engine.runtime.ProcessInstance camundaInstance = 
+                            runtimeService.createProcessInstanceQuery()
+                                .processInstanceId(instance.getProcessInstanceId())
+                                .singleResult();
+                        
+                        if (camundaInstance != null) {
+                            // Note: ProcessInstanceDTO doesn't have suspended field
+                            // We could add it if needed, for now we skip this
+                            dto.setBusinessKey(camundaInstance.getBusinessKey());
+                        } else {
+                            // Check in history
+                            org.camunda.bpm.engine.history.HistoricProcessInstance historicInstance = 
+                                historyService.createHistoricProcessInstanceQuery()
+                                    .processInstanceId(instance.getProcessInstanceId())
+                                    .singleResult();
+                            
+                            if (historicInstance != null && historicInstance.getEndTime() != null) {
+                                dto.setState(ProcessInstance.ProcessInstanceState.COMPLETED);
+                                dto.setEndTime(convertToLocalDateTime(historicInstance.getEndTime()));
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not get Camunda info for process instance {}: {}", 
+                        instance.getProcessInstanceId(), e.getMessage());
+                }
+                
+                processInstances.add(dto);
+            }
+            
+            log.info("Found {} process instances for user: {}", processInstances.size(), userId);
+            return processInstances;
+            
+        } catch (Exception e) {
+            log.error("Error retrieving process instances for user: {}", userId, e);
+            throw new RuntimeException("Failed to retrieve process instances for user: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Helper method to convert Date to LocalDateTime
+     */
+    private LocalDateTime convertToLocalDateTime(java.util.Date date) {
+        if (date == null) return null;
+        return date.toInstant()
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDateTime();
     }
 }

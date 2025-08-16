@@ -1,0 +1,8 @@
+Application run failed
+
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name &apos;securityFilterChain&apos; defined in class path resource [com/harmony/harmoniservices/config/SecurityConfig.class]: Failed to instantiate [org.springframework.security.web.SecurityFilterChain]: Factory method &apos;securityFilterChain&apos; threw exception with message: Error creating bean with name &apos;mvcHandlerMappingIntrospector&apos; defined in class path resource [org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration$EnableWebMvcConfiguration.class]: Error creating bean with name &apos;requestMappingHandlerMapping&apos; defined in class path resource [org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration$EnableWebMvcConfiguration.class]: Ambiguous mapping. Cannot map &apos;bpmnAnalyticsController&apos; method 
+com.harmony.harmoniservices.controllers.BpmnAnalyticsController#getProcessLogs(String, String, String, Authentication)
+to {GET [/api/analytics/process-logs/{processDefinitionKey}]}: There is already &apos;bpmnAnalyticsController&apos; bean method
+com.harmony.harmoniservices.controllers.BpmnAnalyticsController#getProcessLogsForAnalytics(String, String, String, Authentication) mapped.
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:657) ~[spring-beans-6.2.3.jar:6.2.3]
+	a</pre>

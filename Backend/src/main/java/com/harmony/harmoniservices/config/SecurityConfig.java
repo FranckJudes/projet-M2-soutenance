@@ -23,21 +23,40 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Utiliser des origines spécifiques directement
+        // Autoriser toutes les origines possibles pour le développement et la production
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:5173"  // Vite dev server
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://192.168.43.171:5173",
+            "http://192.168.43.228:5173",
+            "http://localhost:5000",
+            "http://127.0.0.1:3000"
         ));
         
         // Méthodes HTTP autorisées
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         
-        // Headers autorisés
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        // Headers autorisés - être plus spécifique pour la sécurité
+        configuration.setAllowedHeaders(Arrays.asList(
+            "Authorization", 
+            "Content-Type", 
+            "X-Requested-With",
+            "Accept",
+            "Origin",
+            "Access-Control-Request-Method",
+            "Access-Control-Request-Headers"
+        ));
+        
+        // Headers exposés au client
+        configuration.setExposedHeaders(Arrays.asList(
+            "Access-Control-Allow-Origin",
+            "Access-Control-Allow-Credentials"
+        ));
         
         // Autoriser les credentials (cookies, headers d'authentification)
         configuration.setAllowCredentials(true);
         
-        // Durée de cache pour les requêtes preflight
+        // Durée de cache pour les requêtes preflight (en secondes)
         configuration.setMaxAge(3600L);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

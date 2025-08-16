@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -214,6 +215,8 @@ public class BpmnTransformationService {
 
     /**
      * Shared logic for fixing subprocesses
+     * Cette méthode vérifie si les sous-processus ont un événement de démarrage et en ajoute un si nécessaire.
+     * ATTENTION: Modification pour éviter l'erreur "Activity is contained in normal flow and cannot be executed using executeActivity()"
      */
     private void handleSubProcesses(BpmnModelInstance modelInstance, ModelElementInstance container) {
         Collection<SubProcess> subProcesses = ((ModelElementInstance) container).getChildElementsByType(SubProcess.class);
@@ -223,6 +226,8 @@ public class BpmnTransformationService {
             Collection<StartEvent> startEvents = subProcess.getChildElementsByType(StartEvent.class);
             
             if (startEvents.isEmpty()) {
+                log.info("Fixing subprocess {} without start event", subProcess.getId());
+                
                 // Create a new startEvent
                 StartEvent startEvent = modelInstance.newInstance(StartEvent.class);
                 startEvent.setId("StartEvent_" + subProcess.getId());
@@ -231,19 +236,42 @@ public class BpmnTransformationService {
                 // Add the startEvent to the subprocess
                 subProcess.addChildElement(startEvent);
                 
-                // Find the first element in the subprocess to connect to
-                FlowNode firstNode = findFirstFlowNodeInSubProcess(subProcess);
+                // Find nodes without incoming flows - these are potential start nodes
+                List<FlowNode> nodesWithoutIncoming = findNodesWithoutIncomingFlows(subProcess);
                 
-                if (firstNode != null) {
-                    // Create a sequence flow from startEvent to the first node
-                    SequenceFlow flow = modelInstance.newInstance(SequenceFlow.class);
-                    flow.setId("Flow_" + startEvent.getId() + "_to_" + firstNode.getId());
-                    flow.setSource(startEvent);
-                    flow.setTarget(firstNode);
+                if (!nodesWithoutIncoming.isEmpty()) {
+                    log.info("Found {} nodes without incoming flows in subprocess {}", nodesWithoutIncoming.size(), subProcess.getId());
                     
-                    // Add the sequence flow to the subprocess
-                    subProcess.addChildElement(flow);
+                    // Connect start event only to nodes that don't have incoming flows
+                    for (FlowNode node : nodesWithoutIncoming) {
+                        // Create a sequence flow from startEvent to the node
+                        SequenceFlow flow = modelInstance.newInstance(SequenceFlow.class);
+                        flow.setId("Flow_" + startEvent.getId() + "_to_" + node.getId());
+                        flow.setSource(startEvent);
+                        flow.setTarget(node);
+                        
+                        // Add the sequence flow to the subprocess
+                        subProcess.addChildElement(flow);
+                        log.info("Created flow from {} to {}", startEvent.getId(), node.getId());
+                    }
+                } else {
+                    // Fallback: find any node to connect to if no nodes without incoming flows
+                    FlowNode firstNode = findFirstFlowNodeInSubProcess(subProcess);
+                    
+                    if (firstNode != null) {
+                        log.warn("No nodes without incoming flows found, connecting start event to first node {} as fallback", firstNode.getId());
+                        // Create a sequence flow from startEvent to the first node
+                        SequenceFlow flow = modelInstance.newInstance(SequenceFlow.class);
+                        flow.setId("Flow_" + startEvent.getId() + "_to_" + firstNode.getId());
+                        flow.setSource(startEvent);
+                        flow.setTarget(firstNode);
+                        
+                        // Add the sequence flow to the subprocess
+                        subProcess.addChildElement(flow);
+                    }
                 }
+            } else {
+                log.debug("Subprocess {} already has {} start event(s)", subProcess.getId(), startEvents.size());
             }
             
             // Recursively fix nested subprocesses
@@ -275,6 +303,31 @@ public class BpmnTransformationService {
         }
         
         return null;
+    }
+    
+    /**
+     * Trouve tous les nœuds de flux (FlowNode) dans un sous-processus qui n'ont pas de flux entrants
+     * Ces nœuds sont des candidats pour être connectés à un événement de démarrage
+     * 
+     * @param subProcess Le sous-processus à analyser
+     * @return Liste des nœuds sans flux entrants
+     */
+    private List<FlowNode> findNodesWithoutIncomingFlows(SubProcess subProcess) {
+        List<FlowNode> nodesWithoutIncoming = new ArrayList<>();
+        
+        // Collecter tous les nœuds de flux dans le sous-processus
+        Collection<FlowNode> allFlowNodes = subProcess.getChildElementsByType(FlowNode.class);
+        
+        // Filtrer pour ne garder que ceux sans flux entrants
+        for (FlowNode node : allFlowNodes) {
+            // Ignorer les événements de démarrage car ils n'ont jamais de flux entrants par définition
+            if (!(node instanceof StartEvent) && node.getIncoming().isEmpty()) {
+                nodesWithoutIncoming.add(node);
+                log.debug("Node {} in subprocess {} has no incoming flows", node.getId(), subProcess.getId());
+            }
+        }
+        
+        return nodesWithoutIncoming;
     }
     
     /**

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmony Services - Notification</title>
+    <style>
+        /* Styles généraux */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* En-tête */
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .logo {
+            max-height: 60px;
+            margin-bottom: 10px;
+        }
+        
+        /* Contenu */
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+        
+        .message {
+            margin-bottom: 25px;
+        }
+        
+        /* Détails de la tâche */
+        .task-details {
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        
+        .task-details h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #2c3e50;
+        }
+        
+        .task-details p {
+            margin: 8px 0;
+        }
+        
+        .task-details .label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        /* Bouton d'action */
+        .action-button {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            padding: 12px 25px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: #2980b9;
+        }
+        
+        /* Pied de page */
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+            border-top: 1px solid #eeeeee;
+        }
+        
+        .footer p {
+            margin: 5px 0;
+        }
+        
+        /* Styles pour les différents types de notifications */
+        .notification-assigned {
+            border-left-color: #27ae60;
+        }
+        
+        .notification-deadline {
+            border-left-color: #e74c3c;
+        }
+        
+        .notification-completed {
+            border-left-color: #f39c12;
+        }
+        
+        /* Styles pour les niveaux de criticité */
+        .criticality-high {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .criticality-medium {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .criticality-low {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        /* Styles pour les appareils mobiles */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                border-radius: 0;
+            }
+            
+            .header {
+                padding: 15px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <!-- Remplacer par votre logo si disponible -->
+            <!-- <img src="https://votre-domaine.com/logo.png" alt="Harmony Services Logo" class="logo"> -->
+            <h1>Harmony Services</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Bonjour [[RECIPIENT_NAME]],
+            </div>
+            
+            <div class="message">
+                [[MAIN_MESSAGE]]
+            </div>
+            
+            <div class="task-details [[NOTIFICATION_TYPE]]">
+                <h2>[[TASK_TITLE]]</h2>
+                <p><span class="label">ID de la tâche:</span> [[TASK_ID]]</p>
+                <p><span class="label">Processus:</span> [[PROCESS_NAME]]</p>
+                <p><span class="label">Assigné à:</span> [[ASSIGNEE]]</p>
+                [[DEADLINE_INFO]]
+                [[CRITICALITY_INFO]]
+            </div>
+            
+            [[WORK_INSTRUCTIONS]]
+            
+            <div class="action-button">
+                <a href="[[ACTION_URL]]" class="button">Accéder à la tâche</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Ceci est un message automatique, merci de ne pas y répondre.</p>
+            <p>© [[CURRENT_YEAR]] Harmony Services. Tous droits réservés.</p>
+            <p>[[TIMESTAMP]]</p>
+        </div>
+    </div>
+</body>
+</html>

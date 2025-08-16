@@ -7,20 +7,23 @@ import com.harmony.harmoniservices.dto.ProcessInstanceDTO;
 import com.harmony.harmoniservices.dto.TaskConfigurationDTO;
 import com.harmony.harmoniservices.dto.TaskDTO;
 import com.harmony.harmoniservices.dto.responses.ApiResponse;
+import com.harmony.harmoniservices.models.UserEntity;
+import com.harmony.harmoniservices.repository.UserRepository;
 import com.harmony.harmoniservices.services.CamundaIdentityService;
 import com.harmony.harmoniservices.services.ProcessEngineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/process-engine")
@@ -31,7 +34,8 @@ public class ProcessEngineController {
     private final ProcessEngineService processEngineService;
     private final CamundaIdentityService camundaIdentityService;
     private final ObjectMapper objectMapper;
-
+    private final UserRepository userRepository;
+    
     /**
      * Deploy BPMN process with task configurations
      */
@@ -66,15 +70,30 @@ public class ProcessEngineController {
                     new TypeReference<List<TaskConfigurationDTO>>() {}
             );
 
-            // Get current user
-            String deployedBy = authentication != null ? authentication.getName() : "system";
+            // Get current user email from authentication
+            String userEmail = authentication != null ? authentication.getName() : "system";
 
+            // Find user by email to get the user ID
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+
+            // Vérifier si l'utilisateur existe
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            // Get user ID for deployment (this is what will be used in process configurations)
+            String deployedByUserId = user.get().getId().toString();
+            
+            System.out.println("=============================>>>>>>Deployed by user: " + user.get().toString());
+            System.out.println("=============================>>>>>>User ID for deployment: " + deployedByUserId);
+            
             // Deploy process with conditional deployment based on deployToEngine parameter
+            // Pass user ID (not email) as this is what's expected in task configurations
             ProcessDefinitionDTO processDefinition = processEngineService.deployProcess(
-                    bpmnXml, taskConfigurations, deployedBy, deployToEngine);
+                    bpmnXml, taskConfigurations, deployedByUserId, deployToEngine);
 
             log.info("Successfully deployed process: {} by user: {}", 
-                    processDefinition.getProcessDefinitionKey(), deployedBy);
+                    processDefinition.getProcessDefinitionKey(), deployedByUserId);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Process deployed successfully", processDefinition));
@@ -130,8 +149,14 @@ public class ProcessEngineController {
             }
 
             String userId = authentication.getName();
-            System.out.println("========================? User ID: " + userId);
-            List<TaskDTO> tasks = processEngineService.getTasksForUser(userId);
+            Optional<UserEntity> user = userRepository.findByEmail(userId);
+
+
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userId);
+            }
+          
+            List<TaskDTO> tasks = processEngineService.getTasksForUser(user.get().getId().toString());
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Tasks retrieved successfully", tasks));
@@ -220,10 +245,24 @@ public class ProcessEngineController {
                 variables = new HashMap<>();
             }
 
-            String userId = authentication.getName();
+            // Get current user email from authentication
+            String userEmail = authentication.getName();
+            
+            // Find user by email to get the user ID
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+            
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            // Get user ID for task completion
+            String userId = user.get().getId().toString();
+            
+            System.out.println("=============================>>>>>>Completing task " + taskId + " with user ID: " + userId + " (email: " + userEmail + ")");
+            
             processEngineService.completeTask(taskId, variables, userId);
 
-            log.info("Task {} completed by user {}", taskId, userId);
+            log.info("Task {} completed by user {} (ID: {})", taskId, userEmail, userId);
 
             return ResponseEntity.ok(ApiResponse.success(
                     "Task completed successfully", "Task " + taskId + " has been completed"));
@@ -310,6 +349,72 @@ public class ProcessEngineController {
     }
 
     /**
+     * Get deployed processes by current user
+     */
+    @GetMapping("/my-deployed-processes")
+    public ResponseEntity<ApiResponse<List<ProcessDefinitionDTO>>> getMyDeployedProcesses(Authentication authentication) {
+        try {
+            if (authentication == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Authentication required"));
+            }
+
+            String userEmail = authentication.getName();
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+            
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            String userId = user.get().getId().toString();
+            List<ProcessDefinitionDTO> deployedProcesses = processEngineService.getDeployedProcessesByUser(userId);
+            
+            log.info("Retrieved {} deployed processes for user: {}", deployedProcesses.size(), userEmail);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Deployed processes retrieved successfully", deployedProcesses));
+
+        } catch (Exception e) {
+            log.error("Error retrieving deployed processes for user", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve deployed processes: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get all deployed processes with general information
+     */
+    @GetMapping("/deployed-processes-with-info")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getDeployedProcessesWithInfo(Authentication authentication) {
+        try {
+            if (authentication == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Authentication required"));
+            }
+
+            String userEmail = authentication.getName();
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+            
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            String userId = user.get().getId().toString();
+            List<Map<String, Object>> processesWithInfo = processEngineService.getDeployedProcessesWithInfo(userId);
+            
+            log.info("Retrieved {} deployed processes with info for user: {}", processesWithInfo.size(), userEmail);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Deployed processes with info retrieved successfully", processesWithInfo));
+
+        } catch (Exception e) {
+            log.error("Error retrieving deployed processes with info for user", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve deployed processes with info: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Get process definition details
      */
     @GetMapping("/definitions/{processDefinitionKey}")
@@ -317,10 +422,8 @@ public class ProcessEngineController {
             @PathVariable String processDefinitionKey) {
         
         try {
-            Map<String, Object> processInfo = new HashMap<>();
-            processInfo.put("processDefinitionKey", processDefinitionKey);
-            processInfo.put("message", "Process definition details endpoint");
-
+            Map<String, Object> processInfo = processEngineService.getProcessDefinitionInfo(processDefinitionKey);
+            
             return ResponseEntity.ok(ApiResponse.success(
                     "Process definition retrieved successfully", processInfo));
 
@@ -328,6 +431,39 @@ public class ProcessEngineController {
             log.error("Error retrieving process definition: {}", processDefinitionKey, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Failed to retrieve process definition: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Get process instances by user
+     */
+    @GetMapping("/my-process-instances")
+    public ResponseEntity<ApiResponse<List<ProcessInstanceDTO>>> getMyProcessInstances(Authentication authentication) {
+        try {
+            if (authentication == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Authentication required"));
+            }
+
+            String userEmail = authentication.getName();
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+            
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            String userId = user.get().getId().toString();
+            List<ProcessInstanceDTO> processInstances = processEngineService.getProcessInstancesByUser(userId);
+            
+            log.info("Retrieved {} process instances for user: {}", processInstances.size(), userEmail);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Process instances retrieved successfully", processInstances));
+
+        } catch (Exception e) {
+            log.error("Error retrieving process instances for user", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to retrieve process instances: " + e.getMessage()));
         }
     }
     

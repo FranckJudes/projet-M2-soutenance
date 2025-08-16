@@ -23,4 +23,14 @@ public interface ProcessDefinitionRepository extends JpaRepository<ProcessDefini
     
     @Query("SELECT pd FROM ProcessDefinition pd WHERE pd.processDefinitionKey = :key AND pd.active = true ORDER BY pd.version DESC")
     Optional<ProcessDefinition> findLatestActiveByProcessDefinitionKey(@Param("key") String processDefinitionKey);
+    
+    List<ProcessDefinition> findByDeployedBy(String deployedBy);
+    
+    @Query("SELECT pd FROM ProcessDefinition pd WHERE pd.processDefinitionKey = :key ORDER BY pd.version DESC")
+    List<ProcessDefinition> findByProcessDefinitionKeyOrderByVersionDescList(@Param("key") String processDefinitionKey);
+    
+    default Optional<ProcessDefinition> findFirstByProcessDefinitionKeyOrderByVersionDesc(String processDefinitionKey) {
+        List<ProcessDefinition> results = findByProcessDefinitionKeyOrderByVersionDescList(processDefinitionKey);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
 }

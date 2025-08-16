@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: gallagher
       POSTGRES_PASSWORD: gallagher09
-      POSTGRES_DB: harmony_db
+      POSTGRES_DB: harmony_db3
     volumes:
       - postgres-data:/var/lib/postgresql/data 
     ports:
@@ -15,7 +15,7 @@ services:
       - microservices-net
     restart: unless-stopped
     healthcheck: 
-      test: ["CMD-SHELL", "pg_isready -U gallagher -d harmony_db"]
+      test: ["CMD-SHELL", "pg_isready -U gallagher -d harmony_db3"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -43,6 +43,7 @@ services:
   mail-dev:
     container_name: ms_mail_dev
     image: maildev/maildev
+    restart: unless-stopped
     ports:
       - "1080:1080"
       - "1025:1025"

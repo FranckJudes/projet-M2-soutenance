@@ -39,20 +39,22 @@ public class CamundaIdentityService {
             return;
         }
         
-        log.debug("==================================>>> Ensuring user exists for ID: {}", userId);
+        System.out.println("==================================>>> Ensuring user exists for ID: " + userId);
         
         // Vérifier d'abord si un mapping existe déjà
         Optional<CamundaIdMapping> existingMapping = camundaIdMappingRepository.findByOriginalId(userId);
         
+        System.out.println("==================================>>> ID que j'ai retrouver====>" + existingMapping);
+
         String camundaId;
         if (existingMapping.isPresent()) {
             // Utiliser le mapping existant
             camundaId = existingMapping.get().getCamundaId();
-            log.debug("==================================>>> Found existing mapping: {} -> {}", userId, camundaId);
+            System.out.println("==================================>>> Found existing mapping: " + userId + " -> " + camundaId);
         } else {
             // Créer un nouveau mapping seulement si nécessaire
             camundaId = getCamundaId(userId);
-            log.debug("==================================>>> Created new mapping: {} -> {}", userId, camundaId);
+            System.out.println("==================================>>> Created new mapping: " + userId + " -> " + camundaId);
         }
         
         // Vérifier si l'utilisateur existe dans Camunda
@@ -209,42 +211,32 @@ public class CamundaIdentityService {
     @Transactional
     public String getCamundaId(String originalId, boolean createIfMissing) {
         if (originalId == null || originalId.isEmpty()) {
-            log.warn("getCamundaId called with null or empty originalId");
+            System.out.println("getCamundaId called with null or empty originalId");
             return null;
         }
         
-        log.debug("Searching Camunda ID mapping for original ID: {}", originalId);
+        System.out.println("Searching Camunda ID mapping for original ID: " + originalId);
         Optional<CamundaIdMapping> mapping = camundaIdMappingRepository.findByOriginalId(originalId);
         
         if (mapping.isPresent()) {
             String camundaId = mapping.get().getCamundaId();
-            log.debug("Found Camunda ID mapping: {} -> {}", originalId, camundaId);
+            System.out.println("Found Camunda ID mapping: " + originalId + " -> " + camundaId);
             return camundaId;
         }
         
         // Aucun mapping existant
         if (!createIfMissing) {
-            log.info("No Camunda ID mapping found for original ID: {} and createIfMissing is false", originalId);
+            System.out.println("No Camunda ID mapping found for original ID: " + originalId + " and createIfMissing is false");
             return null;
         }
         
         // Générer un nouvel ID Camunda
-        log.info("No Camunda ID mapping found for original ID: {}. Creating a new mapping.", originalId);
+        System.out.println("No Camunda ID mapping found for original ID: " + originalId + ". Creating a new mapping.");
         
-        // Déterminer le type d'entité (utilisateur ou groupe) en fonction du format
-        // Par défaut, on suppose que c'est un utilisateur
         CamundaIdMapping.EntityType entityType = CamundaIdMapping.EntityType.USER;
         String prefix = "user";
         
-        // Si l'ID ressemble à un nom de groupe (pas d'@), on le considère comme un groupe
-        if (!originalId.contains("@")) {
-            entityType = CamundaIdMapping.EntityType.GROUP;
-            prefix = "group";
-        }
-        
-        // Générer un ID Camunda conforme
         String camundaId = generateCamundaId(prefix);
-        
         // Sauvegarder le mapping
         CamundaIdMapping newMapping = CamundaIdMapping.builder()
             .originalId(originalId)
@@ -253,7 +245,7 @@ public class CamundaIdentityService {
             .build();
         
         camundaIdMappingRepository.save(newMapping);
-        log.info("Created new Camunda ID mapping: {} -> {}", originalId, camundaId);
+        System.out.println("Created new Camunda ID mapping: " + originalId + " -> " + camundaId);
         
         return camundaId;
     }
