@@ -9,59 +9,59 @@ class GroupeService {
     }
 
     getAllGroups() {
-        return axios.get(`${API_URL}/groupe`, {
+        return axios.get(`${API_URL}/api/groupes`, {
             headers: this.getAuthHeaders()
         });
     }
 
     getGroupById(id) {
-        return axios.get(`${API_URL}/groupe/${id}`, {
+        return axios.get(`${API_URL}/api/groupes/${id}`, {
             headers: this.getAuthHeaders()
         });
     }
 
     createGroup(groupData) {
-        return axios.post(`${API_URL}/groupe`, groupData, {
+        return axios.post(`${API_URL}/api/groupes`, groupData, {
             headers: this.getAuthHeaders()
         });
     }
 
     updateGroup(id, groupData) {
-        return axios.put(`${API_URL}/groupe/${id}`, groupData, {
+        return axios.put(`${API_URL}/api/groupes/${id}`, groupData, {
             headers: this.getAuthHeaders()
         });
     }
 
     deleteGroup(id) {
-        return axios.delete(`${API_URL}/groupe/${id}`, {
+        return axios.delete(`${API_URL}/api/groupes/${id}`, {
             headers: this.getAuthHeaders()
         });
     }
     
     // Récupérer tous les utilisateurs d'un groupe
     getUsersInGroup(groupId) {
-        return axios.get(`${API_URL}/groupe/${groupId}/users`, {
+        return axios.get(`${API_URL}/api/groupes/${groupId}/users`, {
             headers: this.getAuthHeaders()
         });
     }
     
     // Récupérer tous les utilisateurs sans groupe
     getUsersWithoutGroup() {
-        return axios.get(`${API_URL}/groupe/users/without-group`, {
+        return axios.get(`${API_URL}/api/groupes/users/without-group`, {
             headers: this.getAuthHeaders()
         });
     }
     
     // Ajouter des utilisateurs à un groupe
     addUsersToGroup(groupId, userIds) {
-        return axios.post(`${API_URL}/groupe/${groupId}/users`, userIds, {
+        return axios.post(`${API_URL}/api/groupes/${groupId}/users`, userIds, {
             headers: this.getAuthHeaders()
         });
     }
     
     // Retirer un utilisateur d'un groupe
     removeUserFromGroup(groupId, userId) {
-        return axios.delete(`${API_URL}/groupe/${groupId}/users/${userId}`, {
+        return axios.delete(`${API_URL}/api/groupes/${groupId}/users/${userId}`, {
             headers: this.getAuthHeaders()
         });
     }
@@ -69,7 +69,6 @@ class GroupeService {
     // Créer un groupe avec des utilisateurs
     createGroupWithUsers(groupData, userIds) {
         const request = {
-            groupId: null, // Nouveau groupe
             userIds: userIds
         };
         if (groupData) {
@@ -77,7 +76,7 @@ class GroupeService {
             request.description = groupData.description;
             request.type = groupData.type;
         }
-        return axios.post(`${API_URL}/groupe/with-users`, request, {
+        return axios.post(`${API_URL}/api/groupes/with-users`, request, {
             headers: this.getAuthHeaders()
         });
     }

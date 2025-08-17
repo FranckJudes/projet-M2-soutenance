@@ -384,6 +384,194 @@ class BpmnModelService {
   getAuthToken() {
       return localStorage.getItem('token') || sessionStorage.getItem('token');
   }
+
+  /**
+   * Récupère les processus déployés par l'utilisateur actuel
+   * @returns {Promise} - Liste des processus déployés par l'utilisateur
+   */
+  async getMyDeployedProcesses() {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/my-deployed-processes`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des processus déployés:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les processus déployés avec informations détaillées par l'utilisateur actuel
+   * @returns {Promise} - Liste des processus avec informations complètes
+   */
+  async getMyDeployedProcessesWithInfo() {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/deployed-processes-with-info`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des processus avec informations:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les informations détaillées d'une définition de processus
+   * @param {String} processDefinitionKey - Clé de la définition de processus
+   * @returns {Promise} - Informations détaillées du processus
+   */
+  async getProcessDefinitionInfo(processDefinitionKey) {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/definitions/${processDefinitionKey}`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des informations du processus:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les instances de processus de l'utilisateur actuel
+   * @returns {Promise} - Liste des instances de processus de l'utilisateur
+   */
+  async getMyProcessInstances() {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/my-process-instances`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des instances de processus:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Démarre une instance de processus via le ProcessEngine
+   * @param {String} processDefinitionKey - Clé de la définition de processus
+   * @param {Object} variables - Variables à passer au processus
+   * @returns {Promise} - Informations de l'instance créée
+   */
+  async startProcessInstanceViaEngine(processDefinitionKey, variables = {}) {
+      try {
+          const response = await axios.post(
+              `${API_URL}/process-engine/start/${processDefinitionKey}`,
+              variables,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors du démarrage du processus via engine:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les tâches assignées à l'utilisateur actuel
+   * @returns {Promise} - Liste des tâches assignées
+   */
+  async getMyTasks() {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/tasks/my-tasks`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des tâches:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Complète une tâche
+   * @param {String} taskId - ID de la tâche
+   * @param {Object} variables - Variables à passer lors de la complétion
+   * @returns {Promise} - Confirmation de complétion
+   */
+  async completeTask(taskId, variables = {}) {
+      try {
+          const response = await axios.post(
+              `${API_URL}/process-engine/tasks/${taskId}/complete`,
+              variables,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la complétion de la tâche:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les détails d'une tâche
+   * @param {String} taskId - ID de la tâche
+   * @returns {Promise} - Détails de la tâche
+   */
+  async getTaskDetails(taskId) {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/tasks/${taskId}`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des détails de la tâche:', error);
+          throw error;
+      }
+  }
+
+  /**
+   * Récupère les processus actifs
+   * @returns {Promise} - Liste des processus actifs
+   */
+  async getActiveProcesses() {
+      try {
+          const response = await axios.get(
+              `${API_URL}/process-engine/processes`,
+              {
+                  headers: this.getAuthHeaders()
+              }
+          );
+          
+          return response.data;
+      } catch (error) {
+          console.error('Erreur lors de la récupération des processus actifs:', error);
+          throw error;
+      }
+  }
 }
 
 export default new BpmnModelService();

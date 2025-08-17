@@ -12,12 +12,15 @@ const ListUserNotGroup = () => {
         setLoading(true);
         try {
             const response = await GroupeService.getUsersWithoutGroup();
-            if (response.data) {
-                setUsers(response.data);
+            if (response.data && response.data.data) {
+                setUsers(response.data.data);
+            } else {
+                setUsers([]);
             }
         } catch (error) {
             console.error("Erreur lors du chargement des utilisateurs sans groupe", error);
-            message.error("Erreur lors du chargement des utilisateurs sans groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors du chargement des utilisateurs sans groupe";
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }

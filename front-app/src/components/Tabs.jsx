@@ -157,6 +157,15 @@ export default Tabs;
 
 export const NormalTabs = ({ items, title, footer }) => {
     const [activeIndex, setActiveIndex] = useState(0);
+    
+    const handleTabChange = (newIndex) => {
+        setActiveIndex(newIndex);
+        // Notify the component about tab change if it has an onTabChange callback
+        const activeItem = items[newIndex];
+        if (activeItem && activeItem.onTabChange) {
+            activeItem.onTabChange();
+        }
+    };
 
     const handleNext = () => {
         if (activeIndex < items.length - 1) {

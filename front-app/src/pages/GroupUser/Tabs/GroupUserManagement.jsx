@@ -24,12 +24,15 @@ const GroupUserManagement = ({ selectedGroup, onRefresh }) => {
         setLoading(prev => ({ ...prev, usersInGroup: true }));
         try {
             const response = await GroupeService.getUsersInGroup(selectedGroup.id);
-            if (response.data) {
-                setUsersInGroup(response.data);
+            if (response.data && response.data.data) {
+                setUsersInGroup(response.data.data);
+            } else {
+                setUsersInGroup([]);
             }
         } catch (error) {
             console.error("Erreur lors du chargement des utilisateurs du groupe", error);
-            message.error("Erreur lors du chargement des utilisateurs du groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors du chargement des utilisateurs du groupe";
+            message.error(errorMsg);
         } finally {
             setLoading(prev => ({ ...prev, usersInGroup: false }));
         }
@@ -40,12 +43,15 @@ const GroupUserManagement = ({ selectedGroup, onRefresh }) => {
         setLoading(prev => ({ ...prev, usersWithoutGroup: true }));
         try {
             const response = await GroupeService.getUsersWithoutGroup();
-            if (response.data) {
-                setUsersWithoutGroup(response.data);
+            if (response.data && response.data.data) {
+                setUsersWithoutGroup(response.data.data);
+            } else {
+                setUsersWithoutGroup([]);
             }
         } catch (error) {
             console.error("Erreur lors du chargement des utilisateurs sans groupe", error);
-            message.error("Erreur lors du chargement des utilisateurs sans groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors du chargement des utilisateurs sans groupe";
+            message.error(errorMsg);
         } finally {
             setLoading(prev => ({ ...prev, usersWithoutGroup: false }));
         }
@@ -65,7 +71,8 @@ const GroupUserManagement = ({ selectedGroup, onRefresh }) => {
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error("Erreur lors de l'ajout des utilisateurs au groupe", error);
-            message.error("Erreur lors de l'ajout des utilisateurs au groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors de l'ajout des utilisateurs au groupe";
+            message.error(errorMsg);
         } finally {
             setLoading(prev => ({ ...prev, addUsers: false }));
         }
@@ -84,7 +91,8 @@ const GroupUserManagement = ({ selectedGroup, onRefresh }) => {
             if (onRefresh) onRefresh();
         } catch (error) {
             console.error("Erreur lors du retrait de l'utilisateur du groupe", error);
-            message.error("Erreur lors du retrait de l'utilisateur du groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors du retrait de l'utilisateur du groupe";
+            message.error(errorMsg);
         } finally {
             setLoading(prev => ({ ...prev, removeUser: false }));
         }

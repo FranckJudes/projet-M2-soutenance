@@ -32,14 +32,15 @@ const Groupe = () => {
         setIsLoading(true);
         try {
             const response = await GroupeService.getAllGroups();
-            if (response.data) {
-                setGroups(response.data);
+            if (response.data && response.data.data) {
+                setGroups(response.data.data);
             } else {
                 message.error("Erreur lors du chargement des groupes");
             }
         } catch (error) {
             console.error("Erreur lors du chargement des groupes", error);
-            message.error("Erreur lors du chargement des groupes");
+            const errorMsg = error.response?.data?.message || "Erreur lors du chargement des groupes";
+            message.error(errorMsg);
         } finally {
             setIsLoading(false);
         }
@@ -48,19 +49,27 @@ const Groupe = () => {
     // Sauvegarder un groupe
     const saveGroup = async (values) => {
         try {
+            // Adapter les données pour le backend
+            const groupData = {
+                libeleGroupeUtilisateur: values.name,
+                descriptionGroupeUtilisateur: values.description,
+                type: values.type || 'TYPE_0'
+            };
+            
             let response;
             if (editMode) {
-                response = await GroupeService.updateGroup(currentGroup.id, values);
+                response = await GroupeService.updateGroup(currentGroup.id, groupData);
                 message.success("Groupe mis à jour avec succès");
             } else {
-                response = await GroupeService.createGroup(values);
+                response = await GroupeService.createGroup(groupData);
                 message.success("Groupe créé avec succès");
             }
             resetForm();
             loadGroups();
         } catch (error) {
             console.error("Erreur lors de la sauvegarde du groupe", error);
-            message.error("Erreur lors de la sauvegarde du groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors de la sauvegarde du groupe";
+            message.error(errorMsg);
         }
     };
 
@@ -69,10 +78,16 @@ const Groupe = () => {
         try {
             await GroupeService.deleteGroup(id);
             message.success("Groupe supprimé avec succès");
+            // Réinitialiser le groupe sélectionné si c'est celui qui a été supprimé
+            if (selectedGroup && selectedGroup.id === id) {
+                setSelectedGroup(null);
+                resetForm();
+            }
             loadGroups();
         } catch (error) {
             console.error("Erreur lors de la suppression du groupe", error);
-            message.error("Erreur lors de la suppression du groupe");
+            const errorMsg = error.response?.data?.message || "Erreur lors de la suppression du groupe";
+            message.error(errorMsg);
         }
     };
 

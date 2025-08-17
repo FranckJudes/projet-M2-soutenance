@@ -1,15 +1,34 @@
 import { Component } from "react";
-
-
+import "./SettingSideBarColor.css";
 
 class SettingSideBarColor extends Component{
+    constructor(props) {
+        super(props);
+        this.state = {
+            isOpen: false
+        };
+    }
+
+    toggleSidebar = (e) => {
+        e.preventDefault();
+        this.setState(prevState => ({
+            isOpen: !prevState.isOpen
+        }));
+    }
+    
+    // Prevent clicks inside the sidebar body from toggling the sidebar
+    preventToggle = (e) => {
+        e.stopPropagation();
+    }
 
     render(){
-        return  <div className="settingSidebar">
-                    <a href="#" className="settingPanelToggle"> <i className="fa fa-spin fa-cog" />
+        const { isOpen } = this.state;
+        return  <div className={`settingSidebar ${isOpen ? 'showSettingPanel' : ''}`}>
+                    <a href="#" className="settingPanelToggle" onClick={this.toggleSidebar}>
+                        <i className="fa fa-spin fa-cog" />
                     </a>
-                    <div className="settingSidebar-body ps-container ps-theme-default">
-                        <div className=" fade show active">
+                    <div className="settingSidebar-body ps-container ps-theme-default" onClick={this.preventToggle}>
+                        <div className="fade show active">
                         <div className="setting-panel-header">Setting Panel
                         </div>
                         <div className="p-15 border-bottom">

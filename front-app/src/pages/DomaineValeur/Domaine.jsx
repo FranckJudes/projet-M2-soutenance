@@ -19,9 +19,11 @@ import {
   DeleteOutlined, 
   PlusOutlined, 
   HomeOutlined, 
-  AppstoreOutlined 
+  AppstoreOutlined,
+  EyeOutlined 
 } from "@ant-design/icons";
 import DomaineValeurService from "../../services/DomaineValeurService";
+import ValeurService from "../../services/ValeurService";
 const { TextArea } = Input;
 const { Title } = Typography;
 
@@ -33,19 +35,28 @@ export default function Domaine () {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingDomaine, setEditingDomaine] = useState(null);
+  const [valeursModalVisible, setValeursModalVisible] = useState(false);
+  const [selectedDomaine, setSelectedDomaine] = useState(null);
+  const [valeurs, setValeurs] = useState([]);
+  const [valeursLoading, setValeursLoading] = useState(false);
+  const [valeurForm] = Form.useForm();
+  const [valeurModalVisible, setValeurModalVisible] = useState(false);
+  const [editingValeur, setEditingValeur] = useState(null);
 
   const fetchDomaines = async () => {
     setLoading(true);
     try {
       const response = await DomaineValeurService.getAllDomaineValeurs();
-      if (response.data && response.data.data) {
+      if (response.data && response.data.success && response.data.data) {
         setDomaines(response.data.data);
       } else {
-        message.error(t("Error loading domain values"));
+        const errorMsg = response.data?.message || t("Error loading domain values");
+        message.error(errorMsg);
       }
     } catch (error) {
       console.error("Error loading domain values:", error);
-      message.error(t("Error loading domain values"));
+      const errorMsg = error.response?.data?.message || t("Error loading domain values");
+      message.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -60,12 +71,16 @@ export default function Domaine () {
       setEditingDomaine(domaine);
       form.setFieldsValue({
         libele: domaine.libele,
-        description: domaine.description,
+        description: domaine.description || "",
         type: domaine.type || "1"
       });
     } else {
       setEditingDomaine(null);
-      form.resetFields();
+      form.setFieldsValue({
+        libele: "",
+        description: "",
+        type: "1"
+      });
     }
     setIsModalVisible(true);
   };
@@ -76,33 +91,175 @@ export default function Domaine () {
     setEditingDomaine(null);
   };
 
+  // === VALEUR MANAGEMENT FUNCTIONS ===
+  
+  const showValeursModal = async (domaine) => {
+    setSelectedDomaine(domaine);
+    setValeursModalVisible(true);
+    await fetchValeurs(domaine.id);
+  };
+
+  const fetchValeurs = async (domaineValeurId) => {
+    setValeursLoading(true);
+    try {
+      const response = await ValeurService.getValeursByDomaineValeurId(domaineValeurId);
+      if (response.data && response.data.success && response.data.data) {
+        setValeurs(response.data.data);
+      } else {
+        const errorMsg = response.data?.message || t("Error loading values");
+        message.error(errorMsg);
+      }
+    } catch (error) {
+      console.error("Error loading values:", error);
+      const errorMsg = error.response?.data?.message || t("Error loading values");
+      message.error(errorMsg);
+    } finally {
+      setValeursLoading(false);
+    }
+  };
+
+  const handleValeursModalCancel = () => {
+    setValeursModalVisible(false);
+    setSelectedDomaine(null);
+    setValeurs([]);
+  };
+
+  const showValeurModal = (valeur = null) => {
+    if (valeur) {
+      setEditingValeur(valeur);
+      valeurForm.setFieldsValue({
+        libele: valeur.libele,
+        description: valeur.description || ""
+      });
+    } else {
+      setEditingValeur(null);
+      valeurForm.setFieldsValue({
+        libele: "",
+        description: ""
+      });
+    }
+    setValeurModalVisible(true);
+  };
+
+  const handleValeurCancel = () => {
+    setValeurModalVisible(false);
+    valeurForm.resetFields();
+    setEditingValeur(null);
+  };
+
+  const handleValeurDelete = async (id) => {
+    try {
+      const response = await ValeurService.deleteValeur(id);
+      if (response.data && response.data.success) {
+        message.success(response.data.message || t("Value successfully deleted"));
+        await fetchValeurs(selectedDomaine.id);
+      } else {
+        const errorMsg = response.data?.message || t("Error deleting value");
+        message.error(errorMsg);
+      }
+    } catch (error) {
+      console.error("Error deleting value:", error);
+      const errorMsg = error.response?.data?.message || t("Error deleting value");
+      message.error(errorMsg);
+    }
+  };
+
+  const handleValeurSubmit = async (values) => {
+    try {
+      const payload = {
+        libele: values.libele,
+        description: values.description,
+        domaineValeurId: selectedDomaine.id
+      };
+      
+      let response;
+      if (editingValeur) {
+        response = await ValeurService.updateValeur(editingValeur.id, payload);
+      } else {
+        response = await ValeurService.createValeur(payload);
+      }
+      
+      if (response.data && response.data.success) {
+        message.success(response.data.message || t(editingValeur ? "Value successfully updated" : "Value successfully created"));
+        setValeurModalVisible(false);
+        await fetchValeurs(selectedDomaine.id);
+        valeurForm.resetFields();
+        setEditingValeur(null);
+      } else {
+        const errorMsg = response.data?.message || t("Error saving value");
+        message.error(errorMsg);
+      }
+    } catch (error) {
+      console.error("Error saving value:", error);
+      const errorMsg = error.response?.data?.message || t("Error saving value");
+      message.error(errorMsg);
+    }
+  };
+
+  const handleToggleValeurStatus = async (id) => {
+    try {
+      const response = await ValeurService.toggleValeurStatus(id);
+      if (response.data && response.data.success) {
+        message.success(response.data.message || t("Status changed successfully"));
+        await fetchValeurs(selectedDomaine.id);
+      } else {
+        const errorMsg = response.data?.message || t("Error changing status");
+        message.error(errorMsg);
+      }
+    } catch (error) {
+      console.error("Error changing status:", error);
+      const errorMsg = error.response?.data?.message || t("Error changing status");
+      message.error(errorMsg);
+    }
+  };
+
   const handleDelete = async (id) => {
     try {
-      await DomaineValeurService.deleteDomaineValeur(id);
-      message.success(t("Domain value successfully deleted"));
-      fetchDomaines();
+      const response = await DomaineValeurService.deleteDomaineValeur(id);
+      if (response.data && response.data.success) {
+        message.success(response.data.message || t("Domain value successfully deleted"));
+        fetchDomaines();
+      } else {
+        const errorMsg = response.data?.message || t("Error deleting domain value");
+        message.error(errorMsg);
+      }
     } catch (error) {
       console.error("Error deleting domain value:", error);
-      message.error(t("Error deleting domain value"));
+      const errorMsg = error.response?.data?.message || t("Error deleting domain value");
+      message.error(errorMsg);
     }
   };
 
   const handleSubmit = async (values) => {
     try {
+      // Assurez-vous que le type est défini
+      const payload = {
+        libele: values.libele,
+        description: values.description,
+        type: values.type || "1"
+      };
+      
+      let response;
       if (editingDomaine) {
-        await DomaineValeurService.updateDomaineValeur(editingDomaine.id, values);
-        message.success(t("Domain value successfully updated"));
+        response = await DomaineValeurService.updateDomaineValeur(editingDomaine.id, payload);
       } else {
-        await DomaineValeurService.createDomaineValeur(values);
-        message.success(t("Domain value successfully created"));
+        response = await DomaineValeurService.createDomaineValeur(payload);
       }
-      setIsModalVisible(false);
-      fetchDomaines();
-      form.resetFields();
-      setEditingDomaine(null);
+      
+      if (response.data && response.data.success) {
+        message.success(response.data.message || t(editingDomaine ? "Domain value successfully updated" : "Domain value successfully created"));
+        setIsModalVisible(false);
+        fetchDomaines();
+        form.resetFields();
+        setEditingDomaine(null);
+      } else {
+        const errorMsg = response.data?.message || t("Error saving domain value");
+        message.error(errorMsg);
+      }
     } catch (error) {
       console.error("Error saving domain value:", error);
-      message.error(t("Error saving domain value"));
+      const errorMsg = error.response?.data?.message || t("Error saving domain value");
+      message.error(errorMsg);
     }
   };
 
@@ -134,6 +291,14 @@ export default function Domaine () {
             icon={<EditOutlined />} 
             onClick={() => showModal(record)}
           />
+          <Button 
+            type="default" 
+            icon={<EyeOutlined />} 
+            onClick={() => showValeursModal(record)}
+            title={t("View values")}
+          >
+            {t("Values")}
+          </Button>
           <Popconfirm
             title={t("Are you sure you want to delete this domain value?")}
             onConfirm={() => handleDelete(record.id)}
@@ -209,7 +374,7 @@ export default function Domaine () {
           <Form.Item
             name="description"
             label={t("Description")}
-            rules={[{ required: true, message: t("Please enter the description") }]}
+            rules={[{ required: false, message: t("Please enter the description") }]}
           >
             <TextArea rows={4} placeholder={t("Enter description")} />
           </Form.Item>
@@ -219,6 +384,114 @@ export default function Domaine () {
               {editingDomaine ? t("Update") : t("Create")}
             </Button>
             <Button onClick={handleCancel}>
+              {t("Cancel")}
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Valeurs Management Modal */}
+      <Modal
+        title={`${t("Values")} - ${selectedDomaine?.libele || ""}`}
+        open={valeursModalVisible}
+        onCancel={handleValeursModalCancel}
+        footer={null}
+        width={1000}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Button 
+            type="primary" 
+            icon={<PlusOutlined />} 
+            onClick={() => showValeurModal()}
+          >
+            {t("Add Value")}
+          </Button>
+        </div>
+        
+        <Table 
+          columns={[
+
+            {
+              title: t("Name"),
+              dataIndex: "libele",
+              key: "libele",
+              sorter: (a, b) => a.libele.localeCompare(b.libele),
+            },
+            {
+              title: t("Description"),
+              dataIndex: "description",
+              key: "description",
+              render: (text) => text || <span style={{ color: '#999' }}>{t("No description")}</span>
+            },
+
+            {
+              title: t("Actions"),
+              key: "actions",
+              render: (_, record) => (
+                <Space size="small">
+                  <Button 
+                    type="primary" 
+                    icon={<EditOutlined />} 
+                    size="small"
+                    onClick={() => showValeurModal(record)}
+                  />
+                  <Popconfirm
+                    title={t("Are you sure you want to delete this value?")}
+                    onConfirm={() => handleValeurDelete(record.id)}
+                    okText={t("Yes")}
+                    cancelText={t("No")}
+                  >
+                    <Button type="primary" danger icon={<DeleteOutlined />} size="small" />
+                  </Popconfirm>
+                </Space>
+              ),
+            }
+          ]}
+          dataSource={valeurs} 
+          rowKey="id" 
+          loading={valeursLoading}
+          pagination={{ pageSize: 10 }}
+          size="small"
+        />
+      </Modal>
+
+      {/* Valeur Create/Edit Modal */}
+      <Modal
+        title={editingValeur ? t("Edit Value") : t("Add Value")}
+        open={valeurModalVisible}
+        onCancel={handleValeurCancel}
+        footer={null}
+        width={600}
+      >
+        <Form
+          form={valeurForm}
+          layout="vertical"
+          onFinish={handleValeurSubmit}
+          initialValues={{
+            libele: "",
+            description: ""
+          }}
+        >
+          <Form.Item
+            name="libele"
+            label={t("Name")}
+            rules={[{ required: true, message: t("Please enter the name") }]}
+          >
+            <Input placeholder={t("Enter name")} />
+          </Form.Item>
+          
+          <Form.Item
+            name="description"
+            label={t("Description")}
+          >
+            <TextArea rows={3} placeholder={t("Enter description")} />
+          </Form.Item>
+          
+          <Form.Item>
+            <Button type="primary" htmlType="submit" style={{ marginRight: 8 }}>
+              {editingValeur ? t("Update") : t("Create")}
+            </Button>
+            <Button onClick={handleValeurCancel}>
               {t("Cancel")}
             </Button>
           </Form.Item>

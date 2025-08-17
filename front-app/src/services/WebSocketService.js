@@ -112,10 +112,17 @@ class WebSocketService {
 
   disconnect() {
     if (this.stompClient && this.connected) {
-      this.stompClient.disconnect();
-      this.connected = false;
-      this.connectionPromise = null;
-      console.log('Disconnected from WebSocket');
+      try {
+        this.stompClient.deactivate();
+        this.connected = false;
+        this.connectionPromise = null;
+        console.log('Disconnected from WebSocket');
+      } catch (error) {
+        console.error('Error disconnecting WebSocket:', error);
+        // Force reset the connection state even if deactivate fails
+        this.connected = false;
+        this.connectionPromise = null;
+      }
     }
   }
 

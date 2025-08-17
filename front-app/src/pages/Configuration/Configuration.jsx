@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import Main from "../../layout/Main";
-import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme } from 'antd';
+import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space } from 'antd';
 import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import Acteur from "./Tabs/Acteur";
 import General from "./Tabs/General";
@@ -35,6 +35,12 @@ const Configuration = () => {
     });
     const modelerRef = useRef(null);
     const { token } = theme.useToken();
+    
+    // États pour le filtrage et la recherche
+    const [processSearchText, setProcessSearchText] = useState('');
+    const [processStatusFilter, setProcessStatusFilter] = useState('all');
+    const [processSortField, setProcessSortField] = useState('name');
+    const [processSortOrder, setProcessSortOrder] = useState('asc');
     
     const clearTaskConfigurationsFromLocalStorage = () => {
         
@@ -123,12 +129,15 @@ const Configuration = () => {
     const fetchDeployedProcesses = async () => {
         setProcessesLoading(true);
         try {
-            const response = await BpmnModelService.getDeployedProcesses();
-            const processesArray = Array.isArray(response) ? response : [];
-            setDeployedProcesses(processesArray);
+            const response = await BpmnModelService.getMyDeployedProcessesWithInfo();
+            console.log('Processus déployés avec informations:', response);
+            // La réponse devrait contenir response.data avec les processus
+            const processesArray = response && response.data ? response.data : [];
+            setDeployedProcesses(Array.isArray(processesArray) ? processesArray : []);
         } catch (err) {
             console.error("Erreur lors de la récupération des processus déployés:", err);
             message.error("Erreur lors de la récupération des processus déployés");
+            setDeployedProcesses([]); // S'assurer qu'on a un tableau vide en cas d'erreur
         } finally {
             setProcessesLoading(false);
         }
@@ -222,47 +231,197 @@ const Configuration = () => {
     // Colonnes pour le tableau des processus déployés
     const processColumns = [
         {
-            title: 'Clé',
-            dataIndex: 'key',
-            key: 'key',
-        },
-        {
-            title: 'Nom',
+            title: 'Nom du processus',
             dataIndex: 'name',
             key: 'name',
-            render: (text) => text || 'Non défini'
+            render: (text, record) => (
+                <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                        {text || record.processDefinitionKey || 'Non défini'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        Clé: {record.processDefinitionKey}
+                    </div>
+                </div>
+            ),
+            width: '25%'
         },
         {
-            title: 'Version',
-            dataIndex: 'version',
-            key: 'version',
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            render: (text) => (
+                <div style={{ maxWidth: '200px' }}>
+                    {text ? (
+                        <span title={text}>
+                            {text.length > 50 ? `${text.substring(0, 50)}...` : text}
+                        </span>
+                    ) : (
+                        <span style={{ color: '#999', fontStyle: 'italic' }}>Pas de description</span>
+                    )}
+                </div>
+            ),
+            width: '20%'
+        },
+        {
+            title: 'Déploiement',
+            key: 'deployment',
+            render: (_, record) => (
+                <div>
+                    <div style={{ fontSize: '12px' }}>
+                        Version: {record.version || record.camundaVersion || 'N/A'}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                        {record.deployedAt ? new Date(record.deployedAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                    </div>
+                </div>
+            ),
+            width: '15%'
+        },
+        {
+            title: 'Instances',
+            key: 'instances',
+            render: (_, record) => (
+                <div>
+                    <div style={{ fontSize: '12px' }}>
+                        Actives: <span style={{ color: '#52c41a', fontWeight: 'bold' }}>
+                            {record.activeInstanceCount || 0}
+                        </span>
+                    </div>
+                    <div style={{ fontSize: '12px' }}>
+                        Total: <span style={{ color: '#1890ff', fontWeight: 'bold' }}>
+                            {record.instanceCount || 0}
+                        </span>
+                    </div>
+                </div>
+            ),
+            width: '10%'
         },
         {
             title: 'Statut',
             dataIndex: 'suspended',
             key: 'suspended',
-            render: (suspended) => (
-                suspended ? 
-                <span style={{ color: 'red' }}><CloseCircleOutlined /> Suspendu</span> : 
-                <span style={{ color: 'green' }}><CheckCircleOutlined /> Actif</span>
-            )
+            render: (suspended, record) => (
+                <div>
+                    {suspended ? 
+                        <span style={{ color: 'red' }}><CloseCircleOutlined /> Suspendu</span> : 
+                        <span style={{ color: 'green' }}><CheckCircleOutlined /> Actif</span>
+                    }
+                    {record.isActive === false && (
+                        <div style={{ fontSize: '11px', color: '#ff7875' }}>
+                            (Inactif en base)
+                        </div>
+                    )}
+                </div>
+            ),
+            width: '12%'
+        },
+        {
+            title: 'Mots-clés',
+            dataIndex: 'tags',
+            key: 'tags',
+            render: (tags) => (
+                <div style={{ maxWidth: '120px' }}>
+                    {tags && tags.length > 0 ? (
+                        <div>
+                            {tags.slice(0, 2).map((tag, index) => (
+                                <span 
+                                    key={index}
+                                    style={{
+                                        display: 'inline-block',
+                                        background: '#f0f0f0',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        margin: '1px',
+                                        maxWidth: '60px',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                    title={tag}
+                                >
+                                    {tag}
+                                </span>
+                            ))}
+                            {tags.length > 2 && (
+                                <span style={{ fontSize: '11px', color: '#666' }}>
+                                    +{tags.length - 2}
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <span style={{ color: '#999', fontStyle: 'italic', fontSize: '11px' }}>
+                            Aucun
+                        </span>
+                    )}
+                </div>
+            ),
+            width: '10%'
         },
         {
             title: 'Actions',
             key: 'actions',
             render: (_, record) => (
-                <Button 
-                    type="primary" 
-                    icon={<PlayCircleOutlined />} 
-                    onClick={() => startProcessInstance(record.key)}
-                    loading={startingProcess === record.key}
-                    disabled={record.suspended}
-                >
-                    Démarrer
-                </Button>
-            )
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button 
+                        type="primary" 
+                        icon={<PlayCircleOutlined />} 
+                        onClick={() => startProcessInstance(record.processDefinitionKey)}
+                        loading={startingProcess === record.processDefinitionKey}
+                        disabled={record.suspended}
+                        size="small"
+                    >
+                        Démarrer
+                    </Button>
+                    <Button 
+                        icon={<EditOutlined />} 
+                        onClick={() => handleEditBpmn(record.id)}
+                        size="small"
+                        type="default"
+                    >
+                        Modifier
+                    </Button>
+                </div>
+            ),
+            width: '8%'
         }
     ];
+
+    // Fonction pour filtrer les processus déployés
+    const filteredProcesses = () => {
+        let filtered = deployedProcesses;
+
+        // Filtrer par statut
+        if (processStatusFilter !== 'all') {
+            filtered = filtered.filter(process => process.suspended === (processStatusFilter === 'suspended'));
+        }
+
+        // Filtrer par recherche
+        if (processSearchText) {
+            filtered = filtered.filter(process => 
+                process.name.toLowerCase().includes(processSearchText.toLowerCase()) ||
+                process.description.toLowerCase().includes(processSearchText.toLowerCase()) ||
+                process.processDefinitionKey.toLowerCase().includes(processSearchText.toLowerCase())
+            );
+        }
+
+        // Trier les processus
+        if (processSortField && processSortOrder) {
+            filtered.sort((a, b) => {
+                if (processSortField === 'name') {
+                    return processSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+                } else if (processSortField === 'instances') {
+                    return processSortOrder === 'asc' ? a.instanceCount - b.instanceCount : b.instanceCount - a.instanceCount;
+                } else if (processSortField === 'deployment') {
+                    return processSortOrder === 'asc' ? new Date(a.deployedAt) - new Date(b.deployedAt) : new Date(b.deployedAt) - new Date(a.deployedAt);
+                }
+                return 0;
+            });
+        }
+
+        return filtered;
+    };
 
     return (
         <Main>
@@ -347,17 +506,51 @@ const Configuration = () => {
                                 <Card
                                     title="Processus déployés"
                                     extra={
-                                        <Button 
-                                            icon={<ReloadOutlined />} 
-                                            onClick={fetchDeployedProcesses}
-                                            loading={processesLoading}
-                                        >
-                                            Actualiser
-                                        </Button>
+                                        <Space>
+                                            <Input 
+                                                placeholder="Rechercher un processus" 
+                                                value={processSearchText} 
+                                                onChange={(e) => setProcessSearchText(e.target.value)} 
+                                                style={{ width: '200px' }}
+                                            />
+                                            <Select 
+                                                value={processStatusFilter} 
+                                                onChange={(value) => setProcessStatusFilter(value)} 
+                                                style={{ width: '150px' }}
+                                            >
+                                                <Select.Option value="all">Tous les statuts</Select.Option>
+                                                <Select.Option value="suspended">Suspendus</Select.Option>
+                                                <Select.Option value="active">Actifs</Select.Option>
+                                            </Select>
+                                            <Select 
+                                                value={processSortField} 
+                                                onChange={(value) => setProcessSortField(value)} 
+                                                style={{ width: '150px' }}
+                                            >
+                                                <Select.Option value="name">Nom</Select.Option>
+                                                <Select.Option value="instances">Instances</Select.Option>
+                                                <Select.Option value="deployment">Déploiement</Select.Option>
+                                            </Select>
+                                            <Select 
+                                                value={processSortOrder} 
+                                                onChange={(value) => setProcessSortOrder(value)} 
+                                                style={{ width: '100px' }}
+                                            >
+                                                <Select.Option value="asc">Croissant</Select.Option>
+                                                <Select.Option value="desc">Décroissant</Select.Option>
+                                            </Select>
+                                            <Button 
+                                                icon={<ReloadOutlined />} 
+                                                onClick={fetchDeployedProcesses}
+                                                loading={processesLoading}
+                                            >
+                                                Actualiser
+                                            </Button>
+                                        </Space>
                                     }
                                 >
                                     <Spin spinning={processesLoading}>
-                                        {deployedProcesses.length === 0 ? (
+                                        {filteredProcesses().length === 0 ? (
                                             <Alert 
                                                 message="Aucun processus déployé" 
                                                 type="info" 
@@ -365,7 +558,7 @@ const Configuration = () => {
                                             />
                                         ) : (
                                             <Table 
-                                                dataSource={deployedProcesses} 
+                                                dataSource={filteredProcesses()} 
                                                 columns={processColumns}
                                                 rowKey="id"
                                                 pagination={{ pageSize: 10 }}

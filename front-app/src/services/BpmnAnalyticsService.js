@@ -2,6 +2,8 @@ import axios from 'axios';
 
 // Configuration de base pour axios - utiliser le backend Spring Boot
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8200';
+console.log('🌐 API_URL configurée:', API_URL);
+console.log('🔧 Variables d\'environnement:', import.meta.env);
 
 // Création d'une instance axios avec configuration par défaut
 const apiClient = axios.create({
@@ -10,16 +12,50 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
-const token = sessionStorage.getItem('token');
 // Intercepteur pour ajouter le token d'authentification à chaque requête
 apiClient.interceptors.request.use(
   (config) => {
+    const token = sessionStorage.getItem('token');
+    console.log('🔐 Token disponible:', !!token);
+    console.log('📡 Requête vers:', config.baseURL + config.url);
+    console.log('🔧 Configuration requête:', {
+      method: config.method,
+      url: config.url,
+      headers: config.headers
+    });
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Token ajouté à l\'en-tête Authorization');
+    } else {
+      console.warn('⚠️ Aucun token trouvé dans sessionStorage');
     }
     return config;
   },
   (error) => {
+    console.error('❌ Erreur dans l\'intercepteur de requête:', error);
+    return Promise.reject(error);
+  }
+);
+
+// Intercepteur de réponse pour gérer l'authentification et déballer ApiResponse si nécessaire
+apiClient.interceptors.response.use(
+  (response) => {
+    // Vérifier si la réponse est wrappée dans ApiResponse
+    if (response?.data && typeof response.data === 'object' && 
+        'success' in response.data && response.data.success === true && 'data' in response.data) {
+      // Déballer seulement si success = true
+      return { ...response, data: response.data.data };
+    }
+    // Sinon retourner la réponse telle quelle
+    return response;
+  },
+  (error) => {
+    console.error('API Error:', error);
+    if (error.response?.status === 401) {
+      sessionStorage.removeItem('token');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
@@ -35,7 +71,7 @@ const BpmnAnalyticsService = {
       if (filters.processDefinitionId) params.append('processDefinitionId', filters.processDefinitionId);
       if (filters.userId) params.append('userId', filters.userId);
       
-      const response = await apiClient.get(`/api/bpmn/analytics/logs?${params.toString()}`);
+      const response = await apiClient.get(`/api/analytics/logs?${params.toString()}`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des logs:', error);
@@ -43,13 +79,37 @@ const BpmnAnalyticsService = {
     }
   },
   
+  // Méthode de test pour diagnostiquer la connectivité
+  testConnection: async () => {
+    try {
+      console.log('🧪 Test de connectivité backend...');
+      const response = await apiClient.get('/api/analytics/test');
+      console.log('✅ Test réussi:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Test échoué:', error);
+      throw error;
+    }
+  },
+
   // Récupérer toutes les définitions de processus
   getProcessDefinitions: async () => {
     try {
-      const response = await apiClient.get('/api/bpmn/analytics/process-definitions');
-      return response.data;
+      console.log('🔍 Appel API: /api/analytics/process-definitions');
+      const response = await apiClient.get('/api/analytics/process-definitions');
+      console.log('📥 Réponse brute:', response);
+      console.log('📄 Données reçues:', response.data);
+      
+      const result = response.data || [];
+      console.log('✅ Données finales:', result);
+      return result;
     } catch (error) {
-      console.error('Erreur lors de la récupération des définitions de processus:', error);
+      console.error('❌ Erreur lors de la récupération des définitions de processus:', error);
+      console.error('📊 Détails de l\'erreur:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       throw error;
     }
   },
@@ -57,10 +117,10 @@ const BpmnAnalyticsService = {
   // Récupérer les métriques d'un processus
   getProcessMetrics: async (processDefinitionId, timeframe = 'all') => {
     try {
-      const response = await apiClient.get(`/api/bpmn/analytics/metrics/${processDefinitionId}`, {
+      const response = await apiClient.get(`/api/analytics/metrics/${processDefinitionId}`, {
         params: { timeframe }
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de la récupération des métriques:', error);
       throw error;
@@ -70,10 +130,10 @@ const BpmnAnalyticsService = {
   // Récupérer les données pour la carte du processus
   getProcessMapData: async (processDefinitionId, options = {}) => {
     try {
-      const response = await apiClient.get(`/api/bpmn/analytics/process-map/${processDefinitionId}`, {
+      const response = await apiClient.get(`/api/analytics/process-map/${processDefinitionId}`, {
         params: options
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de la récupération des données de la carte du processus:', error);
       throw error;
@@ -88,14 +148,14 @@ const BpmnAnalyticsService = {
     if (filters.processDefinitionId) params.append('processDefinitionId', filters.processDefinitionId);
     if (filters.userId) params.append('userId', filters.userId);
     
-    return `${API_URL}/api/bpmn/analytics/export/csv?${params.toString()}`;
+    return `${API_URL}/api/analytics/export/csv?${params.toString()}`;
   },
   
   // Récupérer les prédictions de durée pour les processus en cours
   getProcessPredictions: async (processInstanceId) => {
     try {
       const response = await apiClient.get(`/api/bpmn/analytics/predictions/${processInstanceId}`);
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de la récupération des prédictions:', error);
       throw error;
@@ -106,7 +166,7 @@ const BpmnAnalyticsService = {
   getProcessBottlenecks: async (processDefinitionId) => {
     try {
       const response = await apiClient.get(`/api/bpmn/analytics/bottlenecks/${processDefinitionId}`);
-      return response.data;
+      return response.data || [];
     } catch (error) {
       console.error('Erreur lors de la récupération des goulots d\'étranglement:', error);
       throw error;
@@ -119,7 +179,7 @@ const BpmnAnalyticsService = {
       const response = await apiClient.get('/api/bpmn/analytics/alerts', {
         params: { threshold }
       });
-      return response.data;
+      return response.data || [];
     } catch (error) {
       console.error('Erreur lors de la récupération des alertes:', error);
       throw error;
@@ -134,7 +194,7 @@ const BpmnAnalyticsService = {
         analysisType,
         options
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de l\'analyse PM4Py:', error);
       throw error;
@@ -150,7 +210,7 @@ const BpmnAnalyticsService = {
         logs,
         algorithm
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de la découverte de processus:', error);
       throw error;
@@ -164,7 +224,7 @@ const BpmnAnalyticsService = {
         logs,
         maxVariants
       });
-      return response.data;
+      return response.data || [];
     } catch (error) {
       console.error('Erreur lors de l\'analyse des variantes:', error);
       throw error;
@@ -178,7 +238,7 @@ const BpmnAnalyticsService = {
         logs,
         analysisType
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de l\'analyse des goulots d\'étranglement:', error);
       throw error;
@@ -193,7 +253,7 @@ const BpmnAnalyticsService = {
         predictionType,
         parameters
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de la prédiction de performance:', error);
       throw error;
@@ -207,7 +267,7 @@ const BpmnAnalyticsService = {
         logs,
         analysisType
       });
-      return response.data;
+      return response.data || {};
     } catch (error) {
       console.error('Erreur lors de l\'analyse de réseau social:', error);
       throw error;
@@ -222,10 +282,11 @@ const BpmnAnalyticsService = {
       if (endDate) params.append('endDate', endDate);
       
       const response = await apiClient.get(`/api/analytics/process-logs/${processDefinitionKey}?${params.toString()}`);
-      return response.data;
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error) {
-      console.error('Erreur lors de la récupération des logs pour analytics:', error);
-      throw error;
+      console.error('Erreur lors de la récupération des logs de processus:', error);
+      // Return empty array instead of throwing to prevent UI crashes
+      return [];
     }
   },
 
@@ -233,8 +294,7 @@ const BpmnAnalyticsService = {
   runCompleteAnalysis: async (processDefinitionKey, analysisTypes = ['process-discovery', 'process-variants', 'bottleneck-analysis']) => {
     try {
       // Récupérer les logs
-      const logsResponse = await BpmnAnalyticsService.getProcessLogsForAnalytics(processDefinitionKey);
-      const logs = logsResponse.data;
+      const logs = await BpmnAnalyticsService.getProcessLogsForAnalytics(processDefinitionKey);
       
       if (!logs || logs.length === 0) {
         throw new Error('Aucun log disponible pour l\'analyse');

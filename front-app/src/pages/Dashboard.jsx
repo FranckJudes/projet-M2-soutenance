@@ -1,13 +1,50 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import Main from "../layout/Main";
-import taskService from "../services/TaskService";
-import notificationService from "../services/NotificationService";
-import webSocketService from "../services/WebSocketService";
-import workflowService from "../services/WorkflowService";
-import { FaCheckCircle, FaExclamationCircle, FaBell, FaTasks, FaProjectDiagram, FaCalendarAlt, FaChartLine } from "react-icons/fa";
-import { toast } from "react-hot-toast";
-import "./Dashboard.css";
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Layout,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Table,
+  Tag,
+  Badge,
+  List,
+  Avatar,
+  Button,
+  Typography,
+  Space,
+  Spin,
+  Progress,
+  Tooltip,
+  Divider,
+  Alert,
+  Empty,
+  Timeline
+} from 'antd';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  BellOutlined,
+  ProjectOutlined,
+  CalendarOutlined,
+  BarChartOutlined,
+  UserOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  SyncOutlined,
+  PlayCircleOutlined
+} from '@ant-design/icons';
+import Main from '../layout/Main';
+import taskService from '../services/TaskService';
+import notificationService from '../services/NotificationService';
+import webSocketService from '../services/WebSocketService';
+import workflowService from '../services/WorkflowService';
+import { toast } from 'react-hot-toast';
+
+const { Title, Text } = Typography;
+const { Content } = Layout;
 
 function Dashboard() {
   // États pour stocker les données
@@ -21,120 +58,125 @@ function Dashboard() {
     activeWorkflows: 0
   });
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Utiliser le token d'authentification au lieu de l'ID utilisateur
-  // Le token contient déjà l'identité de l'utilisateur
+  const [refreshing, setRefreshing] = useState(false);
 
   // Charger les données au chargement du composant
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setIsLoading(true);
-      try {
-        // Charger les tâches en utilisant le token d'authentification
-        const tasksData = await taskService.getUserTasks();
-        setTasks(tasksData);
-        
-        // Calculer les statistiques des tâches
-        const completed = tasksData.filter(task => task.status === 'COMPLETED').length;
-        const pending = tasksData.filter(task => task.status === 'PENDING').length;
-        const overdue = tasksData.filter(task => {
-          if (!task.dueDate) return false;
-          return new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED';
-        }).length;
-        
-        // Charger les notifications en utilisant le token d'authentification
-        const notificationsData = await notificationService.getUserNotifications();
-        setNotifications(notificationsData);
-        
-        // Charger les workflows actifs en utilisant le token d'authentification
-        const workflowsData = await workflowService.getActiveInstances();
-        setWorkflows(workflowsData);
-        
-        // Mettre à jour les statistiques
-        setStats({
-          completedTasks: completed,
-          pendingTasks: pending,
-          overdueCount: overdue,
-          activeWorkflows: workflowsData.length
-        });
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Erreur lors du chargement des données du tableau de bord:', error);
-        toast.error('Erreur lors du chargement des données');
-        setIsLoading(false);
-        
-        // Utiliser des données fictives en cas d'erreur
-        setTasks([
-          {
-            id: '1',
-            name: 'Réviser le document de spécifications',
-            description: 'Revoir et valider les spécifications techniques',
-            status: 'PENDING',
-            priority: 'HIGH',
-            dueDate: '2025-05-25T23:59:59',
-            assignee: { id: '1', name: 'Utilisateur Actuel' }
-          },
-          {
-            id: '2',
-            name: 'Corriger le bug #123',
-            description: 'Résoudre le problème de validation des formulaires',
-            status: 'PENDING',
-            priority: 'URGENT',
-            dueDate: '2025-05-18T23:59:59',
-            assignee: { id: '1', name: 'Utilisateur Actuel' }
-          },
-          {
-            id: '3',
-            name: 'Mettre à jour la documentation API',
-            description: 'Documenter les nouveaux endpoints',
-            status: 'COMPLETED',
-            priority: 'NORMAL',
-            dueDate: '2025-05-15T23:59:59',
-            assignee: { id: '1', name: 'Utilisateur Actuel' }
-          }
-        ]);
-        
-        setNotifications([
-          {
-            id: '1',
-            title: 'Nouvelle tâche assignée',
-            message: 'Vous avez été assigné à la tâche "Réviser le document de spécifications"',
-            type: 'TASK_ASSIGNED',
-            status: 'UNREAD',
-            creationDate: '2025-05-17T07:30:00'
-          },
-          {
-            id: '2',
-            title: 'Tâche en retard',
-            message: 'La tâche "Corriger le bug #123" est en retard',
-            type: 'TASK_OVERDUE',
-            status: 'UNREAD',
-            creationDate: '2025-05-16T09:15:00'
-          }
-        ]);
-        
-        setWorkflows([
-          {
-            id: 'wf1',
-            name: 'Validation de document',
-            status: 'ACTIVE',
-            startDate: '2025-05-15T14:20:00',
-            currentTask: 'Révision par le responsable'
-          }
-        ]);
-        
-        setStats({
-          completedTasks: 1,
-          pendingTasks: 2,
-          overdueCount: 1,
-          activeWorkflows: 1
-        });
-      }
-    };
-    
     fetchDashboardData();
+    setupWebSocket();
     
+    return () => {
+      webSocketService.disconnect();
+    };
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Charger les tâches en utilisant le token d'authentification
+      const tasksData = await taskService.getUserTasks();
+      setTasks(tasksData);
+      
+      // Calculer les statistiques des tâches
+      const completed = tasksData.filter(task => task.status === 'COMPLETED').length;
+      const pending = tasksData.filter(task => task.status === 'PENDING').length;
+      const overdue = tasksData.filter(task => {
+        if (!task.dueDate) return false;
+        return new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED';
+      }).length;
+      
+      // Charger les notifications en utilisant le token d'authentification
+      const notificationsData = await notificationService.getUserNotifications();
+      setNotifications(notificationsData);
+      
+      // Charger les workflows actifs en utilisant le token d'authentification
+      const workflowsData = await workflowService.getActiveInstances();
+      setWorkflows(workflowsData);
+      
+      // Mettre à jour les statistiques
+      setStats({
+        completedTasks: completed,
+        pendingTasks: pending,
+        overdueCount: overdue,
+        activeWorkflows: workflowsData.length
+      });
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Erreur lors du chargement des données du tableau de bord:', error);
+      toast.error('Erreur lors du chargement des données');
+      setIsLoading(false);
+      
+      // Utiliser des données fictives en cas d'erreur
+      setTasks([
+        {
+          id: '1',
+          name: 'Réviser le document de spécifications',
+          description: 'Revoir et valider les spécifications techniques',
+          status: 'PENDING',
+          priority: 'HIGH',
+          dueDate: '2025-05-25T23:59:59',
+          assignee: { id: '1', name: 'Utilisateur Actuel' }
+        },
+        {
+          id: '2',
+          name: 'Corriger le bug #123',
+          description: 'Résoudre le problème de validation des formulaires',
+          status: 'PENDING',
+          priority: 'URGENT',
+          dueDate: '2025-05-18T23:59:59',
+          assignee: { id: '1', name: 'Utilisateur Actuel' }
+        },
+        {
+          id: '3',
+          name: 'Mettre à jour la documentation API',
+          description: 'Documenter les nouveaux endpoints',
+          status: 'COMPLETED',
+          priority: 'NORMAL',
+          dueDate: '2025-05-15T23:59:59',
+          assignee: { id: '1', name: 'Utilisateur Actuel' }
+        }
+      ]);
+      
+      setNotifications([
+        {
+          id: '1',
+            title: 'Nouvelle tâche assignée',
+          message: 'Vous avez été assigné à la tâche "Réviser le document de spécifications"',
+          type: 'TASK_ASSIGNED',
+          status: 'UNREAD',
+          creationDate: '2025-05-17T07:30:00'
+        },
+        {
+          id: '2',
+          title: 'Tâche en retard',
+          message: 'La tâche "Corriger le bug #123" est en retard',
+          type: 'TASK_OVERDUE',
+          status: 'UNREAD',
+          creationDate: '2025-05-16T09:15:00'
+        }
+      ]);
+      
+      setWorkflows([
+        {
+          id: 'wf1',
+          name: 'Validation de document',
+          status: 'ACTIVE',
+          startDate: '2025-05-15T14:20:00',
+          currentTask: 'Révision par le responsable'
+        }
+      ]);
+      
+      setStats({
+        completedTasks: 1,
+        pendingTasks: 2,
+        overdueCount: 1,
+        activeWorkflows: 1
+      });
+    }
+  };
+
+  const setupWebSocket = () => {
     // Configurer WebSocket pour les mises à jour en temps réel
     webSocketService.connect()
       .then(() => {
@@ -164,8 +206,15 @@ function Dashboard() {
       .catch(error => {
         console.error('Erreur de connexion WebSocket:', error);
       });
-  }, []);
+  };
   
+  // Actualiser les données
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchDashboardData();
+    setRefreshing(false);
+  };
+
   // Marquer une tâche comme terminée
   const completeTask = async (taskId) => {
     try {
@@ -202,198 +251,346 @@ function Dashboard() {
     return new Date(dateString).toLocaleDateString('fr-FR', options);
   };
   
-  // Déterminer la classe CSS pour la date d'échéance
-  const getDueDateClass = (dueDate) => {
-    if (!dueDate) return '';
+  // Déterminer le statut de la date d'échéance
+  const getDueDateStatus = (dueDate) => {
+    if (!dueDate) return null;
     
     const today = new Date();
     const due = new Date(dueDate);
     
-    // Si la date d'échéance est dépassée
     if (due < today) {
-      return 'overdue';
+      return 'error'; // En retard
     }
     
-    // Si la date d'échéance est dans les 2 jours
     const twoDaysFromNow = new Date();
     twoDaysFromNow.setDate(today.getDate() + 2);
     
     if (due <= twoDaysFromNow) {
-      return 'soon';
+      return 'warning'; // Bientôt
     }
     
-    return '';
+    return 'success'; // Dans les temps
   };
+
+  // Obtenir la couleur de priorité
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'URGENT': return 'red';
+      case 'HIGH': return 'orange';
+      case 'NORMAL': return 'blue';
+      case 'LOW': return 'green';
+      default: return 'default';
+    }
+  };
+
+  // Colonnes pour le tableau des tâches
+  const taskColumns = [
+    {
+      title: 'Tâche',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text, record) => (
+        <div>
+          <Text strong>{text}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.description}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      title: 'Priorité',
+      dataIndex: 'priority',
+      key: 'priority',
+      render: (priority) => (
+        <Tag color={getPriorityColor(priority)}>
+          {priority}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Échéance',
+      dataIndex: 'dueDate',
+      key: 'dueDate',
+      render: (dueDate) => {
+        if (!dueDate) return <Text type="secondary">Aucune</Text>;
+        const status = getDueDateStatus(dueDate);
+        return (
+          <Tag color={status}>
+            <CalendarOutlined /> {formatDate(dueDate)}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Statut',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        const config = {
+          COMPLETED: { color: 'success', icon: <CheckCircleOutlined />, text: 'Terminée' },
+          PENDING: { color: 'processing', icon: <ClockCircleOutlined />, text: 'En attente' },
+          IN_PROGRESS: { color: 'warning', icon: <SyncOutlined spin />, text: 'En cours' }
+        };
+        const { color, icon, text } = config[status] || config.PENDING;
+        return (
+          <Tag color={color} icon={icon}>
+            {text}
+          </Tag>
+        );
+      },
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        record.status !== 'COMPLETED' && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<CheckCircleOutlined />}
+            onClick={() => completeTask(record.id)}
+          >
+            Terminer
+          </Button>
+        )
+      ),
+    },
+  ];
   
+  if (isLoading) {
+    return (
+      <Main>
+        <Content style={{ padding: '24px', minHeight: '100vh' }}>
+          <div style={{ textAlign: 'center', paddingTop: '100px' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: '16px' }}>
+              <Text>Chargement des données...</Text>
+            </div>
+          </div>
+        </Content>
+      </Main>
+    );
+  }
+
   return (
     <Main>
-      <div className="dashboard-container">
-        <h1 className="dashboard-title">Tableau de bord</h1>
-        
-        {isLoading ? (
-          <div className="loading">Chargement des données...</div>
-        ) : (
-          <>
-            {/* Statistiques */}
-            <div className="stats-container">
-              <div className="stat-card">
-                <div className="stat-icon pending"><FaTasks /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.pendingTasks}</div>
-                  <div className="stat-label">Tâches en attente</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon completed"><FaCheckCircle /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.completedTasks}</div>
-                  <div className="stat-label">Tâches terminées</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon overdue"><FaExclamationCircle /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.overdueCount}</div>
-                  <div className="stat-label">Tâches en retard</div>
-                </div>
-              </div>
-              
-              <div className="stat-card">
-                <div className="stat-icon workflow"><FaProjectDiagram /></div>
-                <div className="stat-content">
-                  <div className="stat-value">{stats.activeWorkflows}</div>
-                  <div className="stat-label">Workflows actifs</div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Conteneur principal pour les widgets */}
-            <div className="widgets-container">
-              {/* Widget des tâches */}
-              <div className="widget tasks-widget">
-                <div className="widget-header">
-                  <h2><FaTasks /> Mes tâches</h2>
-                  <Link to="/tasks" className="view-all">Voir tout</Link>
-                </div>
-                
-                <div className="widget-content">
-                  {tasks.length === 0 ? (
-                    <div className="empty-state">Aucune tâche en attente</div>
-                  ) : (
-                    <div className="tasks-list">
-                      {tasks.slice(0, 5).map(task => (
-                        <div key={task.id} className={`task-item priority-${task.priority.toLowerCase()}`}>
-                          <div className="task-content">
-                            <div className="task-name">{task.name}</div>
-                            <div className="task-description">{task.description}</div>
-                            <div className="task-meta">
-                              <span className={`due-date ${getDueDateClass(task.dueDate)}`}>
-                                <FaCalendarAlt /> {task.dueDate ? formatDate(task.dueDate) : 'Pas de date limite'}
-                              </span>
-                              <span className={`priority priority-${task.priority.toLowerCase()}`}>
-                                {task.priority}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {task.status !== 'COMPLETED' && (
-                            <button 
-                              className="complete-task-btn"
-                              onClick={() => completeTask(task.id)}
-                              title="Marquer comme terminée"
+      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
+        {/* En-tête avec titre et bouton d'actualisation */}
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={2} style={{ margin: 0 }}>
+            <BarChartOutlined /> Tableau de bord
+          </Title>
+          <Button 
+            type="primary" 
+            icon={<SyncOutlined spin={refreshing} />}
+            onClick={handleRefresh}
+            loading={refreshing}
+          >
+            Actualiser
+          </Button>
+        </div>
+
+        {/* Cartes de statistiques */}
+        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Tâches en attente"
+                value={stats.pendingTasks}
+                prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Tâches terminées"
+                value={stats.completedTasks}
+                prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                valueStyle={{ color: '#52c41a' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Tâches en retard"
+                value={stats.overdueCount}
+                prefix={<ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />}
+                valueStyle={{ color: '#ff4d4f' }}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Workflows actifs"
+                value={stats.activeWorkflows}
+                prefix={<ProjectOutlined style={{ color: '#722ed1' }} />}
+                valueStyle={{ color: '#722ed1' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Contenu principal */}
+        <Row gutter={[16, 16]}>
+          {/* Section des tâches */}
+          <Col xs={24} lg={16}>
+            <Card 
+              title={
+                <Space>
+                  <ClockCircleOutlined />
+                  <span>Mes tâches récentes</span>
+                </Space>
+              }
+              extra={
+                <Link to="/tasks">
+                  <Button type="link">Voir tout</Button>
+                </Link>
+              }
+            >
+              {tasks.length === 0 ? (
+                <Empty description="Aucune tâche en attente" />
+              ) : (
+                <Table
+                  dataSource={tasks.slice(0, 5)}
+                  columns={taskColumns}
+                  pagination={false}
+                  size="small"
+                  rowKey="id"
+                />
+              )}
+            </Card>
+          </Col>
+
+          {/* Section des notifications et workflows */}
+          <Col xs={24} lg={8}>
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              {/* Notifications */}
+              <Card 
+                title={
+                  <Space>
+                    <Badge count={notifications.filter(n => n.status === 'UNREAD').length}>
+                      <BellOutlined />
+                    </Badge>
+                    <span>Notifications</span>
+                  </Space>
+                }
+                extra={
+                  <Link to="/notifications">
+                    <Button type="link" size="small">Voir tout</Button>
+                  </Link>
+                }
+                size="small"
+              >
+                {notifications.length === 0 ? (
+                  <Empty description="Aucune notification" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                ) : (
+                  <List
+                    dataSource={notifications.slice(0, 3)}
+                    renderItem={(notification) => (
+                      <List.Item style={{ padding: '8px 0' }}>
+                        <List.Item.Meta
+                          avatar={
+                            <Avatar 
+                              size="small" 
+                              icon={<BellOutlined />} 
+                              style={{ 
+                                backgroundColor: notification.status === 'UNREAD' ? '#1890ff' : '#d9d9d9' 
+                              }}
+                            />
+                          }
+                          title={
+                            <Text 
+                              strong={notification.status === 'UNREAD'}
+                              style={{ fontSize: '12px' }}
                             >
-                              <FaCheckCircle />
-                            </button>
-                          )}
+                              {notification.title}
+                            </Text>
+                          }
+                          description={
+                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                              {formatDate(notification.creationDate)}
+                            </Text>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </Card>
+
+              {/* Workflows actifs */}
+              <Card 
+                title={
+                  <Space>
+                    <ProjectOutlined />
+                    <span>Workflows actifs</span>
+                  </Space>
+                }
+                extra={
+                  <Link to="/workflows">
+                    <Button type="link" size="small">Voir tout</Button>
+                  </Link>
+                }
+                size="small"
+              >
+                {workflows.length === 0 ? (
+                  <Empty description="Aucun workflow actif" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                ) : (
+                  <Timeline size="small">
+                    {workflows.slice(0, 3).map(workflow => (
+                      <Timeline.Item 
+                        key={workflow.id}
+                        dot={<PlayCircleOutlined style={{ color: '#1890ff' }} />}
+                      >
+                        <div>
+                          <Text strong style={{ fontSize: '12px' }}>
+                            {workflow.name}
+                          </Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: '11px' }}>
+                            {workflow.currentTask}
+                          </Text>
+                          <br />
+                          <Text type="secondary" style={{ fontSize: '10px' }}>
+                            Démarré le {formatDate(workflow.startDate)}
+                          </Text>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Widget des notifications */}
-              <div className="widget notifications-widget">
-                <div className="widget-header">
-                  <h2><FaBell /> Notifications récentes</h2>
-                  <Link to="/notifications" className="view-all">Voir tout</Link>
-                </div>
-                
-                <div className="widget-content">
-                  {notifications.length === 0 ? (
-                    <div className="empty-state">Aucune notification</div>
-                  ) : (
-                    <div className="notifications-list">
-                      {notifications.slice(0, 5).map(notification => (
-                        <div 
-                          key={notification.id} 
-                          className={`notification-item ${notification.status === 'UNREAD' ? 'unread' : ''}`}
-                        >
-                          <div className="notification-title">{notification.title}</div>
-                          <div className="notification-date">{formatDate(notification.creationDate)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Widget des workflows actifs */}
-              <div className="widget workflows-widget">
-                <div className="widget-header">
-                  <h2><FaProjectDiagram /> Workflows actifs</h2>
-                  <Link to="/workflows" className="view-all">Voir tout</Link>
-                </div>
-                
-                <div className="widget-content">
-                  {workflows.length === 0 ? (
-                    <div className="empty-state">Aucun workflow actif</div>
-                  ) : (
-                    <div className="workflows-list">
-                      {workflows.slice(0, 3).map(workflow => (
-                        <div key={workflow.id} className="workflow-item">
-                          <div className="workflow-name">{workflow.name}</div>
-                          <div className="workflow-details">
-                            <div>Démarré le: {formatDate(workflow.startDate)}</div>
-                            <div>Étape actuelle: {workflow.currentTask}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Widget d'activité récente */}
-              <div className="widget activity-widget">
-                <div className="widget-header">
-                  <h2><FaChartLine /> Activité récente</h2>
-                </div>
-                
-                <div className="widget-content">
-                  <div className="activity-chart">
-                    {/* Ici, on pourrait intégrer un graphique d'activité */}
-                    <div className="placeholder-chart">
-                      <div className="chart-bar" style={{ height: '60%' }}></div>
-                      <div className="chart-bar" style={{ height: '40%' }}></div>
-                      <div className="chart-bar" style={{ height: '80%' }}></div>
-                      <div className="chart-bar" style={{ height: '30%' }}></div>
-                      <div className="chart-bar" style={{ height: '70%' }}></div>
-                      <div className="chart-bar" style={{ height: '50%' }}></div>
-                      <div className="chart-bar" style={{ height: '90%' }}></div>
-                    </div>
-                    <div className="chart-legend">
-                      <div>Tâches complétées sur les 7 derniers jours</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+                      </Timeline.Item>
+                    ))}
+                  </Timeline>
+                )}
+              </Card>
+            </Space>
+          </Col>
+        </Row>
+
+        {/* Graphiques et analyses (section future) */}
+        <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
+          <Col span={24}>
+            <Card 
+              title={
+                <Space>
+                  <BarChartOutlined />
+                  <span>Analyse des performances</span>
+                </Space>
+              }
+            >
+              <Alert
+                message="Fonctionnalité à venir"
+                description="Les graphiques et analyses détaillées seront disponibles dans une prochaine version."
+                type="info"
+                showIcon
+              />
+            </Card>
+          </Col>
+        </Row>
+      </Content>
     </Main>
   );
 }

@@ -8,6 +8,9 @@ import { useDropzone } from 'react-dropzone';
 import TagsInput from 'react-tagsinput';
 import 'react-tagsinput/react-tagsinput.css';
 import toast from 'react-hot-toast';
+import BpmnModelService from '../../../services/BpmnModelService';
+import { Table, Button, Tag, Space, Select, Spin, Alert, Modal, Descriptions } from 'antd';
+import { EyeOutlined, PlayCircleOutlined, InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 
 function General({ sharedData, onSaveGeneral }) {
     const { t } = useTranslation();
@@ -19,6 +22,15 @@ function General({ sharedData, onSaveGeneral }) {
     const [image, setImage] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // États pour les instances de processus
+    const [processInstances, setProcessInstances] = useState([]);
+    const [deployedProcesses, setDeployedProcesses] = useState([]);
+    const [instancesLoading, setInstancesLoading] = useState(false);
+    const [processesLoading, setProcessesLoading] = useState(false);
+    const [selectedProcessKey, setSelectedProcessKey] = useState('all');
+    const [instanceDetailModal, setInstanceDetailModal] = useState(false);
+    const [selectedInstance, setSelectedInstance] = useState(null);
 
     // Initialiser les données si elles existent dans sharedData
     useEffect(() => {
@@ -36,7 +48,120 @@ function General({ sharedData, onSaveGeneral }) {
                 }
             }
         }
+        
+        // Charger les données des processus et instances
+        fetchDeployedProcesses();
+        fetchProcessInstances();
     }, [sharedData]);
+
+    // Récupérer les processus déployés
+    const fetchDeployedProcesses = async () => {
+        setProcessesLoading(true);
+        try {
+            const response = await BpmnModelService.getMyDeployedProcesses();
+            console.log('Processus déployés:', response);
+            const processesArray = response && response.data ? response.data : [];
+            setDeployedProcesses(Array.isArray(processesArray) ? processesArray : []);
+        } catch (error) {
+            console.error('Erreur lors de la récupération des processus:', error);
+            toast.error('Erreur lors de la récupération des processus');
+        } finally {
+            setProcessesLoading(false);
+        }
+    };
+
+    // Récupérer les instances de processus
+    const fetchProcessInstances = async () => {
+        setInstancesLoading(true);
+        try {
+            const response = await BpmnModelService.getMyProcessInstances();
+            console.log('Instances de processus:', response);
+            const instancesArray = response && response.data ? response.data : [];
+            setProcessInstances(Array.isArray(instancesArray) ? instancesArray : []);
+        } catch (error) {
+            console.error('Erreur lors de la récupération des instances:', error);
+            toast.error('Erreur lors de la récupération des instances');
+        } finally {
+            setInstancesLoading(false);
+        }
+    };
+
+    // Filtrer les instances par processus sélectionné
+    const filteredInstances = selectedProcessKey === 'all' 
+        ? processInstances 
+        : processInstances.filter(instance => instance.processDefinitionKey === selectedProcessKey);
+
+    // Colonnes pour le tableau des instances
+    const instanceColumns = [
+        {
+            title: 'ID Instance',
+            dataIndex: 'processInstanceId',
+            key: 'processInstanceId',
+            render: (text) => (
+                <span style={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                    {text ? text.substring(0, 8) + '...' : 'N/A'}
+                </span>
+            ),
+            width: '15%'
+        },
+        {
+            title: 'Processus',
+            dataIndex: 'processDefinitionKey',
+            key: 'processDefinitionKey',
+            render: (text) => (
+                <Tag color="blue">{text}</Tag>
+            ),
+            width: '20%'
+        },
+        {
+            title: 'Statut',
+            dataIndex: 'state',
+            key: 'state',
+            render: (state) => {
+                const stateColors = {
+                    'ACTIVE': 'green',
+                    'COMPLETED': 'blue',
+                    'SUSPENDED': 'orange',
+                    'TERMINATED': 'red'
+                };
+                return <Tag color={stateColors[state] || 'default'}>{state}</Tag>;
+            },
+            width: '15%'
+        },
+        {
+            title: 'Démarré le',
+            dataIndex: 'startTime',
+            key: 'startTime',
+            render: (date) => date ? new Date(date).toLocaleString('fr-FR') : 'N/A',
+            width: '20%'
+        },
+        {
+            title: 'Fini le',
+            dataIndex: 'endTime',
+            key: 'endTime',
+            render: (date) => date ? new Date(date).toLocaleString('fr-FR') : '-',
+            width: '20%'
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            render: (_, record) => (
+                <Space>
+                    <Button
+                        size="small"
+                        icon={<InfoCircleOutlined />}
+                        onClick={() => {
+                            setSelectedInstance(record);
+                            setInstanceDetailModal(true);
+                        }}
+                    >
+                        Détails
+                    </Button>
+                </Space>
+            ),
+            width: '10%'
+        }
+    ];
 
     // Configuration de la dropzone
     const onDrop = useCallback(acceptedFiles => {
@@ -219,6 +344,62 @@ function General({ sharedData, onSaveGeneral }) {
                     }
                 />
             </div>
+
+            <div className="col-12 pt-3">
+                <Card
+                    title={t("Instances de processus")}
+                    children={
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                <Select
+                                    value={selectedProcessKey}
+                                    onChange={(value) => setSelectedProcessKey(value)}
+                                    style={{ width: '200px' }}
+                                >
+                                    <Select.Option value="all">{t("Tous les processus")}</Select.Option>
+                                    {deployedProcesses.map((process) => (
+                                        <Select.Option key={process.id} value={process.key}>{process.name}</Select.Option>
+                                    ))}
+                                </Select>
+                                <Button
+                                    type="primary"
+                                    icon={<ReloadOutlined />}
+                                    onClick={() => fetchProcessInstances()}
+                                >
+                                    {t("Rafraîchir")}
+                                </Button>
+                            </div>
+                            {instancesLoading ? (
+                                <Spin />
+                            ) : (
+                                <Table
+                                    columns={instanceColumns}
+                                    dataSource={filteredInstances}
+                                    pagination={{ pageSize: 10 }}
+                                    scroll={{ x: 1000 }}
+                                />
+                            )}
+                        </div>
+                    }
+                />
+            </div>
+
+            <Modal
+                title={t("Détails de l'instance de processus")}
+                visible={instanceDetailModal}
+                onCancel={() => setInstanceDetailModal(false)}
+                footer={null}
+            >
+                {selectedInstance && (
+                    <Descriptions title={t("Informations de l'instance de processus")}>
+                        <Descriptions.Item label={t("ID Instance")}>{selectedInstance.processInstanceId}</Descriptions.Item>
+                        <Descriptions.Item label={t("Processus")}>{selectedInstance.processDefinitionKey}</Descriptions.Item>
+                        <Descriptions.Item label={t("Statut")}>{selectedInstance.state}</Descriptions.Item>
+                        <Descriptions.Item label={t("Démarré le")}>{selectedInstance.startTime ? new Date(selectedInstance.startTime).toLocaleString('fr-FR') : 'N/A'}</Descriptions.Item>
+                        <Descriptions.Item label={t("Fini le")}>{selectedInstance.endTime ? new Date(selectedInstance.endTime).toLocaleString('fr-FR') : '-'}</Descriptions.Item>
+                    </Descriptions>
+                )}
+            </Modal>
         </div>
     );
 }

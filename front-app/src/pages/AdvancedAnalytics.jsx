@@ -29,24 +29,194 @@ const AdvancedAnalytics = () => {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [processDefinitions, setProcessDefinitions] = useState([]);
-  const [selectedProcess, setSelectedProcess] = useState(null);
+  const [selectedProcessKey, setSelectedProcessKey] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [activeTab, setActiveTab] = useState('process-discovery');
   const [analysisData, setAnalysisData] = useState({});
   const [error, setError] = useState(null);
 
+  // Helpers: transformer pour adapter les DTO backend aux formats attendus par les tabs
+  const transformDiscoveryResponse = (dto) => {
+    if (!dto) return null;
+    const metrics = dto.metrics || {};
+    return {
+      petri_net_image: dto.petriNetImage || null,
+      metrics: {
+        fitness: { average_trace_fitness: metrics.fitness ?? 0 },
+        precision: metrics.precision ?? 0,
+        generalization: metrics.generalization ?? 0,
+        simplicity: metrics.simplicity ?? 0,
+      },
+    };
+  };
+
+  const transformVariantsResponse = (dto) => {
+    if (!dto) return null;
+    const variants = Array.isArray(dto.variants)
+      ? dto.variants.map(v => ({
+          variant: Array.isArray(v.activities) ? v.activities.join(' → ') : '',
+          activities: v.activities || [],
+          count: v.count ?? 0,
+          percentage: (v.frequency ?? 0) * 100,
+          averageDuration: v.averageDuration ?? 0,
+        }))
+      : [];
+    return {
+      variants,
+      case_statistics: {
+        total_cases: variants.reduce((acc, v) => acc + (v.count || 0), 0),
+        median_duration: 0,
+        min_duration: 0,
+        max_duration: 0,
+        case_duration_image: null,
+      },
+    };
+  };
+
+  const transformBottleneckResponse = (dto) => {
+    if (!dto) return null;
+    const bottlenecks = Array.isArray(dto.bottlenecks)
+      ? dto.bottlenecks.map(b => ({
+          activity: b.activity,
+          sojourn_time: b.averageWaitingTime ?? 0,
+          resource_utilization: b.resourceUtilization ?? null,
+          frequency: b.frequency ?? null,
+          severity: b.severity ?? null,
+        }))
+      : [];
+    return {
+      bottlenecks,
+      sojourn_time_image: null,
+      sorted_sojourn_image: null,
+    };
+  };
+
+  // Utils pour la prédiction: calculer durées à partir des logs (ms -> sec)
+  const computeCaseDurations = (logs) => {
+    const perCase = new Map();
+    for (const e of logs || []) {
+      const caseId = e.case_id || e.process_instance_id || e.processInstanceId || e.caseId;
+      if (!caseId) continue;
+      const durMs = e.durationInMillis ?? e.duration_ms ?? e.duration ?? 0;
+      perCase.set(caseId, (perCase.get(caseId) || 0) + (durMs || 0));
+    }
+    // Convertir en secondes
+    const perCaseSec = new Map();
+    for (const [k, v] of perCase.entries()) perCaseSec.set(k, v / 1000);
+    return perCaseSec;
+  };
+
+  const transformPredictionResponse = (dto, logs, selectedCaseId) => {
+    if (!dto) return null;
+    const predictions = Array.isArray(dto.predictions) ? dto.predictions : [];
+    const chosen = predictions.find(p => (p.caseId === selectedCaseId)) || predictions[0] || null;
+    const perCaseDur = computeCaseDurations(logs);
+    const currentSec = selectedCaseId ? (perCaseDur.get(selectedCaseId) || 0) : 0;
+    // On suppose que predictedCompletionTime est en secondes
+    const predictedTotal = chosen?.predictedCompletionTime ?? 0;
+
+    // Moyenne calculée à partir des logs si non fournie par le modèle
+    const values = Array.from(perCaseDur.values());
+    const avgFromLogs = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+    const averageDuration = dto.modelMetrics?.averageDuration ?? avgFromLogs;
+
+    const remaining = Math.max(0, (predictedTotal || 0) - currentSec);
+    const delayRisk = averageDuration ? (predictedTotal > averageDuration * 1.1) : false;
+
+    return {
+      case_id: chosen?.caseId || selectedCaseId || null,
+      current_duration: currentSec,
+      predicted_remaining_duration: remaining,
+      predicted_total_duration: predictedTotal,
+      average_duration: averageDuration,
+      delay_risk: !!delayRisk,
+      comparison_image: dto.predictionChart || null,
+      similar_cases_count: dto.modelMetrics?.similarCasesCount ?? 0,
+    };
+  };
+
+  const transformSnaResponse = (dto) => {
+    if (!dto) return null;
+    const edges = Array.isArray(dto.edges) ? dto.edges : [];
+    return {
+      roles: [],
+      social_network: edges.map(e => ({
+        source: e.source,
+        target: e.target,
+        value: e.weight ?? e.value ?? 1,
+      })),
+      social_network_image: dto.networkChart || null,
+    };
+  };
+
+  // Normaliser les définitions de processus pour garantir des chaînes pour id/key/label
+  const normalizeProcessDefinitions = (defs) => {
+    if (!Array.isArray(defs)) return [];
+    const seen = new Set();
+    const result = [];
+    for (const pd of defs) {
+      const id = String(pd.id || pd.definitionId || pd.processDefinitionId || pd.key || '');
+      const key = String(pd.key || pd.processDefinitionKey || pd.definitionKey || id);
+      const name = pd.name || pd.processDefinitionName || key;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ id, key, name, label: name });
+      }
+    }
+    return result;
+  };
+
   // Charger les définitions de processus au chargement de la page
   useEffect(() => {
     const fetchProcessDefinitions = async () => {
+      setLoading(true);
+      setError(null);
+      
       try {
+        // 1. Test de connectivité d'abord
+        console.log('🚀 Début du diagnostic analytics...');
+        console.log('🧪 Test de connectivité backend...');
+        
+        await BpmnAnalyticsService.testConnection();
+        console.log('✅ Backend accessible');
+        
+        // 2. Chargement des définitions de processus
+        console.log('📋 Chargement des définitions de processus...');
         const data = await BpmnAnalyticsService.getProcessDefinitions();
-        setProcessDefinitions(data);
-        if (data.length > 0) {
-          setSelectedProcess(data[0]);
+        console.log('📄 Données brutes reçues:', data);
+        
+        const normalized = normalizeProcessDefinitions(data);
+        console.log('🔄 Données normalisées:', normalized);
+        
+        setProcessDefinitions(normalized);
+        if (normalized.length > 0) {
+          setSelectedProcessKey(normalized[0].key);
+          console.log('🎯 Processus sélectionné:', normalized[0].key);
+          console.log('✅ Chargement réussi!');
+        } else {
+          const msg = 'Aucune définition de processus disponible';
+          console.warn('⚠️', msg);
+          setError(msg);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des définitions de processus:', error);
-        setError('Impossible de charger les définitions de processus');
+        console.error('❌ Erreur complète:', error);
+        console.error('📊 Stack trace:', error.stack);
+        
+        let errorMessage = 'Erreur inconnue';
+        if (error.response) {
+          // Erreur de réponse HTTP
+          errorMessage = `Erreur serveur (${error.response.status}): ${error.response.data?.message || error.message}`;
+        } else if (error.request) {
+          // Problème de réseau
+          errorMessage = `Problème de connexion au serveur: ${error.message}`;
+        } else {
+          // Autre erreur
+          errorMessage = `Erreur: ${error.message}`;
+        }
+        
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -55,17 +225,17 @@ const AdvancedAnalytics = () => {
 
   // Fonction pour récupérer les logs d'événements
   const fetchEventLogs = async () => {
-    if (!selectedProcess) return [];
-    
-    const filters = {};
-    if (dateRange && dateRange.length === 2) {
-      filters.startDate = dateRange[0].toISOString();
-      filters.endDate = dateRange[1].toISOString();
-    }
-    filters.processDefinitionId = selectedProcess;
-    
+    if (!selectedProcessKey) return [];
+
     try {
-      return await BpmnAnalyticsService.getAllEventLogs(filters);
+      let start = null;
+      let end = null;
+      if (dateRange && dateRange.length === 2) {
+        start = dateRange[0]?.toDate?.() ? dateRange[0].toDate().toISOString() : null;
+        end = dateRange[1]?.toDate?.() ? dateRange[1].toDate().toISOString() : null;
+      }
+      const logs = await BpmnAnalyticsService.getProcessLogsForAnalytics(selectedProcessKey, start, end);
+      return Array.isArray(logs) ? logs : [];
     } catch (error) {
       console.error('Erreur lors de la récupération des logs:', error);
       setError('Impossible de récupérer les logs d\'événements');
@@ -91,43 +261,39 @@ const AdvancedAnalytics = () => {
       
       switch (activeTab) {
         case 'process-discovery':
-          result = await BpmnAnalyticsService.runPm4pyAnalysis(
-            selectedProcess,
-            'process-discovery',
-            { algorithm: 'inductive' }
+          result = transformDiscoveryResponse(
+            await BpmnAnalyticsService.processDiscovery(logs, 'inductive')
           );
           break;
         case 'process-variants':
-          result = await BpmnAnalyticsService.runPm4pyAnalysis(
-            selectedProcess,
-            'process-variants'
+          result = transformVariantsResponse(
+            await BpmnAnalyticsService.processVariants(logs, 10)
           );
           break;
         case 'bottleneck-analysis':
-          result = await BpmnAnalyticsService.runPm4pyAnalysis(
-            selectedProcess,
-            'bottleneck-analysis'
+          result = transformBottleneckResponse(
+            await BpmnAnalyticsService.bottleneckAnalysis(logs, 'waiting_time')
           );
           break;
         case 'performance-prediction':
           // Pour la prédiction, nous avons besoin d'un cas spécifique
           // Utilisons le premier cas disponible pour cet exemple
-          const caseId = logs.length > 0 ? logs[0].processInstanceId : null;
+          const first = logs[0] || {};
+          const caseId = logs.length > 0 ? (first.case_id || first.process_instance_id || first.processInstanceId || first.caseId || null) : null;
           if (!caseId) {
             setError('Aucun cas disponible pour la prédiction');
             setLoading(false);
             return;
           }
-          result = await BpmnAnalyticsService.runPm4pyAnalysis(
-            selectedProcess,
-            'performance-prediction',
-            { case_id: caseId }
+          result = transformPredictionResponse(
+            await BpmnAnalyticsService.performancePrediction(logs, 'completion_time', { case_id: caseId }),
+            logs,
+            caseId
           );
           break;
         case 'social-network-analysis':
-          result = await BpmnAnalyticsService.runPm4pyAnalysis(
-            selectedProcess,
-            'social-network-analysis'
+          result = transformSnaResponse(
+            await BpmnAnalyticsService.socialNetworkAnalysis(logs, 'handover_of_work')
           );
           break;
         default:
@@ -151,7 +317,7 @@ const AdvancedAnalytics = () => {
 
   // Gérer le changement de processus
   const handleProcessChange = (value) => {
-    setSelectedProcess(value);
+    setSelectedProcessKey(value);
     // Réinitialiser les données d'analyse
     setAnalysisData({});
   };
@@ -180,14 +346,14 @@ const AdvancedAnalytics = () => {
                 <Text strong>Processus :</Text>
                 <Select
                   style={{ width: '100%' }}
-                  value={selectedProcess}
+                  value={selectedProcessKey}
                   onChange={handleProcessChange}
                   placeholder="Sélectionner un processus"
                   disabled={loading}
                 >
                   {processDefinitions.map(process => (
-                    <Select.Option key={process} value={process}>
-                      {process}
+                    <Select.Option key={process.key} value={process.key}>
+                      {process.name || process.key}
                     </Select.Option>
                   ))}
                 </Select>
@@ -208,7 +374,7 @@ const AdvancedAnalytics = () => {
                 <Button
                   type="primary"
                   onClick={runAnalysis}
-                  disabled={!selectedProcess || loading}
+                  disabled={!selectedProcessKey || loading}
                   loading={loading}
                   style={{ marginTop: 24 }}
                 >

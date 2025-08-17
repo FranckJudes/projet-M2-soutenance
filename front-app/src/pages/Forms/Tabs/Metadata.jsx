@@ -38,27 +38,29 @@ export default function Metadata() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [editingMetadata, setEditingMetadata] = useState(null);
     const [fieldVisibility, setFieldVisibility] = useState({
-        masque_saisie: false,
+        masqueSaisie: false,
         longeur: false,
-        concept_lie: false,
-        domaine_valeur_lie: false,
-        valeur_defaut: false,
-        format_date: false,
-        champ_incrementiel: false,
+        conceptLie: false,
+        domaineValeurLie: false,
+        valeurDefaut: false,
+        formatDate: false,
+        champIncrementiel: false,
     });
 
     const fetchMetadatas = async () => {
         setLoading(true);
         try {
             const response = await MetadataService.getAllMetadata();
-            if (response.data && response.data.data) {
+            if (response.data && response.data.success && response.data.data) {
                 setMetadatas(response.data.data);
             } else {
-                message.error(t("Error loading metadata"));
+                const errorMsg = response.data?.message || t("Error loading metadata");
+                message.error(errorMsg);
             }
         } catch (error) {
             console.error("Error loading metadata:", error);
-            message.error(t("Error loading metadata"));
+            const errorMsg = error.response?.data?.message || t("Error loading metadata");
+            message.error(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -75,27 +77,27 @@ export default function Metadata() {
                 nom: metadata.nom,
                 libelle: metadata.libelle,
                 question: metadata.question,
-                type_champ: metadata.type_champ,
-                masque_saisie: metadata.masque_saisie,
+                typeChamp: metadata.typeChamp || metadata.type_champ,
+                masqueSaisie: metadata.masqueSaisie || metadata.masque_saisie,
                 longeur: metadata.longeur,
-                concept_lie: metadata.concept_lie,
-                domaine_valeur_lie: metadata.domaine_valeur_lie,
-                valeur_defaut: metadata.valeur_defaut,
-                format_date: metadata.format_date,
-                champ_incrementiel: metadata.champ_incrementiel
+                conceptLie: metadata.conceptLie || metadata.concept_lie,
+                domaineValeurLie: metadata.domaineValeurLie || metadata.domaine_valeur_lie,
+                valeurDefaut: metadata.valeurDefaut || metadata.valeur_defaut,
+                formatDate: metadata.formatDate || metadata.format_date,
+                champIncrementiel: metadata.champIncrementiel || metadata.champ_incrementiel
             });
-            handleTypeChange(metadata.type_champ);
+            handleTypeChange(metadata.typeChamp || metadata.type_champ);
         } else {
             setEditingMetadata(null);
             form.resetFields();
             setFieldVisibility({
-                masque_saisie: false,
+                masqueSaisie: false,
                 longeur: false,
-                concept_lie: false,
-                domaine_valeur_lie: false,
-                valeur_defaut: false,
-                format_date: false,
-                champ_incrementiel: false,
+                conceptLie: false,
+                domaineValeurLie: false,
+                valeurDefaut: false,
+                formatDate: false,
+                champIncrementiel: false,
             });
         }
         setIsModalVisible(true);
@@ -109,43 +111,56 @@ export default function Metadata() {
 
     const handleSubmit = async (values) => {
         try {
+            let response;
             if (editingMetadata) {
-                await MetadataService.updateMetadata(editingMetadata.id, values);
-                message.success(t("Metadata successfully updated"));
+                response = await MetadataService.updateMetadata(editingMetadata.id, values);
             } else {
-                await MetadataService.createMetadata(values);
-                message.success(t("Metadata successfully created"));
+                response = await MetadataService.createMetadata(values);
             }
-            setIsModalVisible(false);
-            fetchMetadatas();
-            form.resetFields();
-            setEditingMetadata(null);
+            
+            if (response.data && response.data.success) {
+                message.success(response.data.message || t(editingMetadata ? "Metadata successfully updated" : "Metadata successfully created"));
+                setIsModalVisible(false);
+                await fetchMetadatas();
+                form.resetFields();
+                setEditingMetadata(null);
+            } else {
+                const errorMsg = response.data?.message || t("Error saving metadata");
+                message.error(errorMsg);
+            }
         } catch (error) {
             console.error("Error saving metadata:", error);
-            message.error(t("Error saving metadata"));
+            const errorMsg = error.response?.data?.message || t("Error saving metadata");
+            message.error(errorMsg);
         }
     };
     
     const handleDelete = async (id) => {
         try {
-            await MetadataService.deleteMetadata(id);
-            message.success(t("Metadata successfully deleted"));
-            fetchMetadatas();
+            const response = await MetadataService.deleteMetadata(id);
+            if (response.data && response.data.success) {
+                message.success(response.data.message || t("Metadata successfully deleted"));
+                await fetchMetadatas();
+            } else {
+                const errorMsg = response.data?.message || t("Error deleting metadata");
+                message.error(errorMsg);
+            }
         } catch (error) {
             console.error("Error deleting metadata:", error);
-            message.error(t("Error deleting metadata"));
+            const errorMsg = error.response?.data?.message || t("Error deleting metadata");
+            message.error(errorMsg);
         }
     };
     
     const handleTypeChange = (value) => {
         const visibility = {
-            masque_saisie: ["text", "number"].includes(value),
+            masqueSaisie: ["text", "number"].includes(value),
             longeur: ["text", "number"].includes(value),
-            concept_lie: ["selection", "selection_multiple"].includes(value),
-            domaine_valeur_lie: ["selection", "selection_multiple"].includes(value),
-            valeur_defaut: false,
-            format_date: value === "date",
-            champ_incrementiel: value === "incrementiel"
+            conceptLie: ["selection", "selection_multiple"].includes(value),
+            domaineValeurLie: ["selection", "selection_multiple"].includes(value),
+            valeurDefaut: false,
+            formatDate: value === "date",
+            champIncrementiel: value === "incrementiel"
         };
         
         setFieldVisibility(visibility);
@@ -162,9 +177,9 @@ export default function Metadata() {
     ];
     
     const optionsConceptLie = [
-        { value: "concept1", label: t("concept1") },
-        { value: "concept2", label: t("concept2") },
-        { value: "concept3", label: t("concept3") }
+        { value: "Users", label: t("Users") },
+        { value: "Domaine Lies", label: t("Domaine Lies") },
+        { value: "Entites", label: t("Entites") }
     ];
 
     const optionsDomaineValeur = [
@@ -193,8 +208,8 @@ export default function Metadata() {
         },
         {
             title: t("Field Type"),
-            dataIndex: "type_champ",
-            key: "type_champ",
+            dataIndex: "typeChamp",
+            key: "typeChamp",
             render: (type) => {
                 const option = typeOptions.find(opt => opt.value === type);
                 return option ? option.label : type;
@@ -285,14 +300,14 @@ export default function Metadata() {
                         nom: "",
                         libelle: "",
                         question: "",
-                        type_champ: "",
-                        masque_saisie: "",
+                        typeChamp: "",
+                        masqueSaisie: "",
                         longeur: 0,
-                        concept_lie: null,
-                        domaine_valeur_lie: null,
-                        valeur_defaut: "",
-                        format_date: "",
-                        champ_incrementiel: ""
+                        conceptLie: null,
+                        domaineValeurLie: null,
+                        valeurDefaut: "",
+                        formatDate: "",
+                        champIncrementiel: ""
                     }}
                 >
                     <Form.Item
@@ -320,7 +335,7 @@ export default function Metadata() {
                     </Form.Item>
                     
                     <Form.Item
-                        name="type_champ"
+                        name="typeChamp"
                         label={t("Field Type")}
                         rules={[{ required: true, message: t("Please select field type") }]}
                     >
@@ -334,9 +349,9 @@ export default function Metadata() {
                         </Select>
                     </Form.Item>
                     
-                    {fieldVisibility.masque_saisie && (
+                    {fieldVisibility.masqueSaisie && (
                         <Form.Item
-                            name="masque_saisie"
+                            name="masqueSaisie"
                             label={t("Input Mask")}
                         >
                             <Input placeholder={t("Enter input mask")} />
@@ -352,9 +367,9 @@ export default function Metadata() {
                         </Form.Item>
                     )}
                     
-                    {fieldVisibility.concept_lie && (
+                    {fieldVisibility.conceptLie && (
                         <Form.Item
-                            name="concept_lie"
+                            name="conceptLie"
                             label={t("Linked Concept")}
                             rules={[{ required: true, message: t("Please select linked concept") }]}
                         >
@@ -366,9 +381,9 @@ export default function Metadata() {
                         </Form.Item>
                     )}
                     
-                    {fieldVisibility.domaine_valeur_lie && (
+                    {fieldVisibility.domaineValeurLie && (
                         <Form.Item
-                            name="domaine_valeur_lie"
+                            name="domaineValeurLie"
                             label={t("Value Domain")}
                             rules={[{ required: true, message: t("Please select value domain") }]}
                         >
@@ -380,9 +395,9 @@ export default function Metadata() {
                         </Form.Item>
                     )}
                     
-                    {fieldVisibility.format_date && (
+                    {fieldVisibility.formatDate && (
                         <Form.Item
-                            name="format_date"
+                            name="formatDate"
                             label={t("Date Format")}
                         >
                             <Select placeholder={t("Select date format")}>
@@ -393,9 +408,9 @@ export default function Metadata() {
                         </Form.Item>
                     )}
                     
-                    {fieldVisibility.champ_incrementiel && (
+                    {fieldVisibility.champIncrementiel && (
                         <Form.Item
-                            name="champ_incrementiel"
+                            name="champIncrementiel"
                             label={t("Incremental Value")}
                         >
                             <InputNumber min={0} style={{ width: '100%' }} />
