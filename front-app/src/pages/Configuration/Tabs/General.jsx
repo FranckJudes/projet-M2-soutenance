@@ -345,61 +345,8 @@ function General({ sharedData, onSaveGeneral }) {
                 />
             </div>
 
-            <div className="col-12 pt-3">
-                <Card
-                    title={t("Instances de processus")}
-                    children={
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                <Select
-                                    value={selectedProcessKey}
-                                    onChange={(value) => setSelectedProcessKey(value)}
-                                    style={{ width: '200px' }}
-                                >
-                                    <Select.Option value="all">{t("Tous les processus")}</Select.Option>
-                                    {deployedProcesses.map((process) => (
-                                        <Select.Option key={process.id} value={process.key}>{process.name}</Select.Option>
-                                    ))}
-                                </Select>
-                                <Button
-                                    type="primary"
-                                    icon={<ReloadOutlined />}
-                                    onClick={() => fetchProcessInstances()}
-                                >
-                                    {t("Rafraîchir")}
-                                </Button>
-                            </div>
-                            {instancesLoading ? (
-                                <Spin />
-                            ) : (
-                                <Table
-                                    columns={instanceColumns}
-                                    dataSource={filteredInstances}
-                                    pagination={{ pageSize: 10 }}
-                                    scroll={{ x: 1000 }}
-                                />
-                            )}
-                        </div>
-                    }
-                />
-            </div>
-
-            <Modal
-                title={t("Détails de l'instance de processus")}
-                visible={instanceDetailModal}
-                onCancel={() => setInstanceDetailModal(false)}
-                footer={null}
-            >
-                {selectedInstance && (
-                    <Descriptions title={t("Informations de l'instance de processus")}>
-                        <Descriptions.Item label={t("ID Instance")}>{selectedInstance.processInstanceId}</Descriptions.Item>
-                        <Descriptions.Item label={t("Processus")}>{selectedInstance.processDefinitionKey}</Descriptions.Item>
-                        <Descriptions.Item label={t("Statut")}>{selectedInstance.state}</Descriptions.Item>
-                        <Descriptions.Item label={t("Démarré le")}>{selectedInstance.startTime ? new Date(selectedInstance.startTime).toLocaleString('fr-FR') : 'N/A'}</Descriptions.Item>
-                        <Descriptions.Item label={t("Fini le")}>{selectedInstance.endTime ? new Date(selectedInstance.endTime).toLocaleString('fr-FR') : '-'}</Descriptions.Item>
-                    </Descriptions>
-                )}
-            </Modal>
+          
+          
         </div>
     );
 }

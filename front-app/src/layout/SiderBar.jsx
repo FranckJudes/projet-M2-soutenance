@@ -43,12 +43,12 @@ class SiderBar extends Component {
                 <span>{t('welcome_dashboard')}</span>
               </Link>
             </li>
-            <li>
+            {/* <li>
               <Link className="nav-link" to="/office">
                 <i data-feather="monitor"></i>
                 <span>{t('office_sidebar_title')}</span>
               </Link>
-            </li>
+            </li> */}
             <li>
               <Link className="nav-link" to="/todo">
                 <i data-feather="bookmark"></i>
