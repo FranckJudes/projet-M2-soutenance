@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface ProcessInstanceRepository extends JpaRepository<ProcessInstance, Long> {
@@ -19,6 +20,8 @@ public interface ProcessInstanceRepository extends JpaRepository<ProcessInstance
     List<ProcessInstance> findByStartUserId(String startUserId);
     
     List<ProcessInstance> findByState(ProcessInstance.ProcessInstanceState state);
+    
+    List<ProcessInstance> findByProcessInstanceIdIn(Set<String> processInstanceIds);
     
     @Query("SELECT pi FROM ProcessInstance pi WHERE pi.state = 'ACTIVE' ORDER BY pi.startTime DESC")
     List<ProcessInstance> findActiveProcesses();

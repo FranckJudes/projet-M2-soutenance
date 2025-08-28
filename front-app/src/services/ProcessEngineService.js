@@ -20,34 +20,33 @@ class ProcessEngineService {
   }
 
   /**
-   * Deploy a BPMN process with task configurations
+   * Deploy a BPMN process with task configurations and general metadata
    * @param {File} bpmnFile - The BPMN file to deploy
    * @param {Array} taskConfigurations - Array of task configuration objects
+   * @param {Object} processMetadata - General process metadata (name, description, tags, images)
    * @param {boolean} deployToEngine - Whether to deploy to Camunda engine or just save metadata
    * @returns {Promise} - Process definition response
    */
-  async deployProcess(bpmnFile, taskConfigurations, deployToEngine = true) {
+  async deployProcess(bpmnFile, taskConfigurations, processMetadata = null, deployToEngine = true) {
     try {
       const formData = new FormData();
       formData.append('file', bpmnFile);
       formData.append('configurations', JSON.stringify(taskConfigurations));
       formData.append('deployToEngine', deployToEngine);
 
-      console.log('Deploying BPMN process:', {
-        fileName: bpmnFile.name,
-        fileSize: bpmnFile.size,
-        configurationsCount: taskConfigurations.length,
-        deployToEngine: deployToEngine
-      });
+      // Ajouter les métadonnées générales si elles sont fournies
+      if (processMetadata) {
+        formData.append('metadata', JSON.stringify(processMetadata));
+      }
+
+      
 
       const response = await axios.post(`${API_URL}/api/process-engine/deploy`, formData, {
         headers: this.getMultipartHeaders(),
       });
 
-      console.log('Process deployed successfully:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error deploying process:', error);
       throw error;
     }
   }
@@ -173,10 +172,26 @@ class ProcessEngineService {
   }
 
   /**
-   * Transform task configurations from frontend format to backend format
-   * @param {Array} frontendConfigurations - Frontend task configurations
-   * @returns {Array} - Backend formatted configurations
+   * Get process image by path
+   * @param {string} processKey - The process key
+   * @param {string} fileName - The image file name
+   * @returns {Promise} - Image URL or blob response
    */
+  async getProcessImage(processKey, fileName) {
+    try {
+      const response = await axios.get(`${API_URL}/api/process-images/${processKey}/${fileName}`, {
+        responseType: 'blob', // Pour récupérer l'image comme blob
+        headers: this.getHeaders(),
+      });
+
+      // Créer une URL pour l'image blob
+      const imageUrl = URL.createObjectURL(response.data);
+      return imageUrl;
+    } catch (error) {
+      console.error('Error fetching process image:', error);
+      throw error;
+    }
+  }
   transformTaskConfigurations(frontendConfigurations) {
     // Log la structure complète des configurations pour débogage
     console.log('Structure complète des configurations:', JSON.stringify(frontendConfigurations, null, 2));

@@ -1,17 +1,16 @@
 package com.harmony.harmoniservices.services;
 
-import com.harmony.harmoniservices.dto.ProcessDefinitionDTO;
+import com.harmony.harmoniservices.dto.ProcessImageDTO;
 import com.harmony.harmoniservices.dto.ProcessInstanceDTO;
-import com.harmony.harmoniservices.dto.TaskConfigurationDTO;
-import com.harmony.harmoniservices.dto.TaskDTO;
-import com.harmony.harmoniservices.mappers.TaskMapper;
-import com.harmony.harmoniservices.models.CamundaIdMapping;
-import com.harmony.harmoniservices.models.ProcessDefinition;
+import com.harmony.harmoniservices.dto.*;
+import com.harmony.harmoniservices.models.ProcessImage;
 import com.harmony.harmoniservices.models.ProcessInstance;
+import com.harmony.harmoniservices.models.ProcessDefinition;
 import com.harmony.harmoniservices.models.TaskConfiguration;
 import com.harmony.harmoniservices.repository.ProcessDefinitionRepository;
 import com.harmony.harmoniservices.repository.ProcessInstanceRepository;
 import com.harmony.harmoniservices.repository.TaskConfigurationRepository;
+import com.harmony.harmoniservices.mappers.TaskMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.*;
@@ -39,6 +38,13 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
 import java.io.StringReader;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -58,16 +64,20 @@ public class ProcessEngineService {
     private final CamundaIdentityService camundaIdentityService;
     private final ModelMapper modelMapper;
 
+    private static final String PROCESS_IMAGES_DIRECTORY = "src/main/resources/static/process-images";
+
     /**
-     * Deploy a BPMN process with task configurations
+     * Deploy a BPMN process with task configurations and general metadata
      * @param bpmnXml Le contenu XML du fichier BPMN
      * @param taskConfigurations Les configurations des tâches
+     * @param processMetadata Les métadonnées générales du processus (nom, description, tags, images)
      * @param deployedBy L'identifiant de l'utilisateur qui déploie le processus
      * @param deployToEngine Si true, déploie le processus vers le moteur Camunda, sinon sauvegarde uniquement les métadonnées
      * @return Les informations sur le processus déployé
      */
     @Transactional
-    public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations, String deployedBy, boolean deployToEngine) {
+    public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations,
+                                           ProcessMetadataDTO processMetadata, String deployedBy, boolean deployToEngine) {
         try {
           
             // Convert DTOs to entities
@@ -167,19 +177,74 @@ public class ProcessEngineService {
 
             processDefinition = processDefinitionRepository.save(processDefinition);
 
-            // Save task configurations and ensure users/groups exist in Camunda
+            // Sauvegarder les métadonnées générales du processus
+            if (processMetadata != null) {
+                log.info("Saving process metadata for process: {}", processDefinition.getProcessDefinitionKey());
+
+                // Mettre à jour les métadonnées générales
+                processDefinition.setProcessName(processMetadata.getProcessName());
+                processDefinition.setProcessDescription(processMetadata.getProcessDescription());
+                processDefinition.setProcessTags(processMetadata.getProcessTags() != null ?
+                processMetadata.getProcessTags() : new ArrayList<>());
+
+                // Sauvegarder les images multiples sur le système de fichiers
+                if (processMetadata.getImages() != null && !processMetadata.getImages().isEmpty()) {
+                    List<String> imagePaths = saveImagesToFileSystem(processKey, processMetadata.getImages());
+                    log.info("Images saved to filesystem with {} paths", imagePaths.size());
+
+                    // Gérer correctement la collection pour éviter les erreurs d'orphan removal
+                    if (processDefinition.getImages() == null) {
+                        processDefinition.setImages(new ArrayList<>());
+                    } else {
+                        // Vider la collection existante pour éviter les erreurs d'orphan removal
+                        processDefinition.getImages().clear();
+                    }
+                    
+                    // Créer les entités ProcessImage avec les chemins des fichiers
+                    int displayOrder = 0;
+
+                    for (int i = 0; i < processMetadata.getImages().size(); i++) {
+                        ProcessImageDTO imageDto = processMetadata.getImages().get(i);
+                        String imagePath = imagePaths.get(i);
+
+                        ProcessImage processImage = ProcessImage.builder()
+                                .processDefinition(processDefinition)
+                                .fileName(imageDto.getFileName())
+                                .originalFileName(imageDto.getOriginalFileName())
+                                .contentType(imageDto.getContentType())
+                                .fileSize(imageDto.getFileSize())
+                                .description(imageDto.getDescription())
+                                .filePath(imagePath) // Stocker le chemin au lieu des données binaires
+                                .displayOrder(displayOrder++)
+                                .build();
+
+                        processDefinition.getImages().add(processImage);
+                    }
+                } else {
+                    // Si pas d'images, vider la collection existante
+                    if (processDefinition.getImages() != null) {
+                        processDefinition.getImages().clear();
+                    }
+                }
+
+                // Sauvegarder à nouveau avec les métadonnées
+                processDefinition = processDefinitionRepository.save(processDefinition);
+                log.info("Process metadata saved successfully with {} tags and {} images",
+                    processDefinition.getProcessTags().size(),
+                    processDefinition.getImages().size());
+            }
             for (TaskConfiguration config : configurations) {
-                config.setProcessDefinitionKey(camundaProcessDef.getKey());
+                config.setProcessDefinitionKey(processKey);
                 
                 // Vérifier si une configuration existe déjà pour ce processDefinitionKey et taskId
                 Optional<TaskConfiguration> existingConfig = taskConfigurationRepository
-                    .findByProcessDefinitionKeyAndTaskId(camundaProcessDef.getKey(), config.getTaskId());
+                    .findByProcessDefinitionKeyAndTaskId(processKey, config.getTaskId());
                 
                 if (existingConfig.isPresent()) {
                     // Mettre à jour la configuration existante
                     TaskConfiguration existing = existingConfig.get();
                     log.info("Updating existing task configuration for task: {} in process: {}", 
-                            config.getTaskId(), camundaProcessDef.getKey());
+                            config.getTaskId(), processKey);
                     
                     // Conserver l'ID de la configuration existante
                     config.setId(existing.getId());
@@ -204,7 +269,7 @@ public class ProcessEngineService {
             }
 
             log.info("Successfully deployed process: {} with {} task configurations", 
-                    camundaProcessDef.getKey(), configurations.size());
+                    processKey, configurations.size());
 
             return modelMapper.map(processDefinition, ProcessDefinitionDTO.class);
 
@@ -417,9 +482,15 @@ public class ProcessEngineService {
      */
     public List<ProcessInstanceDTO> getActiveProcesses() {
         List<ProcessInstance> activeProcesses = processInstanceRepository.findActiveProcesses();
-        return activeProcesses.stream()
-                .map(pi -> modelMapper.map(pi, ProcessInstanceDTO.class))
-                .collect(Collectors.toList());
+        List<ProcessInstanceDTO> dtos = new ArrayList<>();
+        
+        for (ProcessInstance pi : activeProcesses) {
+            ProcessInstanceDTO dto = modelMapper.map(pi, ProcessInstanceDTO.class);
+            enrichProcessInstanceDTO(dto, pi.getProcessDefinitionKey());
+            dtos.add(dto);
+        }
+        
+        return dtos;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW) // Use a new transaction
@@ -949,6 +1020,7 @@ public class ProcessEngineService {
             // Get process definitions from our database deployed by the user
             List<ProcessDefinition> userProcesses = processDefinitionRepository.findByDeployedBy(userId);
             
+
             // Convert to DTOs and add Camunda information
             List<ProcessDefinitionDTO> processDefinitions = new ArrayList<>();
             
@@ -1131,40 +1203,105 @@ public class ProcessEngineService {
     }
     
     /**
-     * Get process instances by user
+     * Get process instances where the user participates (either started them or has tasks assigned)
+     * @param userId The user ID to search for
+     * @return List of process instances where the user participates
      */
     public List<ProcessInstanceDTO> getProcessInstancesByUser(String userId) {
         try {
-            log.info("Retrieving process instances for user: {}", userId);
-            
-            // Get from our database first
-            List<ProcessInstance> userProcessInstances = processInstanceRepository.findByStartUserId(userId);
-            
+            log.info("====================================>>>Retrieving process instances where user participates: {}", userId);
+
+            Set<String> processInstanceIds = new HashSet<>();
+
+            // 1. Get instances started by the user
+            List<ProcessInstance> startedInstances = processInstanceRepository.findByStartUserId(userId);
+            log.info("Found {} instances started by user", startedInstances.size());
+
+            for (ProcessInstance instance : startedInstances) {
+                if (instance.getProcessInstanceId() != null) {
+                    processInstanceIds.add(instance.getProcessInstanceId());
+                }
+            }
+
+            // 2. Get instances where user has tasks (assigned directly or via groups)
+            String camundaUserId = camundaIdentityService.getCamundaId(userId, false);
+            if (camundaUserId != null) {
+                // Get tasks assigned directly to the user
+                List<Task> assignedTasks = taskService.createTaskQuery()
+                        .taskAssignee(camundaUserId)
+                        .list();
+
+                // Get tasks where user is a candidate
+                List<Task> candidateTasks = taskService.createTaskQuery()
+                        .taskCandidateUser(camundaUserId)
+                        .list();
+
+                // Get user's groups
+                List<org.camunda.bpm.engine.identity.Group> userGroups =
+                    camundaIdentityService.getIdentityService().createGroupQuery()
+                        .groupMember(camundaUserId)
+                        .list();
+
+                List<String> groupIds = userGroups.stream()
+                    .map(org.camunda.bpm.engine.identity.Group::getId)
+                    .collect(Collectors.toList());
+
+                // Get tasks assigned to user's groups
+                List<Task> groupTasks = new ArrayList<>();
+                if (!groupIds.isEmpty()) {
+                    groupTasks = taskService.createTaskQuery()
+                            .taskCandidateGroupIn(groupIds)
+                            .list();
+                }
+
+                // Collect process instance IDs from all tasks
+                List<Task> allUserTasks = new ArrayList<>();
+                allUserTasks.addAll(assignedTasks);
+                allUserTasks.addAll(candidateTasks);
+                allUserTasks.addAll(groupTasks);
+
+                log.info("Found {} tasks for user across all assignment types", allUserTasks.size());
+
+                for (Task task : allUserTasks) {
+                    if (task.getProcessInstanceId() != null) {
+                        processInstanceIds.add(task.getProcessInstanceId());
+                    }
+                }
+            } else {
+                log.warn("No Camunda ID mapping found for user: {}", userId);
+            }
+
+            // 3. Get all process instances from our database that match the collected IDs
+            List<ProcessInstance> allInstances = new ArrayList<>();
+            if (!processInstanceIds.isEmpty()) {
+                allInstances = processInstanceRepository.findByProcessInstanceIdIn(processInstanceIds);
+                log.info("Found {} matching process instances in database", allInstances.size());
+            }
+
+            // 4. Convert to DTOs and enrich with Camunda information
             List<ProcessInstanceDTO> processInstances = new ArrayList<>();
-            
-            for (ProcessInstance instance : userProcessInstances) {
+            for (ProcessInstance instance : allInstances) {
                 ProcessInstanceDTO dto = modelMapper.map(instance, ProcessInstanceDTO.class);
-                
+
                 // Try to get additional info from Camunda
                 try {
                     if (instance.getProcessInstanceId() != null) {
                         // Check if still active in Camunda
-                        org.camunda.bpm.engine.runtime.ProcessInstance camundaInstance = 
+                        org.camunda.bpm.engine.runtime.ProcessInstance camundaInstance =
                             runtimeService.createProcessInstanceQuery()
                                 .processInstanceId(instance.getProcessInstanceId())
                                 .singleResult();
-                        
+
                         if (camundaInstance != null) {
-                            // Note: ProcessInstanceDTO doesn't have suspended field
-                            // We could add it if needed, for now we skip this
                             dto.setBusinessKey(camundaInstance.getBusinessKey());
+                            // Instance is still active
                         } else {
                             // Check in history
-                            org.camunda.bpm.engine.history.HistoricProcessInstance historicInstance = 
+                            org.camunda.bpm.engine.history.HistoricProcessInstance historicInstance =
                                 historyService.createHistoricProcessInstanceQuery()
                                     .processInstanceId(instance.getProcessInstanceId())
                                     .singleResult();
-                            
+
                             if (historicInstance != null && historicInstance.getEndTime() != null) {
                                 dto.setState(ProcessInstance.ProcessInstanceState.COMPLETED);
                                 dto.setEndTime(convertToLocalDateTime(historicInstance.getEndTime()));
@@ -1172,29 +1309,130 @@ public class ProcessEngineService {
                         }
                     }
                 } catch (Exception e) {
-                    log.warn("Could not get Camunda info for process instance {}: {}", 
+                    log.warn("Could not get Camunda info for process instance {}: {}",
                         instance.getProcessInstanceId(), e.getMessage());
                 }
-                
+
+                // Enrichir le DTO avec les métadonnées du processus
+                enrichProcessInstanceDTO(dto, instance.getProcessDefinitionKey());
                 processInstances.add(dto);
             }
-            
-            log.info("Found {} process instances for user: {}", processInstances.size(), userId);
+
+            log.info("Returning {} process instances where user participates", processInstances.size());
             return processInstances;
-            
+
         } catch (Exception e) {
-            log.error("Error retrieving process instances for user: {}", userId, e);
-            throw new RuntimeException("Failed to retrieve process instances for user: " + e.getMessage(), e);
+            log.error("Error retrieving process instances where user participates: {}", userId, e);
+            throw new RuntimeException("Failed to retrieve process instances where user participates: " + e.getMessage(), e);
+        }
+    }
+    
+    private LocalDateTime convertToLocalDateTime(java.util.Date date){
+        if (date == null) return null;
+        return date.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime();
+    }
+    
+    /**
+     * Enrichit un ProcessInstanceDTO avec les métadonnées du processus (nom, description, tags, images)
+     * @param dto Le DTO à enrichir
+     * @param processDefinitionKey La clé du processus
+     */
+    private void enrichProcessInstanceDTO(ProcessInstanceDTO dto, String processDefinitionKey) {
+        if (processDefinitionKey == null) {
+            return;
+        }
+        
+        try {
+            // Récupérer la définition du processus
+            Optional<ProcessDefinition> processDefOpt = processDefinitionRepository.findLatestActiveByProcessDefinitionKey(processDefinitionKey);
+            
+            if (processDefOpt.isPresent()) {
+                ProcessDefinition processDef = processDefOpt.get();
+                
+                // Ajouter les métadonnées
+                dto.setProcessName(processDef.getProcessName());
+                dto.setProcessDescription(processDef.getProcessDescription());
+                
+                // Ajouter les tags
+                if (processDef.getProcessTags() != null) {
+                    dto.setProcessTags(new ArrayList<>(processDef.getProcessTags()));
+                }
+                
+                // Ajouter les images
+                if (processDef.getImages() != null && !processDef.getImages().isEmpty()) {
+                    List<ProcessImageDTO> imageDTOs = processDef.getImages().stream()
+                        .map(image -> {
+                            ProcessImageDTO imageDTO = new ProcessImageDTO();
+                            imageDTO.setId(image.getId());
+                            imageDTO.setFileName(image.getFileName());
+                            imageDTO.setOriginalFileName(image.getOriginalFileName());
+                            imageDTO.setContentType(image.getContentType());
+                            imageDTO.setFileSize(image.getFileSize());
+                            imageDTO.setDescription(image.getDescription());
+                            imageDTO.setFilePath(image.getFilePath());
+                            return imageDTO;
+                        })
+                        .collect(Collectors.toList());
+                    
+                    dto.setImages(imageDTOs);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Could not enrich process instance DTO with process definition data: {}", e.getMessage());
         }
     }
     
     /**
-     * Helper method to convert Date to LocalDateTime
+     * Sauvegarde les images des processus sur le système de fichiers
+     * @param processKey Clé du processus
+     * @param images Liste des DTOs d'images
+     * @return Liste des chemins des images sauvegardées
      */
-    private LocalDateTime convertToLocalDateTime(java.util.Date date) {
-        if (date == null) return null;
-        return date.toInstant()
-            .atZone(java.time.ZoneId.systemDefault())
-            .toLocalDateTime();
+    private List<String> saveImagesToFileSystem(String processKey, List<ProcessImageDTO> images) {
+        if (images == null || images.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<String> imagePaths = new ArrayList<>();
+        Path processDirectory = Paths.get(PROCESS_IMAGES_DIRECTORY, processKey);
+
+        try {
+            // Créer le répertoire du processus s'il n'existe pas
+            Files.createDirectories(processDirectory);
+
+            for (ProcessImageDTO imageDto : images) {
+                try {
+                    // Générer un nom de fichier unique
+                    String fileExtension = getFileExtension(imageDto.getFileName());
+                    String uniqueFileName = UUID.randomUUID().toString() + "." + fileExtension;
+                    Path imagePath = processDirectory.resolve(uniqueFileName);
+
+                    // Convertir les données base64 en bytes et les écrire dans le fichier
+                    if (imageDto.getImageData() != null && !imageDto.getImageData().isEmpty()) {
+                        byte[] imageBytes = java.util.Base64.getDecoder().decode(imageDto.getImageData());
+                        Files.write(imagePath, imageBytes);
+                        imagePaths.add("/process-images/" + processKey + "/" + uniqueFileName);
+                        log.info("Image saved to filesystem: {}", imagePath.toString());
+                    }
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid base64 image data for file: {}, skipping", imageDto.getFileName());
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error creating process images directory: {}", processDirectory, e);
+            throw new RuntimeException("Failed to save process images: " + e.getMessage(), e);
+        }
+
+        return imagePaths;
+    }
+
+    /**
+     * Extrait l'extension du fichier à partir du nom de fichier
+     */
+    private String getFileExtension(String fileName) {
+        if (fileName == null || fileName.lastIndexOf('.') == -1) {
+            return "jpg"; // Extension par défaut
+        }
+        return fileName.substring(fileName.lastIndexOf('.') + 1).toLowerCase();
     }
 }

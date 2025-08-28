@@ -1,50 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Layout,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Table,
-  Tag,
-  Badge,
-  List,
-  Avatar,
-  Button,
-  Typography,
-  Space,
-  Spin,
-  Progress,
-  Tooltip,
-  Divider,
-  Alert,
-  Empty,
-  Timeline
-} from 'antd';
-import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  ExclamationCircleOutlined,
-  BellOutlined,
-  ProjectOutlined,
-  CalendarOutlined,
-  BarChartOutlined,
-  UserOutlined,
-  ArrowUpOutlined,
-  ArrowDownOutlined,
-  SyncOutlined,
-  PlayCircleOutlined
-} from '@ant-design/icons';
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Bell,
+  Folder,
+  Calendar,
+  BarChart,
+  User,
+  TrendingUp,
+  TrendingDown,
+  RefreshCw,
+  Play
+} from 'react-feather';
 import Main from '../layout/Main';
 import taskService from '../services/TaskService';
 import notificationService from '../services/NotificationService';
 import webSocketService from '../services/WebSocketService';
 import workflowService from '../services/WorkflowService';
 import { toast } from 'react-hot-toast';
-
-const { Title, Text } = Typography;
-const { Content } = Layout;
+import './Dashboard.css';
 
 function Dashboard() {
   // États pour stocker les données
@@ -141,7 +117,7 @@ function Dashboard() {
       setNotifications([
         {
           id: '1',
-            title: 'Nouvelle tâche assignée',
+          title: 'Nouvelle tâche assignée',
           message: 'Vous avez été assigné à la tâche "Réviser le document de spécifications"',
           type: 'TASK_ASSIGNED',
           status: 'UNREAD',
@@ -251,15 +227,15 @@ function Dashboard() {
     return new Date(dateString).toLocaleDateString('fr-FR', options);
   };
   
-  // Déterminer le statut de la date d'échéance
-  const getDueDateStatus = (dueDate) => {
-    if (!dueDate) return null;
+  // Déterminer le variant Bootstrap pour la date d'échéance
+  const getDueDateVariant = (dueDate) => {
+    if (!dueDate) return 'secondary';
     
     const today = new Date();
     const due = new Date(dueDate);
     
     if (due < today) {
-      return 'error'; // En retard
+      return 'danger'; // En retard
     }
     
     const twoDaysFromNow = new Date();
@@ -272,325 +248,255 @@ function Dashboard() {
     return 'success'; // Dans les temps
   };
 
-  // Obtenir la couleur de priorité
-  const getPriorityColor = (priority) => {
+  // Obtenir le variant Bootstrap pour la priorité
+  const getPriorityVariant = (priority) => {
     switch (priority) {
-      case 'URGENT': return 'red';
-      case 'HIGH': return 'orange';
-      case 'NORMAL': return 'blue';
-      case 'LOW': return 'green';
-      default: return 'default';
+      case 'URGENT': return 'danger';
+      case 'HIGH': return 'warning';
+      case 'NORMAL': return 'primary';
+      case 'LOW': return 'success';
+      default: return 'secondary';
     }
   };
 
-  // Colonnes pour le tableau des tâches
-  const taskColumns = [
-    {
-      title: 'Tâche',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => (
-        <div>
-          <Text strong>{text}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.description}
-          </Text>
-        </div>
-      ),
-    },
-    {
-      title: 'Priorité',
-      dataIndex: 'priority',
-      key: 'priority',
-      render: (priority) => (
-        <Tag color={getPriorityColor(priority)}>
-          {priority}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Échéance',
-      dataIndex: 'dueDate',
-      key: 'dueDate',
-      render: (dueDate) => {
-        if (!dueDate) return <Text type="secondary">Aucune</Text>;
-        const status = getDueDateStatus(dueDate);
-        return (
-          <Tag color={status}>
-            <CalendarOutlined /> {formatDate(dueDate)}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'Statut',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const config = {
-          COMPLETED: { color: 'success', icon: <CheckCircleOutlined />, text: 'Terminée' },
-          PENDING: { color: 'processing', icon: <ClockCircleOutlined />, text: 'En attente' },
-          IN_PROGRESS: { color: 'warning', icon: <SyncOutlined spin />, text: 'En cours' }
-        };
-        const { color, icon, text } = config[status] || config.PENDING;
-        return (
-          <Tag color={color} icon={icon}>
-            {text}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        record.status !== 'COMPLETED' && (
-          <Button
-            type="primary"
-            size="small"
-            icon={<CheckCircleOutlined />}
-            onClick={() => completeTask(record.id)}
-          >
-            Terminer
-          </Button>
-        )
-      ),
-    },
-  ];
+  // Obtenir l'icône et le variant pour le statut
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case 'COMPLETED': 
+        return { variant: 'success', icon: CheckCircle, text: 'Terminée' };
+      case 'PENDING': 
+        return { variant: 'warning', icon: Clock, text: 'En attente' };
+      case 'IN_PROGRESS': 
+        return { variant: 'info', icon: RefreshCw, text: 'En cours' };
+      default: 
+        return { variant: 'secondary', icon: Clock, text: 'En attente' };
+    }
+  };
   
   if (isLoading) {
     return (
       <Main>
-        <Content style={{ padding: '24px', minHeight: '100vh' }}>
-          <div style={{ textAlign: 'center', paddingTop: '100px' }}>
-            <Spin size="large" />
-            <div style={{ marginTop: '16px' }}>
-              <Text>Chargement des données...</Text>
-            </div>
+        <div className="dashboard-container">
+          <div className="loading">
+            <RefreshCw className="fa-spin" size={24} />
+            <span>Chargement des données...</span>
           </div>
-        </Content>
+        </div>
       </Main>
     );
   }
 
   return (
     <Main>
-      <Content style={{ padding: '24px', background: '#f0f2f5' }}>
-        {/* En-tête avec titre et bouton d'actualisation */}
-        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={2} style={{ margin: 0 }}>
-            <BarChartOutlined /> Tableau de bord
-          </Title>
-          <Button 
-            type="primary" 
-            icon={<SyncOutlined spin={refreshing} />}
-            onClick={handleRefresh}
-            loading={refreshing}
-          >
-            Actualiser
-          </Button>
+      <div className="section-body">
+        <div className="row">
+            <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                <div className="card">
+                    <div className="card-statistic-4">
+                        <div className="align-items-center justify-content-between">
+                            <div className="row ">
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
+                                    <div className="card-content">
+                                        <h5 className="font-18">Tâches en attente</h5>
+                                        <h2 className="mb-3 font-18 pl-3 stat-value">{stats.pendingTasks}</h2>
+                                        {/* <p class="mb-0"><span class="col-green">10%</span> Increase</p> */}
+                                    </div>
+                                </div>
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6 pl-0">
+                                    <div className="banner-img">
+                                        <img src="/assets/img/pendingtask.gif" alt=""/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+            </div>
+            <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                <div className="card">
+                    <div className="card-statistic-4">
+                        <div className="align-items-center justify-content-between">
+                            <div className="row ">
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
+                                    <div className="card-content">
+                                        <h5 className="font-18">Tâches terminées</h5>
+                                        <h2 className="mb-3 font-18 pl-3   stat-value">{stats.completedTasks}</h2>
+                                        {/* <p class="mb-0"><span class="col-green">10%</span> Increase</p> */}
+                                    </div>
+                                </div>
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                                    <div className="banner-img">
+                                        <img src="/assets/img/completetask.gif" alt=""/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+            </div>
+            <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                <div className="card">
+                    <div className="card-statistic-4">
+                        <div className="align-items-center justify-content-between">
+                            <div className="row ">
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
+                                    <div className="card-content">
+                                        <h5 className="font-18">Tâches en retard</h5>
+                                        <h2 className="mb-3 font-18 pl-3 stat-value">{stats.overdueCount}</h2>
+                                        {/* <p class="mb-0"><span class="col-green">10%</span> Increase</p> */}
+                                    </div>
+                                </div>
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6  pl-0">
+                                    <div className="banner-img">
+                                        <img src="/assets/img/overduetask.gif" alt=""/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+            </div>
+            <div className="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-xs-12">
+                <div className="card">
+                    <div className="card-statistic-4">
+                        <div className="align-items-center justify-content-between">
+                            <div className="row ">
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6 pr-0 pt-3">
+                                    <div className="card-content">
+                                        <h5 className="font-18">Workflow</h5>
+                                        <h2 className="mb-3 font-18 pl-3 stat-value">{stats.activeWorkflows}</h2>
+                                        {/* <p class="mb-0"><span class="col-green">10%</span> Increase</p> */}
+                                    </div>
+                                </div>
+                                <div className="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+                                    <div className="banner-img">
+                                        <img src="/assets/img/Workflow.gif" alt=""/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                  </div>
+            </div>
         </div>
-
-        {/* Cartes de statistiques */}
-        <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Tâches en attente"
-                value={stats.pendingTasks}
-                prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Tâches terminées"
-                value={stats.completedTasks}
-                prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
-                valueStyle={{ color: '#52c41a' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Tâches en retard"
-                value={stats.overdueCount}
-                prefix={<ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />}
-                valueStyle={{ color: '#ff4d4f' }}
-              />
-            </Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Workflows actifs"
-                value={stats.activeWorkflows}
-                prefix={<ProjectOutlined style={{ color: '#722ed1' }} />}
-                valueStyle={{ color: '#722ed1' }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        
+       
 
         {/* Contenu principal */}
-        <Row gutter={[16, 16]}>
+        <div className="row" style={{ paddingTop: '20px', gap: '20px' }}>
           {/* Section des tâches */}
-          <Col xs={24} lg={16}>
-            <Card 
-              title={
-                <Space>
-                  <ClockCircleOutlined />
-                  <span>Mes tâches récentes</span>
-                </Space>
-              }
-              extra={
-                <Link to="/tasks">
-                  <Button type="link">Voir tout</Button>
-                </Link>
-              }
-            >
-              {tasks.length === 0 ? (
-                <Empty description="Aucune tâche en attente" />
-              ) : (
-                <Table
-                  dataSource={tasks.slice(0, 5)}
-                  columns={taskColumns}
-                  pagination={false}
-                  size="small"
-                  rowKey="id"
-                />
-              )}
-            </Card>
-          </Col>
-
-          {/* Section des notifications et workflows */}
-          <Col xs={24} lg={8}>
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {/* Notifications */}
-              <Card 
-                title={
-                  <Space>
-                    <Badge count={notifications.filter(n => n.status === 'UNREAD').length}>
-                      <BellOutlined />
-                    </Badge>
-                    <span>Notifications</span>
-                  </Space>
-                }
-                extra={
-                  <Link to="/notifications">
-                    <Button type="link" size="small">Voir tout</Button>
-                  </Link>
-                }
-                size="small"
-              >
-                {notifications.length === 0 ? (
-                  <Empty description="Aucune notification" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <div className="col-lg-4 mb-4">
+            <div className="widget">
+              <div className="widget-header">
+                <h2 className='font-18'>
+                  <Clock size={20} />
+                  Mes tâches récentes
+                </h2>
+                <Link to="/tasks" className="view-all">Voir tout</Link>
+              </div>
+              <div className="widget-content">
+                {tasks.length === 0 ? (
+                  <div className="empty-state">Aucune tâche en attente</div>
                 ) : (
-                  <List
-                    dataSource={notifications.slice(0, 3)}
-                    renderItem={(notification) => (
-                      <List.Item style={{ padding: '8px 0' }}>
-                        <List.Item.Meta
-                          avatar={
-                            <Avatar 
-                              size="small" 
-                              icon={<BellOutlined />} 
-                              style={{ 
-                                backgroundColor: notification.status === 'UNREAD' ? '#1890ff' : '#d9d9d9' 
-                              }}
-                            />
-                          }
-                          title={
-                            <Text 
-                              strong={notification.status === 'UNREAD'}
-                              style={{ fontSize: '12px' }}
+                  <div className="tasks-list">
+                    {tasks.slice(0, 5).map(task => {
+                      const statusConfig = getStatusConfig(task.status);
+                      const StatusIcon = statusConfig.icon;
+                      
+                      return (
+                        <div key={task.id} className={`task-item priority-${task.priority.toLowerCase()}`}>
+                          <div className="task-content">
+                            <div className="task-name">{task.name}</div>
+                            <div className="task-description">{task.description}</div>
+                            <div className="task-meta">
+                              <span className={`priority priority-${task.priority.toLowerCase()}`}>
+                                {task.priority}
+                              </span>
+                              <span className={`due-date ${getDueDateVariant(task.dueDate) === 'danger' ? 'overdue' : getDueDateVariant(task.dueDate) === 'warning' ? 'soon' : ''}`}>
+                                <Calendar size={12} />
+                                {task.dueDate ? formatDate(task.dueDate) : 'Aucune'}
+                              </span>
+                            </div>
+                          </div>
+                          {task.status !== 'COMPLETED' && (
+                            <button
+                              className="complete-task-btn"
+                              onClick={() => completeTask(task.id)}
                             >
-                              {notification.title}
-                            </Text>
-                          }
-                          description={
-                            <Text type="secondary" style={{ fontSize: '11px' }}>
-                              {formatDate(notification.creationDate)}
-                            </Text>
-                          }
-                        />
-                      </List.Item>
-                    )}
-                  />
-                )}
-              </Card>
-
-              {/* Workflows actifs */}
-              <Card 
-                title={
-                  <Space>
-                    <ProjectOutlined />
-                    <span>Workflows actifs</span>
-                  </Space>
-                }
-                extra={
-                  <Link to="/workflows">
-                    <Button type="link" size="small">Voir tout</Button>
-                  </Link>
-                }
-                size="small"
-              >
-                {workflows.length === 0 ? (
-                  <Empty description="Aucun workflow actif" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                ) : (
-                  <Timeline size="small">
-                    {workflows.slice(0, 3).map(workflow => (
-                      <Timeline.Item 
-                        key={workflow.id}
-                        dot={<PlayCircleOutlined style={{ color: '#1890ff' }} />}
-                      >
-                        <div>
-                          <Text strong style={{ fontSize: '12px' }}>
-                            {workflow.name}
-                          </Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '11px' }}>
-                            {workflow.currentTask}
-                          </Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '10px' }}>
-                            Démarré le {formatDate(workflow.startDate)}
-                          </Text>
+                              <CheckCircle size={16} />
+                            </button>
+                          )}
                         </div>
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
+                      );
+                    })}
+                  </div>
                 )}
-              </Card>
-            </Space>
-          </Col>
-        </Row>
+              </div>
+            </div>
+          </div>
 
-        {/* Graphiques et analyses (section future) */}
-        <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
-          <Col span={24}>
-            <Card 
-              title={
-                <Space>
-                  <BarChartOutlined />
-                  <span>Analyse des performances</span>
-                </Space>
-              }
-            >
-              <Alert
-                message="Fonctionnalité à venir"
-                description="Les graphiques et analyses détaillées seront disponibles dans une prochaine version."
-                type="info"
-                showIcon
-              />
-            </Card>
-          </Col>
-        </Row>
-      </Content>
+          {/* Section des notifications */}
+            <div className="widget">
+              <div className="widget-header">
+                <h2 className='font-18' >
+                  <Bell size={20} />
+                  Notifications
+                  {notifications.filter(n => n.status === 'UNREAD').length > 0 && (
+                    <span className="notification-badge">
+                      {notifications.filter(n => n.status === 'UNREAD').length}
+                    </span>
+                  )}
+                </h2>
+                <Link to="/notifications" className="view-all">Voir tout</Link>
+              </div>
+              <div className="widget-content">
+                {notifications.length === 0 ? (
+                  <div className="empty-state">Aucune notification</div>
+                ) : (
+                  <div className="notifications-list">
+                    {notifications.slice(0, 3).map(notification => (
+                      <div 
+                        key={notification.id} 
+                        className={`notification-item ${notification.status === 'UNREAD' ? 'unread' : ''}`}
+                      >
+                        <div className="notification-title">{notification.title}</div>
+                        <div className="notification-date">{formatDate(notification.creationDate)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          </div>
+
+          {/* Section des workflows */}
+            <div className="widget">
+              <div className="widget-header">
+                <h2 className='font-18'>
+                  <Folder size={20} />
+                  Workflows actifs
+                </h2>
+                <Link to="/workflows" className="view-all">Voir tout</Link>
+              </div>
+              <div className="widget-content">
+                {workflows.length === 0 ? (
+                  <div className="empty-state">Aucun workflow actif</div>
+                ) : (
+                  <div className="workflows-list">
+                    {workflows.slice(0, 3).map(workflow => (
+                      <div key={workflow.id} className="workflow-item">
+                        <div className="workflow-name">{workflow.name}</div>
+                        <div className="workflow-details">
+                          <div>{workflow.currentTask}</div>
+                          <div>Démarré le {formatDate(workflow.startDate)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </div>
+          </div>
+        </div>
+      </div>
     </Main>
   );
 }

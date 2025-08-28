@@ -2,6 +2,8 @@ package com.harmony.harmoniservices.dto;
 
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.ArrayList;
 
 @Data
 @NoArgsConstructor
@@ -18,4 +20,12 @@ public class ProcessDefinitionDTO {
     private LocalDateTime deployedAt;
     private String deployedBy;
     private Boolean active;
+
+    // Métadonnées générales du processus
+    private String processName;
+    private String processDescription;
+    private List<String> processTags = new ArrayList<>();
+
+    // Support des images multiples
+    private List<ProcessImageDTO> images = new ArrayList<>();
 }

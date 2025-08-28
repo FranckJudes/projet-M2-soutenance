@@ -392,12 +392,12 @@ class BpmnModelService {
   async getMyDeployedProcesses() {
       try {
           const response = await axios.get(
-              `${API_URL}/process-engine/my-deployed-processes`,
+              `${API_URL}/api/process-engine/my-deployed-processes`,
               {
                   headers: this.getAuthHeaders()
               }
           );
-          
+          console.log(response.data);
           return response.data;
       } catch (error) {
           console.error('Erreur lors de la récupération des processus déployés:', error);
@@ -453,7 +453,7 @@ class BpmnModelService {
   async getMyProcessInstances() {
       try {
           const response = await axios.get(
-              `${API_URL}/process-engine/my-process-instances`,
+              `${API_URL}/api/process-engine/my-process-instances`,
               {
                   headers: this.getAuthHeaders()
               }
@@ -475,7 +475,7 @@ class BpmnModelService {
   async startProcessInstanceViaEngine(processDefinitionKey, variables = {}) {
       try {
           const response = await axios.post(
-              `${API_URL}/process-engine/start/${processDefinitionKey}`,
+              `${API_URL}/api/process-engine/start/${processDefinitionKey}`,
               variables,
               {
                   headers: this.getAuthHeaders()

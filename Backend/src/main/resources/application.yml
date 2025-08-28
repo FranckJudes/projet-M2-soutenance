@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/harmony_db3
+    url: jdbc:postgresql://192.168.43.228:5432/harmony_db3
     username: gallagher
     password: gallagher09
     driver-class-name: org.postgresql.Driver
@@ -17,13 +17,13 @@ spring:
     baseline-on-migrate: true
 
   rabbitmq:
-    host: localhost
+    host: 192.168.43.228
     port: 5672
     username: gallagher
     password: gallagher09
   
   mail:
-    host: localhost
+    host: 192.168.43.228
     port: 1025
     username: 
     password: 
@@ -42,6 +42,7 @@ logging:
 
 server:
   port: 8200
+  address: 0.0.0.0
 
 jwt:
   secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437

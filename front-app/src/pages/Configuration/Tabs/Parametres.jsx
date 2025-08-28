@@ -1213,7 +1213,24 @@ const getResourceData = (taskId) => {
                    // 4. Préparer les données du processus depuis sharedData
                     console.log("Récupération des données du processus...");
                     const processData = sharedData?.processData || {};
-                    console.log("Données du processus:", processData);
+
+                    // Logs détaillés sur l'état de sharedData
+                    console.log("🔍 PARAMETRES - État complet de sharedData:", {
+                        hasSharedData: !!sharedData,
+                        hasProcessData: !!sharedData?.processData,
+                        sharedDataKeys: sharedData ? Object.keys(sharedData) : 'null',
+                        processDataKeys: sharedData?.processData ? Object.keys(sharedData.processData) : 'null',
+                        fullSharedData: sharedData
+                    });
+
+                    console.log("🔍 PARAMETRES - Données du processus reçues:", {
+                        processName: processData.processName,
+                        processDescription: processData.processDescription,
+                        processTags: processData.processTags,
+                        processImagesCount: processData.processImages?.length || 0,
+                        processImageExists: !!processData.processImage,
+                        hasImages: (processData.processImages && processData.processImages.length > 0) || !!processData.processImage
+                    });
 
                     // 5. Préparer les données complètes pour l'envoi
                     const completeData = {
@@ -1276,16 +1293,100 @@ const getResourceData = (taskId) => {
                         // Transformer les configurations pour le backend Camunda
                         const camundaConfigurations = ProcessEngineService.transformTaskConfigurations(allTaskConfigurations);
                         
-                        console.log("Déploiement vers Camunda avec:", {
-                          fileName: bpmnFile.name,
-                          configurationsCount: camundaConfigurations.length
+                        // Préparer les métadonnées générales du processus
+                        const processMetadata = {
+                            processName: processData.processName || "",
+                            processDescription: processData.processDescription || "",
+                            processTags: processData.processTags || [],
+                            images: []
+                        };
+
+                        // Ajouter l'image principale si elle existe
+                        // Support pour processImages (tableau) et processImage (legacy)
+                        const imagesToProcess = processData.processImages || (processData.processImage ? [processData.processImage] : []);
+                        
+                        console.log("🔍 PARAMETRES - Images à traiter:", {
+                            imagesCount: imagesToProcess.length,
+                            source: processData.processImages ? 'processImages' : (processData.processImage ? 'processImage' : 'none')
                         });
                         
-                        // Déployer vers Camunda avec le paramètre deployOnSave
+                        if (imagesToProcess.length > 0) {
+                            let displayOrder = 0;
+                            
+                            for (const image of imagesToProcess) {
+                                try {
+                                    let imageData = null;
+                                    let contentType = "";
+                                    let fileName = "";
+                                    let originalFileName = "";
+
+                                    if (image instanceof File) {
+                                        // Convertir le fichier en base64
+                                        const reader = new FileReader();
+                                        reader.onload = function(e) {
+                                            imageData = e.target.result.split(',')[1]; // Enlever le préfixe data:image/...
+                                        };
+                                        reader.readAsDataURL(image);
+                                        
+                                        contentType = image.type;
+                                        fileName = `${processData.processName || 'process'}_image_${displayOrder + 1}.${image.type.split('/')[1]}`;
+                                        originalFileName = image.name;
+                                        
+                                        // Attendre que la conversion soit terminée
+                                        await new Promise(resolve => {
+                                            reader.onloadend = resolve;
+                                        });
+                                        
+                                        imageData = reader.result.split(',')[1];
+                                    } else if (typeof image === 'string') {
+                                        // Si c'est déjà une URL ou base64
+                                        imageData = image;
+                                        contentType = "image/png"; // Par défaut
+                                        fileName = `${processData.processName || 'process'}_image_${displayOrder + 1}.png`;
+                                        originalFileName = fileName;
+                                    }
+
+                                    if (imageData) {
+                                        processMetadata.images.push({
+                                            fileName: fileName,
+                                            originalFileName: originalFileName,
+                                            contentType: contentType,
+                                            fileSize: image instanceof File ? image.size : 0,
+                                            imageData: imageData,
+                                            description: `Image ${displayOrder + 1} du processus ${processData.processName}`,
+                                            displayOrder: displayOrder++
+                                        });
+                                        
+                                        console.log(`🔍 PARAMETRES - Image ${displayOrder} ajoutée:`, {
+                                            fileName: fileName,
+                                            size: image instanceof File ? image.size : 0,
+                                            contentType: contentType
+                                        });
+                                    }
+                                } catch (error) {
+                                    console.error(`Erreur lors de la préparation de l'image ${displayOrder + 1}:`, error);
+                                }
+                            }
+                            
+                            console.log("🔍 PARAMETRES - Toutes les images traitées:", {
+                                totalImages: processMetadata.images.length
+                            });
+                        } else {
+                            console.log("==========Aucune image fournie==========");
+                        }
+                        
+                        console.log("Déploiement vers Camunda avec:", {
+                          fileName: bpmnFile.name,
+                          configurationsCount: camundaConfigurations.length,
+                          hasMetadata: processMetadata.processName !== "" || processMetadata.images.length > 0
+                        });
+                        
+                        // Déployer vers Camunda avec les métadonnées
                         const deploymentResponse = await ProcessEngineService.deployProcess(
                           bpmnFile,
                           camundaConfigurations,
-                          deployOnSave // Transmettre l'état de la case à cocher au service
+                          processMetadata, // Passer les métadonnées générales
+                          deployOnSave
                         );
                         
                         console.log("Processus déployé avec succès:", deploymentResponse.data);

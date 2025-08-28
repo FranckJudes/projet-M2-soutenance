@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import Main from "../../layout/Main";
-import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space } from 'antd';
-import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer } from 'antd';
+import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Acteur from "./Tabs/Acteur";
 import General from "./Tabs/General";
 import Parametres from "./Tabs/Parametres";
@@ -15,10 +15,11 @@ const Configuration = () => {
     const { t } = useTranslation();
     const [showList, setShowList] = useState(true);
     const [isTransitioning, setIsTransitioning] = useState(false);
-    const [bpmnItems, setBpmnItems] = useState([]);
     const [deployedProcesses, setDeployedProcesses] = useState([]);
+    const [myProcessInstances, setMyProcessInstances] = useState([]);
     const [loading, setLoading] = useState(true);
     const [processesLoading, setProcessesLoading] = useState(false);
+    const [instancesLoading, setInstancesLoading] = useState(false);
     const [error, setError] = useState(null);
     const [selectedBpmnId, setSelectedBpmnId] = useState(null);
     const [isUpdateMode, setIsUpdateMode] = useState(false);
@@ -35,6 +36,10 @@ const Configuration = () => {
     });
     const modelerRef = useRef(null);
     const { token } = theme.useToken();
+    
+    // États pour le drawer (sidebar)
+    const [drawerVisible, setDrawerVisible] = useState(false);
+    const [selectedProcess, setSelectedProcess] = useState(null);
     
     // États pour le filtrage et la recherche
     const [processSearchText, setProcessSearchText] = useState('');
@@ -71,18 +76,36 @@ const Configuration = () => {
     }, []);
 
     const handleUpdateProcessData = (processData) => {
-        console.log('Mise à jour des données du processus:', processData);
-        setSharedData(prev => ({
-            ...prev,
-            processData: {
-                ...prev.processData,
-                ...processData
-            }
-        }));
+        console.log('🔍 CONFIGURATION - Réception des données de General:', processData);
+        console.log('🔍 CONFIGURATION - Données détaillées:', {
+            processName: processData.processName,
+            processDescription: processData.processDescription,
+            processTags: processData.processTags,
+            processImagesCount: processData.processImages?.length || 0,
+            hasImages: processData.processImages && processData.processImages.length > 0
+        });
+
+        setSharedData(prev => {
+            const newSharedData = {
+                ...prev,
+                processData: {
+                    ...prev.processData,
+                    ...processData
+                }
+            };
+
+            console.log('🔍 CONFIGURATION - sharedData mis à jour:', {
+                processData: newSharedData.processData
+            });
+
+            return newSharedData;
+        });
+
+        console.log('🔍 CONFIGURATION - Mise à jour terminée');
     };
 
     const handleSaveSuccess = (data) => {
-        fetchBpmnItems();
+        fetchDeployedProcesses();
         setTimeout(() => {
             setIsTransitioning(true);
             setTimeout(() => {
@@ -108,44 +131,38 @@ const Configuration = () => {
     ];
 
 
-    const fetchBpmnItems = async () => {
-        setLoading(true);
+    const fetchDeployedProcesses = async () => {
         try {
-            const response = await BpmnModelService.getAllBpmnModels();
-            console.log('Réponse API getAllBpmnModels:', response);
-            // Accéder à response.data car Axios encapsule la réponse dans un objet avec une propriété data
-            // S'assurer que bpmnItems est toujours un tableau
-            const items = response.data;
-            setBpmnItems(Array.isArray(items) ? items : []);
-        } catch (error) {
-            setError("Impossible de charger les BPMN. Veuillez réessayer.");
-            console.error("Erreur :", error);
-            message.error("Impossible de charger les BPMN. Veuillez réessayer.");
+            setProcessesLoading(true);
+            const response = await BpmnModelService.getMyDeployedProcesses();
+            setDeployedProcesses(response.data);
+            setError(null);
+        } catch (err) {
+            console.error("Error fetching deployed processes:", err);
+            setError("Failed to load deployed processes. Please try again later.");
         } finally {
-            setLoading(false);
+            setProcessesLoading(false);
+            setLoading(false); // Set main loading to false after processes are loaded
         }
     };
     
-    const fetchDeployedProcesses = async () => {
-        setProcessesLoading(true);
+    const fetchMyProcessInstances = async () => {
         try {
-            const response = await BpmnModelService.getMyDeployedProcessesWithInfo();
-            console.log('Processus déployés avec informations:', response);
-            // La réponse devrait contenir response.data avec les processus
-            const processesArray = response && response.data ? response.data : [];
-            setDeployedProcesses(Array.isArray(processesArray) ? processesArray : []);
+            setInstancesLoading(true);
+            const response = await BpmnModelService.getMyProcessInstances();
+            setMyProcessInstances(response.data);
+            setError(null);
         } catch (err) {
-            console.error("Erreur lors de la récupération des processus déployés:", err);
-            message.error("Erreur lors de la récupération des processus déployés");
-            setDeployedProcesses([]); // S'assurer qu'on a un tableau vide en cas d'erreur
+            console.error("Error fetching my process instances:", err);
+            setError("Failed to load process instances. Please try again later.");
         } finally {
-            setProcessesLoading(false);
+            setInstancesLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchBpmnItems();
         fetchDeployedProcesses();
+        fetchMyProcessInstances();
     }, []);
     
     const startProcessInstance = async (processKey) => {
@@ -160,8 +177,14 @@ const Configuration = () => {
         }
     };
 
-    const handleUpdateItems = (updatedItems) => {
-        setBpmnItems(updatedItems);
+    // Fonctions pour la sidebar
+    const showDrawer = (process) => {
+        setSelectedProcess(process);
+        setDrawerVisible(true);
+    };
+    
+    const closeDrawer = () => {
+        setDrawerVisible(false);
     };
 
     const handleAddClick = () => {
@@ -174,15 +197,13 @@ const Configuration = () => {
         }, 300);
     };
     
-    const handleEditClick = (bpmnId) => {
-        console.log("handleEditClick appelé avec ID:", bpmnId); // Debug
+    const handleEditBpmn = (bpmnId) => {
         setLoading(true);
         setSelectedBpmnId(bpmnId);
         setIsUpdateMode(true);
         
         BpmnModelService.getBpmnModel(bpmnId)
             .then(response => {
-                console.log("Données BPMN reçues:", response.data); // Debug
                 const bpmnData = response.data;
                 setSharedData(prev => ({
                     ...prev,
@@ -231,37 +252,45 @@ const Configuration = () => {
     // Colonnes pour le tableau des processus déployés
     const processColumns = [
         {
+            title: 'N°',
+            key: 'index',
+            render: (text, record, index) => (
+                <span style={{ fontWeight: 'bold', color: '#1890ff' }}>
+                    {index + 1}
+                </span>
+            ),
+            width: '5%'
+        },
+        {
             title: 'Nom du processus',
-            dataIndex: 'name',
-            key: 'name',
+            dataIndex: 'processName',
+            key: 'processName',
             render: (text, record) => (
                 <div>
                     <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
                         {text || record.processDefinitionKey || 'Non défini'}
                     </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                        Clé: {record.processDefinitionKey}
-                    </div>
+                  
                 </div>
             ),
-            width: '25%'
+            width: '22%'
         },
         {
             title: 'Description',
-            dataIndex: 'description',
-            key: 'description',
+            dataIndex: 'processDescription',
+            key: 'processDescription',
             render: (text) => (
-                <div style={{ maxWidth: '200px' }}>
+                <div style={{ maxWidth: '180px' }}>
                     {text ? (
                         <span title={text}>
-                            {text.length > 50 ? `${text.substring(0, 50)}...` : text}
+                            {text.length > 45 ? `${text.substring(0, 45)}...` : text}
                         </span>
                     ) : (
                         <span style={{ color: '#999', fontStyle: 'italic' }}>Pas de description</span>
                     )}
                 </div>
             ),
-            width: '20%'
+            width: '18%'
         },
         {
             title: 'Déploiement',
@@ -276,7 +305,7 @@ const Configuration = () => {
                     </div>
                 </div>
             ),
-            width: '15%'
+            width: '13%'
         },
         {
             title: 'Instances',
@@ -321,7 +350,7 @@ const Configuration = () => {
             dataIndex: 'tags',
             key: 'tags',
             render: (tags) => (
-                <div style={{ maxWidth: '120px' }}>
+                <div style={{ maxWidth: '100px' }}>
                     {tags && tags.length > 0 ? (
                         <div>
                             {tags.slice(0, 2).map((tag, index) => (
@@ -334,7 +363,7 @@ const Configuration = () => {
                                         borderRadius: '4px',
                                         fontSize: '11px',
                                         margin: '1px',
-                                        maxWidth: '60px',
+                                        maxWidth: '50px',
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
                                         whiteSpace: 'nowrap'
@@ -384,7 +413,7 @@ const Configuration = () => {
                     </Button>
                 </div>
             ),
-            width: '8%'
+            width: '10%'
         }
     ];
 
@@ -427,7 +456,7 @@ const Configuration = () => {
         <Main>
             <div className="p-4">
                 <Breadcrumb style={breadcrumbStyle}>
-                    <Breadcrumb.Item href="/" style={breadcrumbItemStyle}>
+                    <Breadcrumb.Item href="/dashboard" style={breadcrumbItemStyle}>
                         <HomeOutlined /> {t("welcome_dashboard")}
                     </Breadcrumb.Item>
                     <Breadcrumb.Item style={breadcrumbItemStyle}>
@@ -447,66 +476,16 @@ const Configuration = () => {
                         {showList ? (
                             <>
                                 <Card
-                                    title={`Processus (${bpmnItems.length})`}
-                                    extra={
-                                        <Button 
-                                            type="primary" 
-                                            icon={<PlusOutlined />} 
-                                            onClick={handleAddClick}
-                                        >
-                                            Ajouter un nouveau processus
-                                        </Button>
-                                    }
-                                    className="mb-4"
-                                >
-                                    {error ? (
-                                        <Alert message={error} type="error" showIcon />
-                                    ) : (
-                                        <Table
-                                            dataSource={(Array.isArray(bpmnItems) ? bpmnItems : []).map(item => ({
-                                                ...item,
-                                                key: item.id
-                                            }))}
-                                            columns={[
-                                                {
-                                                    title: 'Nom',
-                                                    dataIndex: 'name',
-                                                    key: 'name',
-                                                },
-                                                {
-                                                    title: 'Actions',
-                                                    key: 'actions',
-                                                    render: (_, record) => (
-                                                        <Button 
-                                                            type="primary" 
-                                                            icon={<EditOutlined />} 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation(); // Empêcher la propagation du clic
-                                                                handleEditClick(record.id);
-                                                            }}
-                                                        >
-                                                            {t("Modifier")}
-                                                        </Button>
-                                                    )
-                                                }
-                                            ]}
-                                            rowKey="id"
-                                            pagination={{ pageSize: 10 }}
-                                            onRow={(record) => ({
-                                                onClick: () => {
-                                                    console.log("Clic sur la ligne avec ID:", record.id);
-                                                    handleEditClick(record.id);
-                                                },
-                                                style: { cursor: 'pointer' } // Ajouter un curseur pointer pour indiquer que la ligne est cliquable
-                                            })}
-                                        />
-                                    )}
-                                </Card>
-
-                                <Card
-                                    title="Processus déployés"
+                                    title={`Processus déployés (${deployedProcesses.length})`}
                                     extra={
                                         <Space>
+                                            <Button 
+                                                type="primary" 
+                                                icon={<PlusOutlined />} 
+                                                onClick={handleAddClick}
+                                            >
+                                                Ajouter un nouveau processus
+                                            </Button>
                                             <Input 
                                                 placeholder="Rechercher un processus" 
                                                 value={processSearchText} 
@@ -548,24 +527,98 @@ const Configuration = () => {
                                             </Button>
                                         </Space>
                                     }
+                                    className="mb-4"
                                 >
-                                    <Spin spinning={processesLoading}>
-                                        {filteredProcesses().length === 0 ? (
-                                            <Alert 
-                                                message="Aucun processus déployé" 
-                                                type="info" 
-                                                showIcon 
-                                            />
-                                        ) : (
-                                            <Table 
-                                                dataSource={filteredProcesses()} 
-                                                columns={processColumns}
-                                                rowKey="id"
-                                                pagination={{ pageSize: 10 }}
-                                            />
-                                        )}
-                                    </Spin>
+                                    {error ? (
+                                        <Alert message={error} type="error" showIcon />
+                                    ) : (
+                                        <Spin spinning={processesLoading}>
+                                            {filteredProcesses().length === 0 ? (
+                                                <Alert 
+                                                    message="Aucun processus déployé" 
+                                                    type="info" 
+                                                    showIcon 
+                                                />
+                                            ) : (
+                                                <Table 
+                                                    dataSource={filteredProcesses()} 
+                                                    columns={processColumns}
+                                                    rowKey="id"
+                                                    pagination={{ pageSize: 10 }}
+                                                    onRow={(record) => ({
+                                                        onClick: () => showDrawer(record),
+                                                        style: { cursor: 'pointer' }
+                                                    })}
+                                                />
+                                            )}
+                                        </Spin>
+                                    )}
                                 </Card>
+                                
+                                {/* Drawer pour afficher les détails du processus sélectionné */}
+                                <Drawer
+                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.name || selectedProcess.processDefinitionKey}` : "Détails du processus"}
+                                    placement="right"
+                                    closable={true}
+                                    onClose={closeDrawer}
+                                    open={drawerVisible}
+                                    width={500}
+                                >
+                                    {selectedProcess && (
+                                        <div>
+                                            <h3>Informations générales</h3>
+                                            <p><strong>Nom:</strong> {selectedProcess.name || "Non défini"}</p>
+                                            <p><strong>Clé:</strong> {selectedProcess.processDefinitionKey}</p>
+                                            <p><strong>Description:</strong> {selectedProcess.description || "Pas de description"}</p>
+                                            <p><strong>Version:</strong> {selectedProcess.version || selectedProcess.camundaVersion || "N/A"}</p>
+                                            <p><strong>Déployé le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
+                                            <p><strong>Statut:</strong> {selectedProcess.suspended ? "Suspendu" : "Actif"}</p>
+                                            
+                                            <h3>Instances</h3>
+                                            <p><strong>Instances actives:</strong> {selectedProcess.activeInstanceCount || 0}</p>
+                                            <p><strong>Total des instances:</strong> {selectedProcess.instanceCount || 0}</p>
+                                            
+                                            {selectedProcess.tags && selectedProcess.tags.length > 0 && (
+                                                <>
+                                                    <h3>Mots-clés</h3>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        {selectedProcess.tags.map((tag, index) => (
+                                                            <span 
+                                                                key={index}
+                                                                style={{
+                                                                    background: '#f0f0f0',
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '12px'
+                                                                }}
+                                                            >
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            )}
+                                            
+                                            <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
+                                                <Button 
+                                                    type="primary" 
+                                                    icon={<PlayCircleOutlined />} 
+                                                    onClick={() => startProcessInstance(selectedProcess.processDefinitionKey)}
+                                                    loading={startingProcess === selectedProcess.processDefinitionKey}
+                                                    disabled={selectedProcess.suspended}
+                                                >
+                                                    Démarrer une instance
+                                                </Button>
+                                                <Button 
+                                                    icon={<EditOutlined />} 
+                                                    onClick={() => handleEditBpmn(selectedProcess.id)}
+                                                >
+                                                    Modifier
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Drawer>
                             </>
                         ) : (
                             <Card
@@ -584,6 +637,18 @@ const Configuration = () => {
                                             type="primary" 
                                             disabled={activeTabIndex === tabItems.length - 1}
                                             onClick={async () => {
+                                                // Si on est sur l'onglet General, sauvegarder les données
+                                                if (activeTabIndex === 0) {
+                                                    if (sharedData.saveGeneralData) {
+                                                        const success = sharedData.saveGeneralData();
+                                                        if (!success) {
+                                                            message.error("Veuillez remplir tous les champs obligatoires");
+                                                            return;
+                                                        }
+                                                        console.log("✅ CONFIGURATION - Données General sauvegardées lors du passage à l'étape suivante");
+                                                    }
+                                                }
+                                                
                                                 // Si on passe de l'onglet Model à l'onglet Parametres
                                                 if (activeTabIndex === 1) {
                                                     try {

@@ -87,11 +87,9 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   }
 
   if (isAuthenticated === false) {
-    console.log('ProtectedRoute - Redirection vers /login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  console.log('ProtectedRoute - Affichage du contenu protégé');
   return children;
 };
 

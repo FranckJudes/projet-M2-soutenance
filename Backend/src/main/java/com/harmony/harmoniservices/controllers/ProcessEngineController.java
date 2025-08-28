@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.harmony.harmoniservices.dto.ProcessDefinitionDTO;
 import com.harmony.harmoniservices.dto.ProcessInstanceDTO;
+import com.harmony.harmoniservices.dto.ProcessMetadataDTO;
 import com.harmony.harmoniservices.dto.TaskConfigurationDTO;
 import com.harmony.harmoniservices.dto.TaskDTO;
 import com.harmony.harmoniservices.dto.responses.ApiResponse;
@@ -43,11 +44,13 @@ public class ProcessEngineController {
     public ResponseEntity<ApiResponse<ProcessDefinitionDTO>> deployProcess(
             @RequestParam("file") MultipartFile bpmnFile,
             @RequestParam("configurations") String configurationsJson,
+            @RequestParam(value = "metadata", required = false) String metadataJson,
             @RequestParam(value = "deployToEngine", defaultValue = "true") boolean deployToEngine,
             Authentication authentication) {
         
         System.out.println("Deploying process with configurations: " + configurationsJson);
         System.out.println("File: " + bpmnFile); 
+        System.out.println("Metada: " + metadataJson); 
         try {
             // Validate file
             if (bpmnFile.isEmpty()) {
@@ -70,6 +73,18 @@ public class ProcessEngineController {
                     new TypeReference<List<TaskConfigurationDTO>>() {}
             );
 
+            // Parse process metadata (optional)
+            ProcessMetadataDTO processMetadata = null;
+            if (metadataJson != null && !metadataJson.trim().isEmpty()) {
+                try {
+                    processMetadata = objectMapper.readValue(metadataJson, ProcessMetadataDTO.class);
+                    log.info("Parsed process metadata: {}", processMetadata.getProcessName());
+                } catch (Exception e) {
+                    log.warn("Failed to parse process metadata: {}", e.getMessage());
+                    // Continue without metadata rather than failing the deployment
+                }
+            }
+
             // Get current user email from authentication
             String userEmail = authentication != null ? authentication.getName() : "system";
 
@@ -90,7 +105,7 @@ public class ProcessEngineController {
             // Deploy process with conditional deployment based on deployToEngine parameter
             // Pass user ID (not email) as this is what's expected in task configurations
             ProcessDefinitionDTO processDefinition = processEngineService.deployProcess(
-                    bpmnXml, taskConfigurations, deployedByUserId, deployToEngine);
+                    bpmnXml, taskConfigurations, processMetadata, deployedByUserId, deployToEngine);
 
             log.info("Successfully deployed process: {} by user: {}", 
                     processDefinition.getProcessDefinitionKey(), deployedByUserId);
@@ -291,62 +306,7 @@ public class ProcessEngineController {
         }
     }
     
-    /**
-     * Endpoint de diagnostic pour déboguer les problèmes d'assignation de tâches
-     */
-    @GetMapping("/diagnose/{processDefinitionKey}/{userId}")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> diagnoseTaskAssignment(
-            @PathVariable String processDefinitionKey,
-            @PathVariable String userId) {
-        try {
-            Map<String, Object> diagnosticResult = processEngineService.diagnoseTaskAssignmentIssues(processDefinitionKey, userId);
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Diagnostic completed successfully", 
-                    diagnosticResult));
-
-        } catch (Exception e) {
-            log.error("Error during diagnostic", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.fail("Diagnostic failed: " + e.getMessage()));
-        }
-    }
-    
-    /**
-     * Endpoint pour lister tous les utilisateurs Camunda et leurs mappings
-     */
-    @GetMapping("/diagnose/users")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> listCamundaUsers() {
-        try {
-            Map<String, Object> usersInfo = processEngineService.listAllCamundaUsers();
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Users information retrieved successfully", 
-                    usersInfo));
-
-        } catch (Exception e) {
-            log.error("Error retrieving users information", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.fail("Failed to retrieve users information: " + e.getMessage()));
-        }
-    }
-    
-    /**
-     * Endpoint de test pour l'assignation flexible (utilisateur/groupe/entité)
-     */
-    @PostMapping("/test-flexible-assignment")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> testFlexibleAssignment(
-            @RequestBody Map<String, Object> testData) {
-        try {
-            Map<String, Object> result = processEngineService.testFlexibleAssignment(testData);
-            return ResponseEntity.ok(ApiResponse.success(
-                    "Test d'assignation flexible réussi", 
-                    result));
-
-        } catch (Exception e) {
-            log.error("Error testing flexible assignment", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.fail("Test d'assignation flexible échoué: " + e.getMessage()));
-        }
-    }
+  
 
     /**
      * Get deployed processes by current user
@@ -361,7 +321,8 @@ public class ProcessEngineController {
 
             String userEmail = authentication.getName();
             Optional<UserEntity> user = userRepository.findByEmail(userEmail);
-            
+
+
             if (!user.isPresent()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
             }
@@ -452,7 +413,7 @@ public class ProcessEngineController {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
             }
             
-            String userId = user.get().getId().toString();
+            String userId = user.get().getEmail().toString();
             List<ProcessInstanceDTO> processInstances = processEngineService.getProcessInstancesByUser(userId);
             
             log.info("Retrieved {} process instances for user: {}", processInstances.size(), userEmail);

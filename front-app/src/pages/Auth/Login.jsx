@@ -107,7 +107,22 @@ export default function Login() {
 
   return (
     <div className="login-container">
-      <Row justify="center" align="middle" className="login-row">
+      <Row justify="center" align="middle" className="login-row" gutter={[32, 0]}>
+        <Col xs={22} sm={16} md={12} lg={8} xl={6}>
+          <div className="project-description">
+            <Title level={3} style={{ color: '#1890ff', marginBottom: '16px' }}>
+              À propos de Harmoni
+            </Title>
+            <Text style={{ fontSize: '16px', lineHeight: '1.6' }}>
+              Harmoni est une plateforme complète de gestion des processus métier utilisant BPMN pour la modélisation, l'exécution et l'analyse des workflows. Elle intègre des outils avancés d'extraction de processus et d'analyse de performance pour optimiser vos opérations métier.
+            </Text>
+            <Divider />
+            <Text type="secondary" style={{ fontSize: '14px' }}>
+              Connectez-vous pour accéder à vos tableaux de bord, gérer vos tâches et analyser vos processus en temps réel.
+            </Text>
+          </div>
+        </Col>
+        
         <Col xs={22} sm={16} md={12} lg={8} xl={6}>
           <Card 
             className="login-card" 
@@ -115,7 +130,7 @@ export default function Login() {
             cover={
               <div className="login-header">
                 <Title level={2} className="login-title">Harmoni</Title>
-                <Text type="secondary">Plateforme de gestion des processus métier</Text>
+                <Text style={{ color: 'white' }}>Plateforme de gestion des processus métier</Text>
               </div>
             }
           >
