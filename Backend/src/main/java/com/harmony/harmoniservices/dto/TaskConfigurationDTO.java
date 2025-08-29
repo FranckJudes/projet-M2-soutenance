@@ -28,10 +28,10 @@ public class TaskConfigurationDTO {
     private String interestedUser;
     
     // Champs d'information
-    private String board;
-    private String workInstructions;
-    private String expectedDeliverable;
-    private String category;
+    // private String board;
+    // private String workInstructions;
+    // private String expectedDeliverable;
+    // private String category;
     
     // Champs existants
     private List<String> requiredRoles;
@@ -59,18 +59,59 @@ public class TaskConfigurationDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     
-    // Champs de planification
-    private Boolean allDay;
-    private Integer durationValue;
-    private String durationUnit;
-    private String criticality;
-    
-    // Champs de notification
-    private Boolean notifyOnCreation;
-    private Boolean notifyOnDeadline;
-    private Integer reminderBeforeDeadline;
-    private String notificationSensitivity;
-    private List<String> selectedReminders;
+    // Champs de planification étendus
+    private Boolean viewHistoryEnabled;
+    private Boolean kpiTasksProcessed;
+    private Boolean kpiReturnRate;
+    private Boolean kpiAvgInteractions;
+    private Boolean kpiDeadlineCompliance;
+    private Boolean kpiValidationWaitTime;
+    private Boolean kpiPriorityCompliance;
+    private Boolean kpiEmergencyManagement;
+    private Boolean notifierSuperviseur;
+    private Boolean reassignerTache;
+    private Boolean envoyerRappel;
+    private Boolean escaladeHierarchique;
+    private Boolean changementPriorite;
+    private Boolean bloquerWorkflow;
+    private Boolean genererAlerteEquipe;
+    private Boolean demanderJustification;
+    private Boolean activerActionCorrective;
+    private Boolean escaladeExterne;
+    private Boolean cloturerDefaut;
+    private Boolean suiviParKpi;
+    private Boolean planBOuTacheAlternative;
+
+    // Champs de ressources
+    private Boolean attachmentsEnabled;
+    private String attachmentType;
+    private String securityLevel;
+    private String externalTools;
+    private String linkToOtherTask;
+    private Boolean scriptBusinessRule;
+    private Boolean addFormResource;
+    private Boolean archiveAttachment;
+    private Boolean shareArchivePdf;
+    private Boolean describeFolderDoc;
+    private Boolean deleteAttachmentDoc;
+    private Boolean consultAttachmentDoc;
+    private Boolean downloadZip;
+    private Boolean importAttachment;
+    private Boolean editAttachment;
+    private Boolean annotateDocument;
+    private Boolean verifyAttachmentDoc;
+    private Boolean searchInDocument;
+    private Boolean removeDocument;
+    private Boolean addNewAttachment;
+    private Boolean convertAttachmentPdf;
+    private Boolean downloadAttachmentPdf;
+    private Boolean downloadOriginalFormat;
+
+    // Champs d'information étendus
+    private String board;
+    private String workInstructions;
+    private String expectedDeliverable;
+    private String category;
     
     // Configuration supplémentaire
     private String conditionConfig;

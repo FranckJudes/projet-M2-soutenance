@@ -31,8 +31,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.io.StringWriter;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -71,13 +77,14 @@ public class ProcessEngineService {
      * @param bpmnXml Le contenu XML du fichier BPMN
      * @param taskConfigurations Les configurations des tâches
      * @param processMetadata Les métadonnées générales du processus (nom, description, tags, images)
-     * @param deployedBy L'identifiant de l'utilisateur qui déploie le processus
+     * @param deployedByUserId L'identifiant de l'utilisateur qui déploie le processus
      * @param deployToEngine Si true, déploie le processus vers le moteur Camunda, sinon sauvegarde uniquement les métadonnées
+     * @param forceCreate 
      * @return Les informations sur le processus déployé
      */
     @Transactional
     public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations,
-                                           ProcessMetadataDTO processMetadata, String deployedBy, boolean deployToEngine) {
+                                           ProcessMetadataDTO processMetadata, String deployedBy, boolean deployToEngine, boolean forceCreate) {
         try {
           
             // Convert DTOs to entities
@@ -133,20 +140,84 @@ public class ProcessEngineService {
                 log.info("Process key (without deployment): {}", processKey);
             }
 
+            // Handle forceCreate logic - if forceCreate is true, we need to ensure deployment to Camunda
+            if (forceCreate && !deployToEngine) {
+                log.warn("forceCreate=true but deployToEngine=false. Forcing deployment to Camunda to make the process usable.");
+                // Force deployment to Camunda for newly created processes
+                if (deployment == null) {
+                    deployment = repositoryService.createDeployment()
+                            .addString("process.bpmn", transformedBpmn)
+                            .name("Harmony Process Deployment - Forced")
+                            .deploy();
+
+                    camundaProcessDef = repositoryService.createProcessDefinitionQuery()
+                            .deploymentId(deployment.getId())
+                            .singleResult();
+
+                    if (camundaProcessDef != null) {
+                        processKey = camundaProcessDef.getKey();
+                        log.info("Successfully forced deployment to Camunda: {}", processKey);
+                    }
+                }
+            }
+
             // Check if process definition with same key already exists
             Optional<ProcessDefinition> existingProcessDefOpt = processDefinitionRepository.findByProcessDefinitionKey(processKey);
-            
+
+            // Handle forceCreate logic
+            if (forceCreate && existingProcessDefOpt.isPresent()) {
+                // Generate a unique process key for forced creation
+                String originalProcessKey = processKey;
+                int counter = 1;
+                String uniqueProcessKey = processKey + "_" + counter;
+
+                // Find a unique key that doesn't exist
+                while (processDefinitionRepository.findByProcessDefinitionKey(uniqueProcessKey).isPresent()) {
+                    counter++;
+                    uniqueProcessKey = originalProcessKey + "_" + counter;
+                }
+
+                processKey = uniqueProcessKey;
+                log.info("Force creating new process with unique key: {} (original was: {})", processKey, originalProcessKey);
+                // Reset the existing process opt since we're creating a new one
+                existingProcessDefOpt = Optional.empty();
+
+                // If we forced deployment earlier, we need to redeploy with the new unique key
+                if (deployment != null && camundaProcessDef != null) {
+                    log.info("Redeploying to Camunda with unique key: {}", processKey);
+
+                    // Transform the BPMN XML to use the unique key
+                    String uniqueBpmnXml = transformBpmnWithUniqueKey(transformedBpmn, processKey);
+
+                    deployment = repositoryService.createDeployment()
+                            .addString("process.bpmn", uniqueBpmnXml)
+                            .name("Harmony Process Deployment - Unique Key")
+                            .deploy();
+
+                    camundaProcessDef = repositoryService.createProcessDefinitionQuery()
+                            .deploymentId(deployment.getId())
+                            .singleResult();
+
+                    if (camundaProcessDef != null) {
+                        // Use the unique key we generated, not the one from Camunda
+                        log.info("Successfully redeployed with unique key: {}", processKey);
+                        // Update the transformed BPMN with the correct key
+                        transformedBpmn = uniqueBpmnXml;
+                    }
+                }
+            }
+
             ProcessDefinition processDefinition;
             if (existingProcessDefOpt.isPresent()) {
                 // Update existing process definition
                 processDefinition = existingProcessDefOpt.get();
                 log.info("Updating existing process definition with key: {}", processKey);
-                
+
                 // Mettre à jour les champs en fonction du déploiement ou non
                 processDefinition.setBpmnXml(transformedBpmn);
                 processDefinition.setDeployedAt(LocalDateTime.now());
                 processDefinition.setDeployedBy(deployedBy);
-                
+
                 if (deployToEngine && camundaProcessDef != null) {
                     processDefinition.setProcessDefinitionId(camundaProcessDef.getId());
                     processDefinition.setDeploymentId(deployment.getId());
@@ -161,7 +232,7 @@ public class ProcessEngineService {
                         .deployedBy(deployedBy)
                         .deployedAt(LocalDateTime.now())
                         .active(true);
-                
+
                 if (deployToEngine && camundaProcessDef != null) {
                     builder.processDefinitionId(camundaProcessDef.getId())
                            .name(camundaProcessDef.getName())
@@ -171,7 +242,7 @@ public class ProcessEngineService {
                     builder.name(processName)
                            .version(1);
                 }
-                
+
                 processDefinition = builder.build();
             }
 
@@ -579,8 +650,53 @@ public class ProcessEngineService {
     }
     
     /**
-     * Extract process key from BPMN XML
+     * Transform BPMN XML to use a specific process key
      */
+    private String transformBpmnWithUniqueKey(String bpmnXml, String uniqueKey) {
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document document = builder.parse(new InputSource(new StringReader(bpmnXml)));
+
+            // Find and update process elements
+            NodeList processes = document.getElementsByTagNameNS("http://www.omg.org/spec/BPMN/20100524/MODEL", "process");
+            for (int i = 0; i < processes.getLength(); i++) {
+                Element process = (Element) processes.item(i);
+                process.setAttribute("id", uniqueKey);
+                log.info("Updated process ID to: {}", uniqueKey);
+            }
+
+            // Also update any process references in other elements
+            NodeList processRefs = document.getElementsByTagNameNS("http://www.omg.org/spec/BPMN/20100524/MODEL", "processRef");
+            for (int i = 0; i < processRefs.getLength(); i++) {
+                Element processRef = (Element) processRefs.item(i);
+                if (processRef.getTextContent() != null && !processRef.getTextContent().isEmpty()) {
+                    String originalRef = processRef.getTextContent();
+                    // Only replace if it matches a process ID pattern
+                    if (originalRef.matches("Process_\\d+") || originalRef.matches("Process_\\d+_\\d+")) {
+                        processRef.setTextContent(uniqueKey);
+                        log.info("Updated process reference from {} to {}", originalRef, uniqueKey);
+                    }
+                }
+            }
+
+            // Convert back to string
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = transformerFactory.newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+
+            StringWriter writer = new StringWriter();
+            transformer.transform(new DOMSource(document), new StreamResult(writer));
+
+            return writer.toString();
+
+        } catch (Exception e) {
+            log.error("Error transforming BPMN XML with unique key: {}", uniqueKey, e);
+            throw new RuntimeException("Failed to transform BPMN XML with unique key: " + e.getMessage(), e);
+        }
+    }
     private String extractProcessKey(String bpmnXml) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();

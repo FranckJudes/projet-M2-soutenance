@@ -428,10 +428,10 @@ const Configuration = () => {
 
         // Filtrer par recherche
         if (processSearchText) {
-            filtered = filtered.filter(process => 
-                process.name.toLowerCase().includes(processSearchText.toLowerCase()) ||
-                process.description.toLowerCase().includes(processSearchText.toLowerCase()) ||
-                process.processDefinitionKey.toLowerCase().includes(processSearchText.toLowerCase())
+            filtered = filtered.filter(process =>
+                (process.processName || '').toLowerCase().includes(processSearchText.toLowerCase()) ||
+                (process.processDescription || '').toLowerCase().includes(processSearchText.toLowerCase()) ||
+                (process.processDefinitionKey || '').toLowerCase().includes(processSearchText.toLowerCase())
             );
         }
 
@@ -439,11 +439,15 @@ const Configuration = () => {
         if (processSortField && processSortOrder) {
             filtered.sort((a, b) => {
                 if (processSortField === 'name') {
-                    return processSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+                    const nameA = a.name || a.processDefinitionKey || '';
+                    const nameB = b.name || b.processDefinitionKey || '';
+                    return processSortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
                 } else if (processSortField === 'instances') {
-                    return processSortOrder === 'asc' ? a.instanceCount - b.instanceCount : b.instanceCount - a.instanceCount;
+                    return processSortOrder === 'asc' ? (a.instanceCount || 0) - (b.instanceCount || 0) : (b.instanceCount || 0) - (a.instanceCount || 0);
                 } else if (processSortField === 'deployment') {
-                    return processSortOrder === 'asc' ? new Date(a.deployedAt) - new Date(b.deployedAt) : new Date(b.deployedAt) - new Date(a.deployedAt);
+                    const dateA = a.deployedAt ? new Date(a.deployedAt) : new Date(0);
+                    const dateB = b.deployedAt ? new Date(b.deployedAt) : new Date(0);
+                    return processSortOrder === 'asc' ? dateA - dateB : dateB - dateA;
                 }
                 return 0;
             });

@@ -46,6 +46,7 @@ public class ProcessEngineController {
             @RequestParam("configurations") String configurationsJson,
             @RequestParam(value = "metadata", required = false) String metadataJson,
             @RequestParam(value = "deployToEngine", defaultValue = "true") boolean deployToEngine,
+            @RequestParam(value = "forceCreate", defaultValue = "false") boolean forceCreate,
             Authentication authentication) {
         
         System.out.println("Deploying process with configurations: " + configurationsJson);
@@ -105,7 +106,7 @@ public class ProcessEngineController {
             // Deploy process with conditional deployment based on deployToEngine parameter
             // Pass user ID (not email) as this is what's expected in task configurations
             ProcessDefinitionDTO processDefinition = processEngineService.deployProcess(
-                    bpmnXml, taskConfigurations, processMetadata, deployedByUserId, deployToEngine);
+                    bpmnXml, taskConfigurations, processMetadata, deployedByUserId, deployToEngine, forceCreate);
 
             log.info("Successfully deployed process: {} by user: {}", 
                     processDefinition.getProcessDefinitionKey(), deployedByUserId);

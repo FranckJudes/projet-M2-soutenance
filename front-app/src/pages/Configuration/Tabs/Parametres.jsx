@@ -13,8 +13,7 @@ import { ReactFlow, Controls, Background } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import dagre from '@dagrejs/dagre';
 import toast from 'react-hot-toast';
-import BpmnModelService from '../../../services/BpmnModelService';
-// import ProcessExecutionService from '../../../services/ProcessExecutionService';
+
 import ProcessEngineService from '../../../services/ProcessEngineService';
 import WebSocketService from '../../../services/WebSocketService';
 import { 
@@ -849,7 +848,6 @@ const getResourceData = (taskId) => {
 
   // Fonction pour vider le localStorage des configurations de tâches
   const clearTaskConfigurationsFromLocalStorage = () => {
-    console.log('Nettoyage du localStorage des configurations de tâches');
     
     // Récupérer toutes les clés du localStorage
     const keys = [];
@@ -872,27 +870,18 @@ const getResourceData = (taskId) => {
       localStorage.removeItem(key);
     });
     
-    console.log(`${taskConfigKeys.length} configurations de tâches supprimées du localStorage`);
   };
   
   // Initialiser les données BPMN
   useEffect(() => {
-    console.log("sharedData reçu:", sharedData);
+    
     
     if (sharedData && sharedData.processElements) {
-      console.log("Données du diagramme chargées:", sharedData.processElements);
+      
       
       // Extraire les éléments BPMN de processElements.data si la structure est {success, message, data}
       const bpmnElements = sharedData.processElements.data ? sharedData.processElements.data : sharedData.processElements;
-      
-      // Vérifier la structure des données
-      if (!Array.isArray(bpmnElements.tasks)) {
-        console.warn("Aucune tâche trouvée dans processElements");
-      } else {
-        console.log(`Nombre de tâches chargées: ${bpmnElements.tasks.length}`);
-      }
-      
-      // Vider le localStorage avant de charger un nouveau modèle BPMN
+   
       clearTaskConfigurationsFromLocalStorage();
       
       setBpmnData(bpmnElements);
@@ -905,8 +894,7 @@ const getResourceData = (taskId) => {
   useEffect(() => {
     if (bpmnData) {
       const { nodes, edges } = transformBpmnToXyflow(bpmnData, direction);
-      console.log('Nœuds générés pour ReactFlow:', nodes);
-      console.log('Arêtes générées pour ReactFlow:', edges);
+     
       
       setNodes(nodes);
       setEdges(edges);
@@ -1054,7 +1042,6 @@ const getResourceData = (taskId) => {
                         type: node.type,
                         data: node.data || {}
                       };
-                      console.log('Tâche sélectionnée:', taskData);
                       setSelectedEvent(taskData);
                     }
                   }}
@@ -1150,10 +1137,8 @@ const getResourceData = (taskId) => {
                       throw new Error("Format XML invalide");
                     }
 
-                    console.log('Début XML récupéré:', xmlContent.xml.substring(0, 100) + '...');
 
-                    // 3. Récupérer les configurations des tâches
-                    console.log("Récupération des configurations des tâches...");
+                   
                     const allTaskConfigurations = [];
                     
                     if (bpmnData?.tasks) {
@@ -1208,29 +1193,10 @@ const getResourceData = (taskId) => {
                       }
                     }
 
-                    console.log('Configurations des tâches:', allTaskConfigurations);
 
-                   // 4. Préparer les données du processus depuis sharedData
-                    console.log("Récupération des données du processus...");
                     const processData = sharedData?.processData || {};
 
-                    // Logs détaillés sur l'état de sharedData
-                    console.log("🔍 PARAMETRES - État complet de sharedData:", {
-                        hasSharedData: !!sharedData,
-                        hasProcessData: !!sharedData?.processData,
-                        sharedDataKeys: sharedData ? Object.keys(sharedData) : 'null',
-                        processDataKeys: sharedData?.processData ? Object.keys(sharedData.processData) : 'null',
-                        fullSharedData: sharedData
-                    });
-
-                    console.log("🔍 PARAMETRES - Données du processus reçues:", {
-                        processName: processData.processName,
-                        processDescription: processData.processDescription,
-                        processTags: processData.processTags,
-                        processImagesCount: processData.processImages?.length || 0,
-                        processImageExists: !!processData.processImage,
-                        hasImages: (processData.processImages && processData.processImages.length > 0) || !!processData.processImage
-                    });
+                   
 
                     // 5. Préparer les données complètes pour l'envoi
                     const completeData = {
@@ -1257,31 +1223,11 @@ const getResourceData = (taskId) => {
                         }
                     }
                     
-                    // 7. NOUVEAU: Intégration complète avec Camunda Process Engine
-                    console.log("completeData", completeData);
-                    console.log("allTaskConfigurations", allTaskConfigurations);
+                   
                     
-                    // 7.1. D'abord sauvegarder le modèle BPMN (pour la compatibilité)
-                    let modelResponse;
-                    // if (isUpdateMode && bpmnId) {
-                    //   console.log("Mode mise à jour pour BPMN ID:", bpmnId);
-                    //   modelResponse = await BpmnModelService.updateBpmnModel(
-                    //     bpmnId, 
-                    //     completeData, 
-                    //     allTaskConfigurations
-                    //   );
-                    // } else {
-                    //   console.log("Mode création d'un nouveau modèle");
-                    //   modelResponse = await BpmnModelService.saveBpmnModel(
-                    //     completeData, 
-                    //     allTaskConfigurations
-                    //   );
-                    // }
-                    
-                    // console.log("Modèle sauvegardé:", modelResponse.data);
-                    // toast.success(t(isUpdateMode ? "Modèle BPMN mis à jour avec succès !" : "Modèle BPMN sauvegardé avec succès !"));
-                    
+               
                     // 7.2. Déploiement conditionnel vers Camunda après sauvegarde réussie
+                    let deploymentResponse;
                     if (deployOnSave) {
                       try {
                         // Créer un fichier BPMN à partir du XML
@@ -1305,11 +1251,7 @@ const getResourceData = (taskId) => {
                         // Support pour processImages (tableau) et processImage (legacy)
                         const imagesToProcess = processData.processImages || (processData.processImage ? [processData.processImage] : []);
                         
-                        console.log("🔍 PARAMETRES - Images à traiter:", {
-                            imagesCount: imagesToProcess.length,
-                            source: processData.processImages ? 'processImages' : (processData.processImage ? 'processImage' : 'none')
-                        });
-                        
+                      
                         if (imagesToProcess.length > 0) {
                             let displayOrder = 0;
                             
@@ -1374,19 +1316,18 @@ const getResourceData = (taskId) => {
                         } else {
                             console.log("==========Aucune image fournie==========");
                         }
-                        
-                        console.log("Déploiement vers Camunda avec:", {
-                          fileName: bpmnFile.name,
-                          configurationsCount: camundaConfigurations.length,
-                          hasMetadata: processMetadata.processName !== "" || processMetadata.images.length > 0
-                        });
+                       console.log("===============DEPLOYMENT================");
+                       console.log("camundaConfigurations", camundaConfigurations);
+                       console.log("===============DEPLOYMENT================");
+                       
                         
                         // Déployer vers Camunda avec les métadonnées
-                        const deploymentResponse = await ProcessEngineService.deployProcess(
+                        deploymentResponse = await ProcessEngineService.deployProcess(
                           bpmnFile,
                           camundaConfigurations,
                           processMetadata, // Passer les métadonnées générales
-                          deployOnSave
+                          deployOnSave,
+                          !isUpdateMode // forceCreate = true si ce n'est PAS un mode update
                         );
                         
                         console.log("Processus déployé avec succès:", deploymentResponse.data);
@@ -1433,7 +1374,7 @@ const getResourceData = (taskId) => {
                     
                     // 9. Appeler le callback de succès si fourni
                     if (onSaveSuccess) {
-                      onSaveSuccess(modelResponse.data);
+                       onSaveSuccess(deployOnSave ? deploymentResponse.data : completeData);
                     }
                   } catch (error) {
                     console.error('Erreur lors de la sauvegarde:', error);

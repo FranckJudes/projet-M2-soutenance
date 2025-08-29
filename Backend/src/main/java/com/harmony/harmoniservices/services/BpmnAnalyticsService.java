@@ -24,7 +24,7 @@ import java.util.Map;
 @Slf4j
 public class BpmnAnalyticsService {
 
-    @Value("${bpmn.analytics.service.url:http://192.168.43.171:5000}")
+    @Value("${bpmn.analytics.service.url}")
     private String analyticsServiceUrl;
 
     private final RestTemplate restTemplate;

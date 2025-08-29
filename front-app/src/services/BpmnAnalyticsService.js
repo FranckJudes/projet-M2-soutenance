@@ -2,8 +2,7 @@ import axios from 'axios';
 
 // Configuration de base pour axios - utiliser le backend Spring Boot
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8200';
-console.log('🌐 API_URL configurée:', API_URL);
-console.log('🔧 Variables d\'environnement:', import.meta.env);
+
 
 // Création d'une instance axios avec configuration par défaut
 const apiClient = axios.create({
@@ -16,24 +15,14 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem('token');
-    console.log('🔐 Token disponible:', !!token);
-    console.log('📡 Requête vers:', config.baseURL + config.url);
-    console.log('🔧 Configuration requête:', {
-      method: config.method,
-      url: config.url,
-      headers: config.headers
-    });
+   
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      console.log('✅ Token ajouté à l\'en-tête Authorization');
-    } else {
-      console.warn('⚠️ Aucun token trouvé dans sessionStorage');
-    }
+    } 
     return config;
   },
   (error) => {
-    console.error('❌ Erreur dans l\'intercepteur de requête:', error);
     return Promise.reject(error);
   }
 );
@@ -51,7 +40,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Error:', error);
+ 
     if (error.response?.status === 401) {
       sessionStorage.removeItem('token');
       window.location.href = '/login';
@@ -82,12 +71,9 @@ const BpmnAnalyticsService = {
   // Méthode de test pour diagnostiquer la connectivité
   testConnection: async () => {
     try {
-      console.log('🧪 Test de connectivité backend...');
       const response = await apiClient.get('/api/analytics/test');
-      console.log('✅ Test réussi:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Test échoué:', error);
       throw error;
     }
   },
@@ -95,21 +81,12 @@ const BpmnAnalyticsService = {
   // Récupérer toutes les définitions de processus
   getProcessDefinitions: async () => {
     try {
-      console.log('🔍 Appel API: /api/analytics/process-definitions');
       const response = await apiClient.get('/api/analytics/process-definitions');
-      console.log('📥 Réponse brute:', response);
-      console.log('📄 Données reçues:', response.data);
       
       const result = response.data || [];
-      console.log('✅ Données finales:', result);
       return result;
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des définitions de processus:', error);
-      console.error('📊 Détails de l\'erreur:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
       throw error;
     }
   },
