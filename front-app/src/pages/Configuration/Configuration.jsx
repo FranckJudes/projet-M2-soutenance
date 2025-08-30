@@ -10,6 +10,8 @@ import Model from "./Tabs/Model";
 import Taches from "./Tabs/Taches";
 import { styles } from "../../utils/styles";
 import BpmnModelService from "../../services/BpmnModelService";
+import ProcessEngineService from "../../services/ProcessEngineService";
+
 
 const Configuration = () => {
     const { t } = useTranslation();
@@ -76,14 +78,7 @@ const Configuration = () => {
     }, []);
 
     const handleUpdateProcessData = (processData) => {
-        console.log('🔍 CONFIGURATION - Réception des données de General:', processData);
-        console.log('🔍 CONFIGURATION - Données détaillées:', {
-            processName: processData.processName,
-            processDescription: processData.processDescription,
-            processTags: processData.processTags,
-            processImagesCount: processData.processImages?.length || 0,
-            hasImages: processData.processImages && processData.processImages.length > 0
-        });
+       
 
         setSharedData(prev => {
             const newSharedData = {
@@ -93,15 +88,9 @@ const Configuration = () => {
                     ...processData
                 }
             };
-
-            console.log('🔍 CONFIGURATION - sharedData mis à jour:', {
-                processData: newSharedData.processData
-            });
-
             return newSharedData;
         });
 
-        console.log('🔍 CONFIGURATION - Mise à jour terminée');
     };
 
     const handleSaveSuccess = (data) => {
@@ -138,7 +127,6 @@ const Configuration = () => {
             setDeployedProcesses(response.data);
             setError(null);
         } catch (err) {
-            console.error("Error fetching deployed processes:", err);
             setError("Failed to load deployed processes. Please try again later.");
         } finally {
             setProcessesLoading(false);
@@ -153,7 +141,6 @@ const Configuration = () => {
             setMyProcessInstances(response.data);
             setError(null);
         } catch (err) {
-            console.error("Error fetching my process instances:", err);
             setError("Failed to load process instances. Please try again later.");
         } finally {
             setInstancesLoading(false);
@@ -168,8 +155,8 @@ const Configuration = () => {
     const startProcessInstance = async (processKey) => {
         setStartingProcess(processKey);
         try {
-            const response = await BpmnModelService.startProcessInstance(processKey);
-            message.success(`Instance de processus démarrée: ${response.instanceId}`);
+            await ProcessEngineService.startProcess(processKey);
+            message.success(`Instance de processus démarrée`);
         } catch (err) {
             message.error("Erreur lors du démarrage du processus: " + (err.response?.data || err.message));
         } finally {
@@ -227,7 +214,6 @@ const Configuration = () => {
                 }, 300);
             })
             .catch(error => {
-                console.error("Erreur lors du chargement du modèle BPMN:", error);
                 message.error(t("Erreur lors du chargement du modèle BPMN"));
                 setIsUpdateMode(false);
                 setSelectedBpmnId(null);
@@ -347,8 +333,8 @@ const Configuration = () => {
         },
         {
             title: 'Mots-clés',
-            dataIndex: 'tags',
-            key: 'tags',
+            dataIndex: 'processTags',
+            key: 'processTags',
             render: (tags) => (
                 <div style={{ maxWidth: '100px' }}>
                     {tags && tags.length > 0 ? (
@@ -649,7 +635,6 @@ const Configuration = () => {
                                                             message.error("Veuillez remplir tous les champs obligatoires");
                                                             return;
                                                         }
-                                                        console.log("✅ CONFIGURATION - Données General sauvegardées lors du passage à l'étape suivante");
                                                     }
                                                 }
                                                 
@@ -680,7 +665,6 @@ const Configuration = () => {
                                                         
                                                         message.success("Modèle BPMN analysé avec succès");
                                                     } catch (error) {
-                                                        console.error("Erreur lors de l'analyse du modèle BPMN:", error);
                                                         message.error("Erreur lors de l'analyse du modèle BPMN");
                                                         return;
                                                     }

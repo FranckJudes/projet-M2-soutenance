@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configuration de base pour axios - utiliser le backend Spring Boot
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8200';
+const API_URL = import.meta.env.VITE_API_BASE_URL;
 
 
 // Création d'une instance axios avec configuration par défaut

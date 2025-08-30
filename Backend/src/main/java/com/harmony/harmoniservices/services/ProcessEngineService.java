@@ -17,6 +17,13 @@ import org.camunda.bpm.engine.*;
 import org.camunda.bpm.engine.repository.Deployment;
 import org.camunda.bpm.engine.runtime.ProcessInstanceWithVariables;
 import org.camunda.bpm.engine.task.Task;
+import org.camunda.bpm.model.bpmn.Bpmn;
+import org.camunda.bpm.model.bpmn.BpmnModelInstance;
+import org.camunda.bpm.model.bpmn.instance.*;
+import org.camunda.bpm.model.bpmn.instance.Process;
+import org.camunda.bpm.model.bpmn.instance.SequenceFlow;
+import org.camunda.bpm.model.xml.instance.ModelElementInstance;
+import java.util.Collection;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -597,6 +604,9 @@ public class ProcessEngineService {
                     .list();
                 
             for (Task nextTask : nextTasks) {
+                // Assigner la tâche suivante selon sa configuration
+                assignTaskBasedOnConfiguration(nextTask);
+                // Envoyer la notification
                 notificationService.sendTaskAssignmentNotification(nextTask);
             }
             
@@ -626,7 +636,310 @@ public class ProcessEngineService {
                 .list();
 
         for (Task task : initialTasks) {
+            // Assigner la tâche selon la configuration
+            assignTaskBasedOnConfiguration(task);
+            // Envoyer la notification
             notificationService.sendTaskAssignmentNotification(task);
+        }
+    }
+    
+    /**
+     * Assigne une tâche en fonction de sa configuration
+     * @param task La tâche à assigner
+     */
+    private void assignTaskBasedOnConfiguration(Task task) {
+        try {
+            // Récupérer la configuration de la tâche
+            String processDefinitionId = task.getProcessDefinitionId();
+            String processDefinitionKey = extractProcessKeyFromDefinitionId(processDefinitionId);
+            String taskDefinitionKey = task.getTaskDefinitionKey();
+            
+            log.info("Assigning task {} (definition key: {}) based on configuration", 
+                    task.getId(), taskDefinitionKey);
+            
+            // Récupérer la configuration pour cette tâche
+            Optional<TaskConfiguration> configOpt = taskConfigurationRepository
+                    .findByProcessDefinitionKeyAndTaskId(processDefinitionKey, taskDefinitionKey);
+            
+            if (!configOpt.isPresent()) {
+                log.warn("No configuration found for task {} in process {}", 
+                        taskDefinitionKey, processDefinitionKey);
+                return;
+            }
+            
+            TaskConfiguration config = configOpt.get();
+            
+            // Vérifier les différentes options d'assignation dans l'ordre de priorité
+            if (config.getAssigneeUser() != null && !config.getAssigneeUser().isEmpty()) {
+                // Assigner à un utilisateur spécifique
+                String camundaUserId = camundaIdentityService.getCamundaId(config.getAssigneeUser(), false);
+                if (camundaUserId == null) {
+                    camundaIdentityService.ensureUserExists(config.getAssigneeUser());
+                    camundaUserId = camundaIdentityService.getCamundaId(config.getAssigneeUser(), true);
+                }
+                
+                log.info("Assigning task {} to user {} (Camunda ID: {})", 
+                        task.getId(), config.getAssigneeUser(), camundaUserId);
+                taskService.setAssignee(task.getId(), camundaUserId);
+                
+            } else if (config.getAssigneeGroup() != null && !config.getAssigneeGroup().isEmpty()) {
+                // Ajouter le groupe comme candidat
+                String camundaGroupId = camundaIdentityService.getCamundaId(config.getAssigneeGroup(), false);
+                if (camundaGroupId == null) {
+                    camundaIdentityService.ensureGroupExists(config.getAssigneeGroup());
+                    camundaGroupId = camundaIdentityService.getCamundaId(config.getAssigneeGroup(), true);
+                }
+                
+                log.info("Adding candidate group {} (Camunda ID: {}) to task {}", 
+                        config.getAssigneeGroup(), camundaGroupId, task.getId());
+                taskService.addCandidateGroup(task.getId(), camundaGroupId);
+                
+            } else if (config.getAssigneeEntity() != null && !config.getAssigneeEntity().isEmpty()) {
+                // Pour les entités, il faudrait implémenter une logique spécifique
+                // qui dépend de comment les entités sont mappées aux utilisateurs/groupes
+                log.info("Entity assignment requested for task {} with entity {}", 
+                        task.getId(), config.getAssigneeEntity());
+                
+                // Exemple: si l'entité correspond à un groupe
+                String entityGroupId = config.getAssigneeEntity();
+                String camundaEntityId = camundaIdentityService.getCamundaId(entityGroupId, false);
+                if (camundaEntityId == null) {
+                    camundaIdentityService.ensureGroupExists(entityGroupId);
+                    camundaEntityId = camundaIdentityService.getCamundaId(entityGroupId, true);
+                }
+                
+                taskService.addCandidateGroup(task.getId(), camundaEntityId);
+            }
+            
+            // Gérer les responsables et intéressés si nécessaire
+            if (config.getResponsibleUser() != null && !config.getResponsibleUser().isEmpty()) {
+                // Ajouter comme candidat utilisateur
+                String camundaResponsibleId = camundaIdentityService.getCamundaId(config.getResponsibleUser(), false);
+                if (camundaResponsibleId == null) {
+                    camundaIdentityService.ensureUserExists(config.getResponsibleUser());
+                    camundaResponsibleId = camundaIdentityService.getCamundaId(config.getResponsibleUser(), true);
+                }
+                
+                log.info("Adding responsible user {} as candidate to task {}", 
+                        config.getResponsibleUser(), task.getId());
+                taskService.addCandidateUser(task.getId(), camundaResponsibleId);
+            }
+            
+            if (config.getInterestedUser() != null && !config.getInterestedUser().isEmpty()) {
+                // Pour les utilisateurs intéressés, on pourrait les ajouter comme observateurs
+                // ou implémenter une logique de notification spécifique
+                log.info("User {} is interested in task {}", config.getInterestedUser(), task.getId());
+                // Implémentation selon les besoins
+            }
+            
+            // Vérifier si cette tâche est liée à une passerelle pour préparer les assignations futures
+            analyzeTaskGatewayContext(task);
+            
+            log.info("Task assignment completed for task {}", task.getId());
+            
+        } catch (Exception e) {
+            log.error("Error assigning task {}: {}", task.getId(), e.getMessage(), e);
+            // Ne pas propager l'exception pour ne pas bloquer le processus
+        }
+    }
+    
+    /**
+     * Extrait la clé du processus à partir de l'ID de définition du processus
+     * Format typique: "process-key:version:deployment-id"
+     */
+    private String extractProcessKeyFromDefinitionId(String processDefinitionId) {
+        if (processDefinitionId == null || processDefinitionId.isEmpty()) {
+            return null;
+        }
+        
+        // La clé du processus est généralement la première partie avant le premier ':'
+        int colonIndex = processDefinitionId.indexOf(':');
+        if (colonIndex > 0) {
+            return processDefinitionId.substring(0, colonIndex);
+        }
+        
+        return processDefinitionId; // Retourner l'ID complet si le format est différent
+    }
+    
+    /**
+     * Analyse le contexte de passerelles BPMN pour une tâche donnée
+     * Cette méthode examine si la tâche est liée à des passerelles (gateways) et prépare
+     * le suivi du flux pour les assignations futures
+     * 
+     * @param task La tâche à analyser
+     */
+    private void analyzeTaskGatewayContext(Task task) {
+        try {
+            // Récupérer le modèle BPMN pour cette instance de processus
+            String processDefinitionId = task.getProcessDefinitionId();
+            BpmnModelInstance modelInstance = repositoryService
+                    .getBpmnModelInstance(processDefinitionId);
+            
+            if (modelInstance == null) {
+                log.warn("Could not retrieve BPMN model for process definition {}", processDefinitionId);
+                return;
+            }
+            
+            // Récupérer l'élément de tâche dans le modèle BPMN
+            String taskDefinitionKey = task.getTaskDefinitionKey();
+            UserTask userTask = modelInstance.getModelElementById(taskDefinitionKey);
+            
+            if (userTask == null) {
+                log.warn("Could not find task {} in BPMN model", taskDefinitionKey);
+                return;
+            }
+            
+            // Analyser les flux sortants de cette tâche
+            Collection<SequenceFlow> outgoingFlows = userTask.getOutgoing();
+            if (outgoingFlows.isEmpty()) {
+                log.info("Task {} has no outgoing flows", taskDefinitionKey);
+                return;
+            }
+            
+            // Vérifier si l'un des flux sortants mène à une passerelle
+            for (SequenceFlow flow : outgoingFlows) {
+                FlowNode targetNode = flow.getTarget();
+                
+                // Vérifier le type de noeud cible
+                if (targetNode instanceof ExclusiveGateway) {
+                    log.info("Task {} leads to an exclusive gateway {}", 
+                            taskDefinitionKey, targetNode.getId());
+                    analyzeExclusiveGateway((ExclusiveGateway) targetNode, task);
+                    
+                } else if (targetNode instanceof ParallelGateway) {
+                    log.info("Task {} leads to a parallel gateway {}", 
+                            taskDefinitionKey, targetNode.getId());
+                    analyzeParallelGateway((ParallelGateway) targetNode, task);
+                    
+                } else if (targetNode instanceof InclusiveGateway) {
+                    log.info("Task {} leads to an inclusive gateway {}", 
+                            taskDefinitionKey, targetNode.getId());
+                    analyzeInclusiveGateway((InclusiveGateway) targetNode, task);
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error analyzing gateway context for task {}: {}", 
+                    task.getId(), e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Analyse une passerelle exclusive (XOR) et ses chemins potentiels
+     * @param gateway La passerelle à analyser
+     * @param sourceTask La tâche source qui mène à cette passerelle
+     */
+    private void analyzeExclusiveGateway(ExclusiveGateway gateway, Task sourceTask) {
+        // Récupérer tous les flux sortants de la passerelle
+        Collection<SequenceFlow> outgoingFlows = gateway.getOutgoing();
+        
+        log.info("Exclusive gateway {} has {} outgoing paths", 
+                gateway.getId(), outgoingFlows.size());
+        
+        // Pour chaque flux sortant, identifier les tâches potentielles
+        for (SequenceFlow flow : outgoingFlows) {
+            // Vérifier les conditions sur ce flux (pour les passerelles exclusives)
+            String condition = flow.getConditionExpression() != null ? 
+                    flow.getConditionExpression().getTextContent() : "<default>";
+            
+            log.info("Path from gateway {} with condition: {}", 
+                    gateway.getId(), condition);
+            
+            // Suivre ce chemin pour trouver les tâches potentielles
+            identifyTasksInPath(flow.getTarget(), new HashSet<>());
+        }
+    }
+    
+    /**
+     * Analyse une passerelle parallèle (AND) et ses chemins
+     * @param gateway La passerelle à analyser
+     * @param sourceTask La tâche source qui mène à cette passerelle
+     */
+    private void analyzeParallelGateway(ParallelGateway gateway, Task sourceTask) {
+        // Récupérer tous les flux sortants de la passerelle
+        Collection<SequenceFlow> outgoingFlows = gateway.getOutgoing();
+        
+        log.info("Parallel gateway {} has {} outgoing paths (all will be executed)", 
+                gateway.getId(), outgoingFlows.size());
+        
+        // Pour une passerelle parallèle, toutes les branches seront exécutées
+        for (SequenceFlow flow : outgoingFlows) {
+            log.info("Following parallel path from gateway {}", gateway.getId());
+            
+            // Suivre ce chemin pour trouver les tâches
+            identifyTasksInPath(flow.getTarget(), new HashSet<>());
+        }
+    }
+    
+    /**
+     * Analyse une passerelle inclusive (OR) et ses chemins potentiels
+     * @param gateway La passerelle à analyser
+     * @param sourceTask La tâche source qui mène à cette passerelle
+     */
+    private void analyzeInclusiveGateway(InclusiveGateway gateway, Task sourceTask) {
+        // Récupérer tous les flux sortants de la passerelle
+        Collection<SequenceFlow> outgoingFlows = gateway.getOutgoing();
+        
+        log.info("Inclusive gateway {} has {} outgoing paths (multiple may be executed)", 
+                gateway.getId(), outgoingFlows.size());
+        
+        // Pour chaque flux sortant, vérifier les conditions et identifier les tâches potentielles
+        for (SequenceFlow flow : outgoingFlows) {
+            String condition = flow.getConditionExpression() != null ? 
+                    flow.getConditionExpression().getTextContent() : "<default>";
+            
+            log.info("Path from inclusive gateway {} with condition: {}", 
+                    gateway.getId(), condition);
+            
+            // Suivre ce chemin pour trouver les tâches potentielles
+            identifyTasksInPath(flow.getTarget(), new HashSet<>());
+        }
+    }
+    
+    /**
+     * Identifie récursivement les tâches dans un chemin à partir d'un noeud de flux
+     * @param node Le noeud de départ
+     * @param visitedNodes Ensemble des noeuds déjà visités (pour éviter les boucles infinies)
+     */
+    private void identifyTasksInPath(FlowNode node, Set<String> visitedNodes) {
+        // Éviter les boucles infinies
+        if (node == null || visitedNodes.contains(node.getId())) {
+            return;
+        }
+        
+        visitedNodes.add(node.getId());
+        // Si c'est une tâche utilisateur, l'enregistrer
+        if (node instanceof UserTask) {
+            UserTask userTask = (UserTask) node;
+            log.info("Found potential next task: {} ({})", 
+                    userTask.getId(), userTask.getName());
+            
+            // Ici, on pourrait pré-charger la configuration de cette tâche
+            // ou stocker l'information pour une utilisation future
+            String processKey = null;
+            // Récupérer le processus parent pour obtenir l'ID
+            ModelElementInstance parent = userTask.getParentElement();
+            if (parent instanceof Process) {
+                Process process = (Process) parent;
+                processKey = process.getId();
+            }
+            
+            if (processKey != null) {
+                Optional<TaskConfiguration> configOpt = taskConfigurationRepository
+                        .findByProcessDefinitionKeyAndTaskId(processKey, userTask.getId());
+                
+                if (configOpt.isPresent()) {
+                    log.info("Pre-loaded configuration for potential task {}", userTask.getId());
+                }
+            } else {
+                log.warn("Could not determine process key for task {}", userTask.getId());
+            }
+        }
+        
+        // Continuer à suivre les chemins sortants
+        Collection<SequenceFlow> outgoingFlows = node.getOutgoing();
+        for (SequenceFlow flow : outgoingFlows) {
+            identifyTasksInPath(flow.getTarget(), new HashSet<>(visitedNodes));
         }
     }
 
@@ -772,30 +1085,25 @@ public class ProcessEngineService {
             return;
         }
         
-        List<String> userIds = new ArrayList<>();
-        List<String> groupIds = new ArrayList<>();
+        // Collecter les IDs d'utilisateurs et de groupes pour synchronisation
+        Set<String> userIds = new HashSet<>();
+        Set<String> groupIds = new HashSet<>();
         Map<String, List<String>> userGroupMappings = new HashMap<>();
         
-        // Extraire les utilisateurs et groupes des variables
+        // Parcourir toutes les variables
         for (Map.Entry<String, Object> entry : variables.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
             
-            // Variables d'assignation d'utilisateur typiques
-            if (key.toLowerCase().contains("user") || key.toLowerCase().contains("assignee") || 
-                key.toLowerCase().contains("utilisateur") || key.toLowerCase().contains("assigné")) {
+            // Variables d'assignation utilisateur
+            if (key.toLowerCase().contains("assignee") || 
+                key.toLowerCase().contains("user") || 
+                key.toLowerCase().contains("responsible")) {
                 if (value instanceof String) {
                     String userId = (String) value;
                     if (!userId.isEmpty()) {
                         userIds.add(userId);
-                    }
-                } else if (value instanceof List) {
-                    try {
-                        @SuppressWarnings("unchecked")
-                        List<String> users = (List<String>) value;
-                        userIds.addAll(users.stream().filter(u -> u != null && !u.isEmpty()).collect(Collectors.toList()));
-                    } catch (ClassCastException e) {
-                        log.warn("Impossible de convertir la variable {} en liste d'utilisateurs", key);
+                        camundaIdentityService.ensureUserExists(userId);
                     }
                 }
             }
@@ -836,7 +1144,7 @@ public class ProcessEngineService {
         // Synchroniser avec Camunda
         if (!userIds.isEmpty() || !groupIds.isEmpty() || !userGroupMappings.isEmpty()) {
             log.info("Synchronisation de {} utilisateurs et {} groupes avec Camunda", userIds.size(), groupIds.size());
-            camundaIdentityService.synchronizeWithCamunda(userIds, groupIds, userGroupMappings);
+            camundaIdentityService.synchronizeWithCamunda(new ArrayList<>(userIds), new ArrayList<>(groupIds), userGroupMappings);
         }
     }
     
@@ -885,28 +1193,13 @@ public class ProcessEngineService {
         if (!userIds.isEmpty() || !groupIds.isEmpty()) {
             log.info("Synchronisation de {} utilisateurs et {} groupes/entités avec Camunda", userIds.size(), groupIds.size());
             
-            // Synchroniser les utilisateurs
-            for (String userId : userIds) {
-                try {
-                    log.info("Synchronisation de l'utilisateur: {}", userId);
-                    camundaIdentityService.ensureUserExists(userId);
-                    String camundaId = camundaIdentityService.getCamundaId(userId, true);
-                    log.info("Utilisateur {} synchronisé avec ID Camunda: {}", userId, camundaId);
-                } catch (Exception e) {
-                    log.error("Erreur lors de la synchronisation de l'utilisateur {}: {}", userId, e.getMessage(), e);
-                }
-            }
-            
-            // Synchroniser les groupes et entités
-            for (String groupId : groupIds) {
-                try {
-                    log.info("Synchronisation du groupe/entité: {}", groupId);
-                    camundaIdentityService.ensureGroupExists(groupId);
-                    String camundaId = camundaIdentityService.getCamundaId(groupId, true);
-                    log.info("Groupe/Entité {} synchronisé avec ID Camunda: {}", groupId, camundaId);
-                } catch (Exception e) {
-                    log.error("Erreur lors de la synchronisation du groupe/entité {}: {}", groupId, e.getMessage(), e);
-                }
+            // Utiliser la méthode synchronizeWithCamunda pour synchroniser tous les utilisateurs et groupes en une seule fois
+            Map<String, List<String>> userGroupMappings = new HashMap<>(); // Pas de mappings spécifiques ici
+            try {
+                camundaIdentityService.synchronizeWithCamunda(userIds, groupIds, userGroupMappings);
+                log.info("Synchronisation réussie de {} utilisateurs et {} groupes/entités", userIds.size(), groupIds.size());
+            } catch (Exception e) {
+                log.error("Erreur lors de la synchronisation des utilisateurs et groupes: {}", e.getMessage(), e);
             }
         }
         

@@ -113,6 +113,13 @@ public class TaskConfigurationDTO {
     private String expectedDeliverable;
     private String category;
     
+    // Champs de notification
+    private Boolean notifyOnCreation;
+    private Boolean notifyOnDeadline;
+    private String notificationSensitivity;
+    private Integer reminderBeforeDeadline;
+    private String selectedReminders;
+    
     // Configuration supplémentaire
     private String conditionConfig;
     private String extraConfig;

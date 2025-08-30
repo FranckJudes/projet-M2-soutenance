@@ -37,8 +37,6 @@ function General({ sharedData, onSaveGeneral }) {
                         processedImages.push(imageUrl);
                         processedPreviews.push(imageUrl);
                     } catch (error) {
-                        console.error('Erreur lors de la récupération de l\'image:', error);
-                        // En cas d'erreur, utiliser une image vide
                         processedImages.push(null);
                         processedPreviews.push(null);
                     }
@@ -57,7 +55,6 @@ function General({ sharedData, onSaveGeneral }) {
                     processedImages.push(imageUrl);
                     processedPreviews.push(imageUrl);
                 } catch (error) {
-                    console.error('Erreur lors de la récupération de l\'image:', error);
                     processedImages.push(null);
                     processedPreviews.push(null);
                 }
@@ -68,27 +65,27 @@ function General({ sharedData, onSaveGeneral }) {
         setImagePreviews(processedPreviews.filter(preview => preview !== null));
     }, [sharedData]);
 
-    // Initialiser les données depuis sharedData
+    // Initialiser les données depuis sharedData (ne pas écraser les saisies locales en continu)
     useEffect(() => {
         if (sharedData?.processData) {
             const { processName, processDescription, processTags, processImages } = sharedData.processData;
 
-            // Synchroniser les champs si nécessaire
+            // Synchroniser les champs si nécessaire (uniquement quand sharedData change)
             if (processName && processName !== name) {
                 setName(processName);
             }
             if (processDescription && processDescription !== description) {
                 setDescription(processDescription);
             }
-            if (processTags && JSON.stringify(processTags) !== JSON.stringify(tags)) {
+            if (Array.isArray(processTags)) {
                 setTags(processTags);
             }
-            if (processImages && processImages.length > 0 && JSON.stringify(processImages) !== JSON.stringify(images)) {
+            if (processImages && processImages.length > 0) {
                 // Charger les images depuis le serveur de manière asynchrone
                 loadImagesFromServer(processImages);
             }
         }
-    }, [sharedData, loadImagesFromServer, name, description, tags, images]);
+    }, [sharedData, loadImagesFromServer]);
 
 
    
@@ -185,14 +182,6 @@ function General({ sharedData, onSaveGeneral }) {
             processImages: images,
             processId: sharedData?.processData?.processId || null
         };
-
-        console.log("📦 GENERAL - Données préparées pour sauvegarde:", {
-            processName: processData.processName,
-            processDescription: processData.processDescription?.substring(0, 20) + (processData.processDescription?.length > 20 ? '...' : ''),
-            processTags: processData.processTags,
-            processImagesCount: processData.processImages?.length || 0
-        });
-
         return processData;
     }, [name, description, tags, images, sharedData]);
     

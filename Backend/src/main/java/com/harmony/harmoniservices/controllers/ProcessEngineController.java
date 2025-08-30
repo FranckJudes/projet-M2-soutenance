@@ -49,9 +49,21 @@ public class ProcessEngineController {
             @RequestParam(value = "forceCreate", defaultValue = "false") boolean forceCreate,
             Authentication authentication) {
         
-        System.out.println("Deploying process with configurations: " + configurationsJson);
-        System.out.println("File: " + bpmnFile); 
-        System.out.println("Metada: " + metadataJson); 
+    
+
+        // DEBUG: Vérifier les configurations reçues
+        System.out.println("=== DEBUG CONFIGURATIONS RECEIVED ===");
+        try {
+            List<TaskConfigurationDTO> taskConfigurations = objectMapper.readValue(
+                    configurationsJson,
+                    new TypeReference<List<TaskConfigurationDTO>>() {}
+            );
+
+           
+        } catch (Exception e) {
+            System.out.println("Error parsing configurations for debug: " + e.getMessage());
+        }
+        System.out.println("=== END DEBUG CONFIGURATIONS ==="); 
         try {
             // Validate file
             if (bpmnFile.isEmpty()) {
