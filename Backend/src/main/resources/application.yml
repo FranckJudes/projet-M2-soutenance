@@ -53,7 +53,7 @@ jwt:
 bpmn:
   analytics:
     service:
-      url: http://localhost:5000
+      url: http://192.168.43.228:5000
       timeout:
         connect: 10000 # 10 seconds
         read: 30000 # 30 seconds
