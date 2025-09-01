@@ -236,8 +236,6 @@ def process_variants():
                 activities = [str(variant)]  # Safe handling for non-iterable variants
             variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
             
-            if hasattr(count, 'attributes') and 'concept:name' in count.attributes:
-                count = 1  # Default count for trace objects
             count_int = int(count[0]) if isinstance(count, list) else int(count)
             app.logger.info(f"Calculating percentage for variant count {count_int} (type: {type(count_int)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
             variants_data.append({
@@ -352,10 +350,6 @@ def performance_prediction():
         app.logger.info(f"Received case ID: {case_id} for performance prediction")
         app.logger.info(f"Event log size: {len(event_log)}")
         
-        # Performance prediction case validation
-        if not any(log['case_id'] == parameters['case_id'] for log in event_log):
-            return jsonify({'error': 'Cas non trouvé'}), 404
-        
         # Check if the case exists in the event log
         if not any(trace.attributes['concept:name'] == case_id for trace in event_log):
             app.logger.error(f"Case ID {case_id} not found in event log of size {len(event_log)}")
@@ -366,7 +360,7 @@ def performance_prediction():
         app.logger.info(f"Filtered case log for ID {case_id}: {len(case_log)} traces found")
         
         if not case_log:
-            return jsonify({'error': 'Cas non trouvé'}), 404
+            return jsonify({'error': 'Cas_non_trouve'}), 404
         
         # Obtenir les activités déjà exécutées dans ce cas
         activities = [event['concept:name'] for trace in case_log for event in trace]
@@ -379,7 +373,7 @@ def performance_prediction():
                 similar_cases.append(trace)
         
         if not similar_cases:
-            return jsonify({'error': 'Aucun cas similaire trouvé pour la prédiction'}), 404
+            return jsonify({'error': 'Aucun cas similaire trouve pour la prediction'}), 404
         
         # Calculate duration for similar cases
         similar_case_durations = [case_statistics.get_all_case_durations([case])[0] for case in similar_cases]
