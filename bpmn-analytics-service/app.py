@@ -236,7 +236,7 @@ def process_variants():
                 activities = [str(variant)]  # Safe handling for non-iterable variants
             variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
             
-            count_int = int(count) if not isinstance(count, int) else count
+            count_int = int(count[0]) if isinstance(count, list) else int(count)
             app.logger.info(f"Calculating percentage for variant count {count_int} (type: {type(count_int)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
             variants_data.append({
                 'variant': variant_str,
@@ -400,7 +400,7 @@ def performance_prediction():
         comparison_image = get_matplotlib_image(fig)
         plt.close(fig)
         
-        return jsonify({
+        result = {
             'case_id': case_id,
             'current_duration': current_duration,
             'predicted_remaining_duration': predicted_remaining_duration,
@@ -409,7 +409,12 @@ def performance_prediction():
             'delay_risk': delay_risk,
             'comparison_image': comparison_image,
             'similar_cases_count': len(similar_cases)
-        })
+        }
+        
+        if isinstance(result['delay_risk'], np.bool_):
+            result['delay_risk'] = bool(result['delay_risk'])
+        
+        return jsonify(result)
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -462,31 +467,35 @@ def social_network_analysis():
         # Analyser le réseau social selon le type d'analyse
         try:
             if analysis_type == 'handover_of_work':
-                hw_values = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
+                sna_result = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
             elif analysis_type == 'working_together':
-                hw_values = sna.apply(event_log, variant=sna.Variants.WORKING_TOGETHER)
+                sna_result = sna.apply(event_log, variant=sna.Variants.WORKING_TOGETHER)
             elif analysis_type == 'subcontracting':
-                hw_values = sna.apply(event_log, variant=sna.Variants.SUBCONTRACTING)
+                sna_result = sna.apply(event_log, variant=sna.Variants.SUBCONTRACTING)
             else:
-                hw_values = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
+                sna_result = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
         except Exception as e:
             app.logger.error(f"Erreur lors de l'analyse du réseau social: {str(e)}")
             # Créer une structure vide pour éviter les erreurs
             resources = list(set([event['org:resource'] for trace in event_log for event in trace if 'org:resource' in event]))
-            hw_values = {res1: {res2: 0.0 for res2 in resources} for res1 in resources}
+            sna_result = {res1: {res2: 0.0 for res2 in resources} for res1 in resources}
+        
+        # Convertir le résultat en dictionnaire si nécessaire
+        if hasattr(sna_result, 'to_dict'):
+            sna_result = sna_result.to_dict()
         
         # Créer un graphique du réseau social
         fig, ax = plt.subplots(figsize=(10, 10))
         
         # Convertir la matrice en graphe pour la visualisation
-        resources = list(hw_values.keys())
+        resources = list(sna_result.keys())
         n = len(resources)
         
         # Créer un graphique simple pour illustrer les relations
         for i in range(n):
             for j in range(n):
-                if i != j and hw_values[resources[i]][resources[j]] > 0:
-                    ax.plot([i, j], [i, j], 'o-', linewidth=hw_values[resources[i]][resources[j]]*5)
+                if i != j and sna_result[resources[i]][resources[j]] > 0:
+                    ax.plot([i, j], [i, j], 'o-', linewidth=sna_result[resources[i]][resources[j]]*5)
         
         ax.set_xticks(range(n))
         ax.set_yticks(range(n))
@@ -510,11 +519,11 @@ def social_network_analysis():
         network_data = []
         for res1 in resources:
             for res2 in resources:
-                if res1 != res2 and hw_values[res1][res2] > 0:
+                if res1 != res2 and sna_result[res1][res2] > 0:
                     network_data.append({
                         'source': res1,
                         'target': res2,
-                        'value': hw_values[res1][res2]
+                        'value': sna_result[res1][res2]
                     })
         
         return jsonify({
