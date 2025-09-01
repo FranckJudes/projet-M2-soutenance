@@ -481,20 +481,38 @@ def social_network_analysis():
             sna_result = {res1: {res2: 0.0 for res2 in resources} for res1 in resources}
         
         # Convertir le résultat en dictionnaire si nécessaire
-        if hasattr(sna_result, 'to_dict'):
+        app.logger.info(f"SNA result type: {type(sna_result)}")
+        
+        if isinstance(sna_result, dict):
+            # Already in correct format
+            pass
+        elif hasattr(sna_result, 'to_dict'):
             sna_result = sna_result.to_dict()
         elif isinstance(sna_result, list):
-            # Handle list-type results (convert to empty dict as fallback)
-            sna_result = {}
-            app.logger.warning("Received list-type SNA result, using empty dict as fallback")
-        elif not isinstance(sna_result, dict):
-            # Handle PM4Py 2.7.16 SNA format which returns a DataFrame-like object
+            # Handle list-type results
+            app.logger.warning("Received list-type SNA result, attempting conversion")
+            try:
+                sna_result = {}
+                for item in sna_result:
+                    if isinstance(item, tuple) and len(item) == 3:
+                        res1, res2, value = item
+                        if res1 not in sna_result:
+                            sna_result[res1] = {}
+                        sna_result[res1][res2] = value
+            except Exception as e:
+                app.logger.error(f"Failed to convert list SNA result: {str(e)}")
+                sna_result = {}
+        elif hasattr(sna_result, 'columns') and hasattr(sna_result, 'index'):
+            # Handle DataFrame-like objects
             try:
                 sna_result = {res1: {res2: sna_result[res1][res2] for res2 in sna_result.columns} 
                              for res1 in sna_result.index}
-            except AttributeError:
+            except Exception as e:
+                app.logger.error(f"Failed to convert DataFrame SNA result: {str(e)}")
                 sna_result = {}
-                app.logger.error("Failed to convert SNA result to dictionary format")
+        else:
+            app.logger.error(f"Unsupported SNA result type: {type(sna_result)}")
+            sna_result = {}
         
         # Créer un graphique du réseau social
         fig, ax = plt.subplots(figsize=(10, 10))
