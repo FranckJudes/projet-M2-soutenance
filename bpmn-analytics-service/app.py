@@ -233,15 +233,19 @@ def process_variants():
             if isinstance(variant, (tuple, list)):
                 activities = [str(a) for a in variant]
             else:
-                activities = [str(variant)]  # Safe handling for non-iterable variants
-            variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
+                activities = [str(variant)]
+            variant_str = ','.join(activities)
             
-            count_int = int(count[0]) if isinstance(count, list) else int(count)
-            app.logger.info(f"Calculating percentage for variant count {count_int} (type: {type(count_int)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
+            try:
+                count_int = int(count[0]) if isinstance(count, list) else int(count) if not isinstance(count, (pm4py.objects.log.obj.Trace, str)) else 1
+            except (ValueError, TypeError):
+                count_int = 1
+                app.logger.warning(f"Could not convert variant count: {count}")
+            
             variants_data.append({
                 'variant': variant_str,
                 'count': count_int,
-                'percentage': (count_int / len(event_log)) * 100,
+                'percentage': (count_int / len(event_log)) * 100 if event_log else 0,
                 'activities': activities
             })
         
