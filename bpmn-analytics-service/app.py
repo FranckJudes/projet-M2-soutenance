@@ -236,6 +236,8 @@ def process_variants():
                 activities = [str(variant)]  # Safe handling for non-iterable variants
             variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
             
+            if hasattr(count, 'attributes') and 'concept:name' in count.attributes:
+                count = 1  # Default count for trace objects
             count_int = int(count[0]) if isinstance(count, list) else int(count)
             app.logger.info(f"Calculating percentage for variant count {count_int} (type: {type(count_int)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
             variants_data.append({
@@ -349,6 +351,10 @@ def performance_prediction():
         
         app.logger.info(f"Received case ID: {case_id} for performance prediction")
         app.logger.info(f"Event log size: {len(event_log)}")
+        
+        # Performance prediction case validation
+        if not any(log['case_id'] == parameters['case_id'] for log in event_log):
+            return jsonify({'error': 'Cas non trouvé'}), 404
         
         # Check if the case exists in the event log
         if not any(trace.attributes['concept:name'] == case_id for trace in event_log):
