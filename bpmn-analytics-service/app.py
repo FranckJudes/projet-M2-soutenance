@@ -483,6 +483,10 @@ def social_network_analysis():
         # Convertir le résultat en dictionnaire si nécessaire
         if hasattr(sna_result, 'to_dict'):
             sna_result = sna_result.to_dict()
+        elif isinstance(sna_result, list):
+            # Handle list-type results (convert to empty dict as fallback)
+            sna_result = {}
+            app.logger.warning("Received list-type SNA result, using empty dict as fallback")
         elif not isinstance(sna_result, dict):
             # Handle PM4Py 2.7.16 SNA format which returns a DataFrame-like object
             try:
