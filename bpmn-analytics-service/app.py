@@ -236,11 +236,12 @@ def process_variants():
                 activities = [str(variant)]  # Safe handling for non-iterable variants
             variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
             
-            app.logger.info(f"Calculating percentage for variant count {count} (type: {type(count)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
+            count_int = int(count) if not isinstance(count, int) else count
+            app.logger.info(f"Calculating percentage for variant count {count_int} (type: {type(count_int)}), event_log length {len(event_log)} (type: {type(len(event_log))})")
             variants_data.append({
                 'variant': variant_str,
-                'count': count,
-                'percentage': (count / len(event_log)) * 100,
+                'count': count_int,
+                'percentage': (count_int / len(event_log)) * 100,
                 'activities': activities
             })
         
