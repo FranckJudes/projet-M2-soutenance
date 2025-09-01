@@ -211,7 +211,7 @@ def process_variants():
         
         # Obtenir les variantes du processus
         variants = variants_module.get_variants(event_log)
-        variants_count = variants  # Use the variants dictionary returned by get_variants
+        variants_count = variants if isinstance(variants, dict) else {v: 1 for v in variants}
         
         # Obtenir les statistiques des cas
         all_case_durations = case_statistics.get_all_case_durations(event_log)
@@ -227,12 +227,17 @@ def process_variants():
         case_duration_image = get_matplotlib_image(fig)
         plt.close(fig)
         
-        # Préparer les données des variantes pour le frontend
+        # Prepare variant data for frontend
         variants_data = []
         for variant, count in variants_count.items():
-            activities = variant.split(',')
+            if isinstance(variant, (tuple, list)):
+                activities = [str(a) for a in variant]
+            else:
+                activities = [str(variant)]  # Safe handling for non-iterable variants
+            variant_str = ','.join(activities)  # Ensure variant_str is consistently a comma-separated string
+            
             variants_data.append({
-                'variant': variant,
+                'variant': variant_str,
                 'count': count,
                 'percentage': (count / len(event_log)) * 100,
                 'activities': activities
@@ -340,8 +345,17 @@ def performance_prediction():
         df = convert_bpmn_logs_to_pm4py_format(logs)
         event_log = convert_df_to_eventlog(df)
         
+        app.logger.info(f"Received case ID: {case_id} for performance prediction")
+        app.logger.info(f"Event log size: {len(event_log)}")
+        
+        # Check if the case exists in the event log
+        if not any(trace.attributes['concept:name'] == case_id for trace in event_log):
+            app.logger.error(f"Case ID {case_id} not found in event log of size {len(event_log)}")
+            return jsonify({'error': f'Case ID {case_id} not found in the provided logs'}), 404
+        
         # Filtrer pour obtenir uniquement le cas spécifié
         case_log = attributes_filter.apply(event_log, case_id, parameters={"attribute_key": "case:concept:name"})
+        app.logger.info(f"Filtered case log for ID {case_id}: {len(case_log)} traces found")
         
         if not case_log:
             return jsonify({'error': 'Cas non trouvé'}), 404
