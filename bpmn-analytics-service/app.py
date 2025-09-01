@@ -483,6 +483,14 @@ def social_network_analysis():
         # Convertir le résultat en dictionnaire si nécessaire
         if hasattr(sna_result, 'to_dict'):
             sna_result = sna_result.to_dict()
+        elif not isinstance(sna_result, dict):
+            # Handle PM4Py 2.7.16 SNA format which returns a DataFrame-like object
+            try:
+                sna_result = {res1: {res2: sna_result[res1][res2] for res2 in sna_result.columns} 
+                             for res1 in sna_result.index}
+            except AttributeError:
+                sna_result = {}
+                app.logger.error("Failed to convert SNA result to dictionary format")
         
         # Créer un graphique du réseau social
         fig, ax = plt.subplots(figsize=(10, 10))
