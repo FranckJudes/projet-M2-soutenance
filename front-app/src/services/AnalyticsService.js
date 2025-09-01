@@ -104,6 +104,7 @@ export const AnalyticsService = {
    * Découverte de processus
    */
   processDiscovery: async (requestData) => {
+    
     const response = await apiClient.post('/api/analytics/process-discovery', requestData);
     return response.data;
   },

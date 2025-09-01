@@ -57,6 +57,10 @@ def convert_df_to_eventlog(df):
         'timestamp': 'time:timestamp'
     })
     
+    # Ajouter la colonne org:resource si resource existe
+    if 'resource' in df.columns:
+        df_renamed['org:resource'] = df['resource']
+    
     # Convertir les timestamps en datetime si nécessaire
     if not pd.api.types.is_datetime64_any_dtype(df_renamed['time:timestamp']):
         df_renamed['time:timestamp'] = pd.to_datetime(df_renamed['time:timestamp'])
@@ -71,14 +75,14 @@ def convert_bpmn_logs_to_pm4py_format(logs):
     # Créer un DataFrame à partir des logs
     df = pd.DataFrame([
         {
-            'case_id': log['processInstanceId'],
-            'activity': log['taskName'] if log['taskName'] else log['activityName'],
+            'case_id': log['process_instance_id'],
+            'activity': log.get('activity', log.get('taskName', log.get('activityName', 'Unknown'))),
             'timestamp': log['timestamp'],
-            'resource': log['userId'],
-            'task_id': log['taskId'],
-            'event_type': log['eventType'],
-            'process_definition_id': log['processDefinitionId'],
-            'duration_ms': log['durationMs']
+            'resource': log.get('resource', 'Unknown'),
+            'task_id': log.get('taskId', 'Unknown'),
+            'event_type': log.get('eventType', log.get('activity_type', 'Unknown')),
+            'process_definition_id': log.get('processDefinitionId', log.get('process_definition_key', 'Unknown')),
+            'duration': log.get('durationMs', log.get('duration', 0))
         }
         for log in logs
     ])
@@ -128,7 +132,27 @@ def process_discovery():
         if algorithm == 'alpha':
             net, initial_marking, final_marking = alpha_miner.apply(event_log)
         elif algorithm == 'inductive':
-            net, initial_marking, final_marking = inductive_miner.apply(event_log)
+            try:
+                if not isinstance(event_log, (pm4py.objects.log.obj.EventLog, pm4py.objects.log.obj.EventStream)):
+                    app.logger.error(f'Invalid event log type or structure: {type(event_log)} - {event_log}')
+                    return jsonify({'error': 'Invalid event log for inductive miner: must be a valid PM4Py EventLog or EventStream'}), 400
+                
+                # Apply inductive miner directly - in this version it returns a tuple of (net, initial_marking, final_marking)
+                result = inductive_miner.apply(event_log)
+                
+                # Check if the result is a ProcessTree (single object) or a tuple
+                if hasattr(result, '__iter__') and not isinstance(result, str):
+                    # It's a tuple, unpack it
+                    net, initial_marking, final_marking = result
+                else:
+                    # It's a ProcessTree object, convert it to Petri net
+                    app.logger.info(f'Converting ProcessTree to Petri net')
+                    from pm4py.objects.conversion.process_tree import converter as pt_converter
+                    net, initial_marking, final_marking = pt_converter.apply(result)
+                
+            except Exception as e:
+                app.logger.error(f'Inductive miner error: {str(e)} with event_log structure: {len(event_log) if hasattr(event_log, "__len__") else "unknown"} events')
+                return jsonify({'error': 'Mining error: ' + str(e)}), 500
         elif algorithm == 'heuristics':
             net, initial_marking, final_marking = heuristics_miner.apply(event_log)
         else:
@@ -140,18 +164,32 @@ def process_discovery():
         # Calculer les métriques de qualité du modèle
         replayed_traces = token_replay.apply(event_log, net, initial_marking, final_marking)
         
+        # Get fitness metrics and extract the numeric value
         fitness = replay_fitness.evaluate(replayed_traces)
+        fitness_value = fitness.get('average_trace_fitness', 0.0) if isinstance(fitness, dict) else float(fitness) if hasattr(fitness, '__float__') else 0.0
+        
+        # Get precision metrics and extract the numeric value
         precision = precision_evaluator.apply(event_log, net, initial_marking, final_marking)
+        precision_value = precision.get('precision', 0.0) if isinstance(precision, dict) else float(precision) if hasattr(precision, '__float__') else 0.0
+        
+        # Get generalization metrics and extract the numeric value
         generalization = generalization_evaluator.apply(event_log, net, initial_marking, final_marking)
+        generalization_value = generalization.get('generalization', 0.0) if isinstance(generalization, dict) else float(generalization) if hasattr(generalization, '__float__') else 0.0
+        
+        # Get simplicity metrics and extract the numeric value
         simplicity = simplicity_evaluator.apply(net)
+        simplicity_value = simplicity.get('simplicity', 0.0) if isinstance(simplicity, dict) else float(simplicity) if hasattr(simplicity, '__float__') else 0.0
+        
+        # Add logging to debug the metrics format
+        app.logger.info(f'Metrics extracted - Fitness: {fitness_value}, Precision: {precision_value}, Generalization: {generalization_value}, Simplicity: {simplicity_value}')
         
         return jsonify({
             'petri_net_image': petri_net_image,
             'metrics': {
-                'fitness': fitness,
-                'precision': precision,
-                'generalization': generalization,
-                'simplicity': simplicity
+                'fitness': fitness_value,
+                'precision': precision_value,
+                'generalization': generalization_value,
+                'simplicity': simplicity_value
             }
         })
     
@@ -173,7 +211,7 @@ def process_variants():
         
         # Obtenir les variantes du processus
         variants = variants_module.get_variants(event_log)
-        variants_count = variants_module.get_variants_count(event_log)
+        variants_count = variants  # Use the variants dictionary returned by get_variants
         
         # Obtenir les statistiques des cas
         all_case_durations = case_statistics.get_all_case_durations(event_log)
@@ -283,7 +321,14 @@ def performance_prediction():
     try:
         data = request.json
         logs = data.get('logs', [])
-        case_id = data.get('case_id')
+        parameters = data.get('parameters', {})
+        
+        # Extract case_id from parameters or directly from data
+        case_id = None
+        if parameters and 'case_id' in parameters:
+            case_id = parameters['case_id']
+        else:
+            case_id = data.get('case_id')
         
         if not logs:
             return jsonify({'error': 'Aucun log fourni'}), 400
@@ -296,7 +341,7 @@ def performance_prediction():
         event_log = convert_df_to_eventlog(df)
         
         # Filtrer pour obtenir uniquement le cas spécifié
-        case_log = case_filter.filter_case_id(event_log, [case_id])
+        case_log = attributes_filter.apply(event_log, case_id, parameters={"attribute_key": "case:concept:name"})
         
         if not case_log:
             return jsonify({'error': 'Cas non trouvé'}), 404
@@ -314,12 +359,12 @@ def performance_prediction():
         if not similar_cases:
             return jsonify({'error': 'Aucun cas similaire trouvé pour la prédiction'}), 404
         
-        # Calculer la durée moyenne des cas similaires
-        similar_case_durations = [case_statistics.get_case_duration(case) for case in similar_cases]
+        # Calculate duration for similar cases
+        similar_case_durations = [case_statistics.get_all_case_durations([case])[0] for case in similar_cases]
         avg_duration = sum(similar_case_durations) / len(similar_case_durations)
         
-        # Calculer la durée actuelle du cas
-        current_duration = case_statistics.get_case_duration(case_log[0])
+        # Calculate current case duration
+        current_duration = case_statistics.get_all_case_durations(case_log)[0]
         
         # Prédire la durée restante
         predicted_remaining_duration = avg_duration - current_duration
@@ -358,6 +403,7 @@ def social_network_analysis():
     try:
         data = request.json
         logs = data.get('logs', [])
+        analysis_type = data.get('analysisType', 'handover_of_work')
         
         if not logs:
             return jsonify({'error': 'Aucun log fourni'}), 400
@@ -369,13 +415,49 @@ def social_network_analysis():
         if 'resource' not in df.columns or df['resource'].isna().all():
             return jsonify({'error': 'Données de ressources manquantes pour l\'analyse du réseau social'}), 400
         
+        # Vérifier que les ressources sont bien définies
+        if df['resource'].isnull().any():
+            df = df.dropna(subset=['resource'])
+            if df.empty:
+                return jsonify({'error': 'Aucune donnée de ressource valide pour l\'analyse'}), 400
+        
         event_log = convert_df_to_eventlog(df)
         
-        # Découvrir les rôles organisationnels
-        roles = roles_discovery.apply(event_log)
+        # Vérifier que org:resource est bien présent dans le log
+        has_org_resource = False
+        for trace in event_log:
+            for event in trace:
+                if 'org:resource' in event:
+                    has_org_resource = True
+                    break
+            if has_org_resource:
+                break
+                
+        if not has_org_resource:
+            return jsonify({'error': 'Attribut org:resource manquant dans les logs'}), 400
         
-        # Analyser le réseau social (handover of work)
-        hw_values = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
+        # Découvrir les rôles organisationnels
+        try:
+            roles = roles_discovery.apply(event_log)
+        except Exception as e:
+            app.logger.error(f"Erreur lors de la découverte des rôles: {str(e)}")
+            roles = {}
+        
+        # Analyser le réseau social selon le type d'analyse
+        try:
+            if analysis_type == 'handover_of_work':
+                hw_values = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
+            elif analysis_type == 'working_together':
+                hw_values = sna.apply(event_log, variant=sna.Variants.WORKING_TOGETHER)
+            elif analysis_type == 'subcontracting':
+                hw_values = sna.apply(event_log, variant=sna.Variants.SUBCONTRACTING)
+            else:
+                hw_values = sna.apply(event_log, variant=sna.Variants.HANDOVER_LOG)
+        except Exception as e:
+            app.logger.error(f"Erreur lors de l'analyse du réseau social: {str(e)}")
+            # Créer une structure vide pour éviter les erreurs
+            resources = list(set([event['org:resource'] for trace in event_log for event in trace if 'org:resource' in event]))
+            hw_values = {res1: {res2: 0.0 for res2 in resources} for res1 in resources}
         
         # Créer un graphique du réseau social
         fig, ax = plt.subplots(figsize=(10, 10))

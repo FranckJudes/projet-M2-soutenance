@@ -68,22 +68,12 @@ const BpmnAnalyticsService = {
     }
   },
   
-  // Méthode de test pour diagnostiquer la connectivité
-  testConnection: async () => {
-    try {
-      const response = await apiClient.get('/api/analytics/test');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
+
 
   // Récupérer toutes les définitions de processus
   getProcessDefinitions: async () => {
     try {
       const response = await apiClient.get('/api/analytics/process-definitions');
-      console.log(response);
-      
       const result = response.data || [];
       return result;
     } catch (error) {
@@ -183,6 +173,7 @@ const BpmnAnalyticsService = {
 
   // Découverte de processus
   processDiscovery: async (logs, algorithm = 'alpha') => {
+    console.log("🚀 Logs received:", logs);
     try {
       const response = await apiClient.post('/api/analytics/process-discovery', {
         logs,
