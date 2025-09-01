@@ -174,11 +174,19 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
-    // Réinitialiser les états locaux à chaque changement de tâche
-    setIsChecked(false);
-    setselectPointControl(false);
+    let isCurrent = true;
     
-    if (selectedTask) {
+    const loadConfig = async () => {
+      if (!selectedTask) {
+        if (isCurrent) setTaskConfig(null);
+        return;
+      }
+      
+      // Petit délai pour éviter les conflits
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!isCurrent) return;
+      
       console.log('Tâche sélectionnée dans Habilitation:', selectedTask);
       
       // Charger la configuration existante depuis le localStorage
@@ -187,23 +195,21 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
       if (savedConfig) {
         try {
           const config = JSON.parse(savedConfig);
-          // Mettre à jour l'état de la configuration
-          setTaskConfig(config);
-          // Synchroniser les états locaux avec les valeurs de la configuration
-          setIsChecked(config.isChecked || false);
-          setselectPointControl(config.selectPointControl || false);
+          if (isCurrent) setTaskConfig(config);
         } catch (error) {
           console.error('Erreur lors du parsing de la configuration:', error);
-          initializeNewConfig();
+          if (isCurrent) initializeNewConfig();
         }
-      } else {
-        // Initialiser une nouvelle configuration
+      } else if (isCurrent) {
         initializeNewConfig();
       }
-    } else {
-      // Réinitialiser l'état si aucune tâche n'est sélectionnée
-      setTaskConfig(null);
-    }
+    };
+    
+    loadConfig();
+    
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedTask]);
   
   // Fonction pour initialiser une nouvelle configuration

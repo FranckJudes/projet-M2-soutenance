@@ -108,11 +108,25 @@ const Notifications = forwardRef(({ selectedTask }, ref) => {
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
-    // Réinitialiser les états locaux à chaque changement de tâche
-    setSelectedPriority(1);
-    setSelectedReminders([]);
+    let isCurrent = true;
     
-    if (selectedTask) {
+    const loadConfig = async () => {
+      // Réinitialiser les états locaux à chaque changement de tâche
+      if (isCurrent) {
+        setSelectedPriority(1);
+        setSelectedReminders([]);
+      }
+      
+      if (!selectedTask) {
+        if (isCurrent) setTaskConfig(null);
+        return;
+      }
+      
+      // Petit délai pour éviter les conflits
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!isCurrent) return;
+      
       console.log('Tâche sélectionnée dans Notifications:', selectedTask);
       
       // Charger la configuration existante depuis le localStorage
@@ -121,22 +135,25 @@ const Notifications = forwardRef(({ selectedTask }, ref) => {
       if (savedConfig) {
         try {
           const config = JSON.parse(savedConfig);
-          setTaskConfig(config);
-          // Synchroniser les états locaux avec les valeurs de la configuration
-          setSelectedPriority(config.selectedPriority || 1);
-          setSelectedReminders(config.selectedReminders || []);
+          if (isCurrent) {
+            setTaskConfig(config);
+            setSelectedPriority(config.selectedPriority || 1);
+            setSelectedReminders(config.selectedReminders || []);
+          }
         } catch (error) {
           console.error('Erreur lors du parsing de la configuration:', error);
-          initializeNewConfig();
+          if (isCurrent) initializeNewConfig();
         }
-      } else {
-        // Initialiser une nouvelle configuration
+      } else if (isCurrent) {
         initializeNewConfig();
       }
-    } else {
-      // Réinitialiser l'état si aucune tâche n'est sélectionnée
-      setTaskConfig(null);
-    }
+    };
+    
+    loadConfig();
+    
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedTask]);
   
   // Fonction pour initialiser une nouvelle configuration

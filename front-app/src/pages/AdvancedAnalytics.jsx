@@ -174,33 +174,22 @@ const AdvancedAnalytics = () => {
       
       try {
         // 1. Test de connectivité d'abord
-        console.log('🚀 Début du diagnostic analytics...');
-        console.log('🧪 Test de connectivité backend...');
         
         await BpmnAnalyticsService.testConnection();
-        console.log('✅ Backend accessible');
         
         // 2. Chargement des définitions de processus
-        console.log('📋 Chargement des définitions de processus...');
         const data = await BpmnAnalyticsService.getProcessDefinitions();
-        console.log('📄 Données brutes reçues:', data);
         
         const normalized = normalizeProcessDefinitions(data);
-        console.log('🔄 Données normalisées:', normalized);
         
         setProcessDefinitions(normalized);
         if (normalized.length > 0) {
           setSelectedProcessKey(normalized[0].key);
-          console.log('🎯 Processus sélectionné:', normalized[0].key);
-          console.log('✅ Chargement réussi!');
         } else {
           const msg = 'Aucune définition de processus disponible';
-          console.warn('⚠️', msg);
           setError(msg);
         }
       } catch (error) {
-        console.error('❌ Erreur complète:', error);
-        console.error('📊 Stack trace:', error.stack);
         
         let errorMessage = 'Erreur inconnue';
         if (error.response) {

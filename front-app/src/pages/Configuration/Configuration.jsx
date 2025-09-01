@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import Main from "../../layout/Main";
-import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer } from 'antd';
+import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer, Carousel } from 'antd';
 import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Acteur from "./Tabs/Acteur";
 import General from "./Tabs/General";
@@ -12,6 +12,7 @@ import { styles } from "../../utils/styles";
 import BpmnModelService from "../../services/BpmnModelService";
 import ProcessEngineService from "../../services/ProcessEngineService";
 
+const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 const Configuration = () => {
     const { t } = useTranslation();
@@ -279,13 +280,13 @@ const Configuration = () => {
             width: '18%'
         },
         {
-            title: 'Déploiement',
+            title: 'Date de création',
             key: 'deployment',
             render: (_, record) => (
                 <div>
-                    <div style={{ fontSize: '12px' }}>
+                    {/* <div style={{ fontSize: '12px' }}>
                         Version: {record.version || record.camundaVersion || 'N/A'}
-                    </div>
+                    </div> */}
                     <div style={{ fontSize: '12px', color: '#666' }}>
                         {record.deployedAt ? new Date(record.deployedAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
                     </div>
@@ -547,7 +548,7 @@ const Configuration = () => {
                                 
                                 {/* Drawer pour afficher les détails du processus sélectionné */}
                                 <Drawer
-                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.name || selectedProcess.processDefinitionKey}` : "Détails du processus"}
+                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.processName || selectedProcess.processDefinitionKey}` : "Détails du processus"}
                                     placement="right"
                                     closable={true}
                                     onClose={closeDrawer}
@@ -557,11 +558,10 @@ const Configuration = () => {
                                     {selectedProcess && (
                                         <div>
                                             <h3>Informations générales</h3>
-                                            <p><strong>Nom:</strong> {selectedProcess.name || "Non défini"}</p>
-                                            <p><strong>Clé:</strong> {selectedProcess.processDefinitionKey}</p>
-                                            <p><strong>Description:</strong> {selectedProcess.description || "Pas de description"}</p>
+                                            <p><strong>Nom:</strong> {selectedProcess.processName || "Non défini"}</p>
+                                            <p><strong>Description:</strong> {selectedProcess.processDescription || "Pas de description"}</p>
                                             <p><strong>Version:</strong> {selectedProcess.version || selectedProcess.camundaVersion || "N/A"}</p>
-                                            <p><strong>Déployé le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
+                                            <p><strong>Crée le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
                                             <p><strong>Statut:</strong> {selectedProcess.suspended ? "Suspendu" : "Actif"}</p>
                                             
                                             <h3>Instances</h3>
@@ -587,6 +587,25 @@ const Configuration = () => {
                                                         ))}
                                                     </div>
                                                 </>
+                                            )}
+                                            
+                                            {selectedProcess.images && selectedProcess.images.length > 0 ? (
+                                                <div>
+                                                    <h3>Images</h3>
+                                                    <Carousel autoplay>
+                                                        {selectedProcess.images.map((image, index) => (
+                                                            <div key={index}>
+                                                                <img
+                                                                    src={ `${API_URL}/api/process-engine/files${image.filePath || ''}` || 'default-image-path' }
+                                                                    alt={image.description || 'Process image'}
+                                                                    style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </Carousel>
+                                                </div>
+                                            ) : (
+                                                <p>Aucune image disponible.</p>
                                             )}
                                             
                                             <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>

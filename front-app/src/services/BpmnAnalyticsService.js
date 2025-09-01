@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Configuration de base pour axios - utiliser le backend Spring Boot
-const API_URL = import.meta.env.VITE_API_BASE_URL;
+const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 
 // Création d'une instance axios avec configuration par défaut
@@ -82,6 +82,7 @@ const BpmnAnalyticsService = {
   getProcessDefinitions: async () => {
     try {
       const response = await apiClient.get('/api/analytics/process-definitions');
+      console.log(response);
       
       const result = response.data || [];
       return result;

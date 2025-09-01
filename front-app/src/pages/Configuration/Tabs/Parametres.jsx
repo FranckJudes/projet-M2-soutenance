@@ -989,6 +989,33 @@ const getResourceData = (taskId) => {
     }
   }, [isUpdateMode, sharedData]);
 
+  // État pour gérer le changement de tâche
+  const [isTaskChanging, setIsTaskChanging] = useState(false);
+
+  // Fonction pour changer de tâche de manière sécurisée
+  const changeTaskSafely = useCallback(async (newTask) => {
+    setIsTaskChanging(true);
+    
+    if (selectedEvent) {
+      await saveCurrentTaskConfig();
+    }
+
+    informationGeneralRef.current?.reset();
+    habilitationRef.current?.reset();
+    planificationRef.current?.reset();
+    ressourceRef.current?.reset();
+    notificationsRef.current?.reset();
+
+    setSelectedEvent(newTask);
+    setIsTaskChanging(false);
+  }, [selectedEvent]);
+
+  // Fonction pour sauvegarder la configuration de la tâche actuelle
+  const saveCurrentTaskConfig = useCallback(async () => {
+    if (!selectedEvent || isTaskChanging) return;
+ 
+  }, [selectedEvent, isTaskChanging]);
+
   // MODIFICATION DES TAB ITEMS avec les références
   const tabItems = [
     { 

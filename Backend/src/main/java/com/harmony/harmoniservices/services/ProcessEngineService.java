@@ -94,12 +94,19 @@ public class ProcessEngineService {
                                            ProcessMetadataDTO processMetadata, String deployedBy, boolean deployToEngine, boolean forceCreate) {
         try {
           
-            // Convert DTOs to entities
+            // Convert DTOs to entities with proper assignment mapping
             List<TaskConfiguration> configurations = taskConfigurations.stream()
-                    .map(dto -> modelMapper.map(dto, TaskConfiguration.class))
+                    .map(dto -> {
+                        TaskConfiguration config = modelMapper.map(dto, TaskConfiguration.class);
+                        config.setId(null); 
+                        config.setAssigneeUser(dto.getAssigneeUser());
+                        config.setAssigneeGroup(dto.getAssigneeGroup());
+                        config.setAssigneeEntity(dto.getAssigneeEntity());
+                        return config;
+                    })
                     .collect(Collectors.toList());
 
-            System.out.println("========Configurations:============ " + configurations);
+            System.out.println("========Configurations GALALL:============ " + configurations);
 
             // Transform BPMN XML to add userTask configuration
             String transformedBpmn = bpmnTransformationService.transformBpmnWithConfigurations(bpmnXml, configurations);
@@ -255,94 +262,25 @@ public class ProcessEngineService {
 
             processDefinition = processDefinitionRepository.save(processDefinition);
 
-            // Sauvegarder les métadonnées générales du processus
-            if (processMetadata != null) {
-                log.info("Saving process metadata for process: {}", processDefinition.getProcessDefinitionKey());
-
-                // Mettre à jour les métadonnées générales
-                processDefinition.setProcessName(processMetadata.getProcessName());
-                processDefinition.setProcessDescription(processMetadata.getProcessDescription());
-                processDefinition.setProcessTags(processMetadata.getProcessTags() != null ?
-                processMetadata.getProcessTags() : new ArrayList<>());
-
-                // Sauvegarder les images multiples sur le système de fichiers
-                if (processMetadata.getImages() != null && !processMetadata.getImages().isEmpty()) {
-                    List<String> imagePaths = saveImagesToFileSystem(processKey, processMetadata.getImages());
-                    log.info("Images saved to filesystem with {} paths", imagePaths.size());
-
-                    // Gérer correctement la collection pour éviter les erreurs d'orphan removal
-                    if (processDefinition.getImages() == null) {
-                        processDefinition.setImages(new ArrayList<>());
-                    } else {
-                        // Vider la collection existante pour éviter les erreurs d'orphan removal
-                        processDefinition.getImages().clear();
-                    }
-                    
-                    // Créer les entités ProcessImage avec les chemins des fichiers
-                    int displayOrder = 0;
-
-                    for (int i = 0; i < processMetadata.getImages().size(); i++) {
-                        ProcessImageDTO imageDto = processMetadata.getImages().get(i);
-                        String imagePath = imagePaths.get(i);
-
-                        ProcessImage processImage = ProcessImage.builder()
-                                .processDefinition(processDefinition)
-                                .fileName(imageDto.getFileName())
-                                .originalFileName(imageDto.getOriginalFileName())
-                                .contentType(imageDto.getContentType())
-                                .fileSize(imageDto.getFileSize())
-                                .description(imageDto.getDescription())
-                                .filePath(imagePath) // Stocker le chemin au lieu des données binaires
-                                .displayOrder(displayOrder++)
-                                .build();
-
-                        processDefinition.getImages().add(processImage);
-                    }
-                } else {
-                    // Si pas d'images, vider la collection existante
-                    if (processDefinition.getImages() != null) {
-                        processDefinition.getImages().clear();
-                    }
-                }
-
-                // Sauvegarder à nouveau avec les métadonnées
-                processDefinition = processDefinitionRepository.save(processDefinition);
-                log.info("Process metadata saved successfully with {} tags and {} images",
-                    processDefinition.getProcessTags().size(),
-                    processDefinition.getImages().size());
-            }
+            // Save configurations with proper assignment values
             for (TaskConfiguration config : configurations) {
                 config.setProcessDefinitionKey(processKey);
                 
-                // Vérifier si une configuration existe déjà pour ce processDefinitionKey et taskId
                 Optional<TaskConfiguration> existingConfig = taskConfigurationRepository
                     .findByProcessDefinitionKeyAndTaskId(processKey, config.getTaskId());
                 
                 if (existingConfig.isPresent()) {
-                    // Mettre à jour la configuration existante
+                    // Update only assignment fields to preserve other data
                     TaskConfiguration existing = existingConfig.get();
-                    log.info("Updating existing task configuration for task: {} in process: {}", 
-                            config.getTaskId(), processKey);
-                    
-                    // Conserver l'ID de la configuration existante
-                    config.setId(existing.getId());
-                }
-                
-                // Sauvegarder la configuration (nouvelle ou mise à jour)
-                taskConfigurationRepository.save(config);
-                
-                // Ensure assignees exist in Camunda identity system
-                if (config.getAssigneeUser() != null) {
-                    camundaIdentityService.ensureUserExists(config.getAssigneeUser());
-                }
-                if (config.getAssigneeGroup() != null) {
-                    camundaIdentityService.ensureGroupExists(config.getAssigneeGroup());
-                }
-                if (config.getResponsibleUser() != null) {
-                    camundaIdentityService.ensureUserExists(config.getResponsibleUser());
-                }
-                if (config.getInterestedUser() != null) {
-                    camundaIdentityService.ensureUserExists(config.getInterestedUser());
+                    existing.setAssigneeUser(config.getAssigneeUser());
+                    existing.setAssigneeGroup(config.getAssigneeGroup());
+                    existing.setAssigneeEntity(config.getAssigneeEntity());
+                    existing.setAssigneeType(config.getAssigneeType());
+                    log.info("========================Updating existing config for task {} with assigneeUser: {}", config.getTaskId(), config.getAssigneeUser());
+                    taskConfigurationRepository.save(existing);
+                } else {
+                    log.info("========================Creating new config for task {} with assigneeUser: {}", config.getTaskId(), config.getAssigneeUser());
+                    taskConfigurationRepository.save(config);
                 }
             }
 
@@ -1043,7 +981,7 @@ public class ProcessEngineService {
             factory.setNamespaceAware(true);
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document document = builder.parse(new InputSource(new StringReader(bpmnXml)));
-            
+
             // Essayer d'abord de trouver le nom dans les attributs du processus
             NodeList processes = document.getElementsByTagNameNS("http://www.omg.org/spec/BPMN/20100524/MODEL", "process");
             if (processes.getLength() > 0) {
