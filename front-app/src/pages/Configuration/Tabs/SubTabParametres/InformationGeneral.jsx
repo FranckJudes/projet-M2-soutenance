@@ -52,7 +52,19 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
   
   // Effet pour charger ou initialiser la configuration de la tâche sélectionnée
   useEffect(() => {
-    if (selectedTask) {
+    let isCurrent = true;
+    
+    const loadConfig = async () => {
+      if (!selectedTask) {
+        setTaskConfig(null);
+        return;
+      }
+      
+      // Petit délai pour éviter les conflits de changement rapide
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      if (!isCurrent) return;
+      
       console.log('Tâche sélectionnée dans InformationGeneral:', selectedTask);
       
       // Charger la configuration existante depuis le localStorage
@@ -61,19 +73,21 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
       if (savedConfig) {
         try {
           const config = JSON.parse(savedConfig);
-          setTaskConfig(config);
+          if (isCurrent) setTaskConfig(config);
         } catch (error) {
           console.error('Erreur lors du parsing de la configuration:', error);
-          initializeNewConfig();
+          if (isCurrent) initializeNewConfig();
         }
-      } else {
-        // Initialiser une nouvelle configuration
+      } else if (isCurrent) {
         initializeNewConfig();
       }
-    } else {
-      // Réinitialiser l'état si aucune tâche n'est sélectionnée
-      setTaskConfig(null);
-    }
+    };
+    
+    loadConfig();
+    
+    return () => {
+      isCurrent = false;
+    };
   }, [selectedTask]);
   
   // Fonction pour initialiser une nouvelle configuration

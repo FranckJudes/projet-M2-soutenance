@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import Main from "../../layout/Main";
-import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer } from 'antd';
+import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer, Carousel } from 'antd';
 import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import Acteur from "./Tabs/Acteur";
 import General from "./Tabs/General";
@@ -10,6 +10,9 @@ import Model from "./Tabs/Model";
 import Taches from "./Tabs/Taches";
 import { styles } from "../../utils/styles";
 import BpmnModelService from "../../services/BpmnModelService";
+import ProcessEngineService from "../../services/ProcessEngineService";
+
+const API_URL = import.meta.env.VITE_BASE_SERVICE_HARMONI;
 
 const Configuration = () => {
     const { t } = useTranslation();
@@ -76,14 +79,7 @@ const Configuration = () => {
     }, []);
 
     const handleUpdateProcessData = (processData) => {
-        console.log('🔍 CONFIGURATION - Réception des données de General:', processData);
-        console.log('🔍 CONFIGURATION - Données détaillées:', {
-            processName: processData.processName,
-            processDescription: processData.processDescription,
-            processTags: processData.processTags,
-            processImagesCount: processData.processImages?.length || 0,
-            hasImages: processData.processImages && processData.processImages.length > 0
-        });
+       
 
         setSharedData(prev => {
             const newSharedData = {
@@ -93,15 +89,9 @@ const Configuration = () => {
                     ...processData
                 }
             };
-
-            console.log('🔍 CONFIGURATION - sharedData mis à jour:', {
-                processData: newSharedData.processData
-            });
-
             return newSharedData;
         });
 
-        console.log('🔍 CONFIGURATION - Mise à jour terminée');
     };
 
     const handleSaveSuccess = (data) => {
@@ -138,7 +128,6 @@ const Configuration = () => {
             setDeployedProcesses(response.data);
             setError(null);
         } catch (err) {
-            console.error("Error fetching deployed processes:", err);
             setError("Failed to load deployed processes. Please try again later.");
         } finally {
             setProcessesLoading(false);
@@ -153,7 +142,6 @@ const Configuration = () => {
             setMyProcessInstances(response.data);
             setError(null);
         } catch (err) {
-            console.error("Error fetching my process instances:", err);
             setError("Failed to load process instances. Please try again later.");
         } finally {
             setInstancesLoading(false);
@@ -168,8 +156,8 @@ const Configuration = () => {
     const startProcessInstance = async (processKey) => {
         setStartingProcess(processKey);
         try {
-            const response = await BpmnModelService.startProcessInstance(processKey);
-            message.success(`Instance de processus démarrée: ${response.instanceId}`);
+            await ProcessEngineService.startProcess(processKey);
+            message.success(`Instance de processus démarrée`);
         } catch (err) {
             message.error("Erreur lors du démarrage du processus: " + (err.response?.data || err.message));
         } finally {
@@ -227,7 +215,6 @@ const Configuration = () => {
                 }, 300);
             })
             .catch(error => {
-                console.error("Erreur lors du chargement du modèle BPMN:", error);
                 message.error(t("Erreur lors du chargement du modèle BPMN"));
                 setIsUpdateMode(false);
                 setSelectedBpmnId(null);
@@ -293,13 +280,13 @@ const Configuration = () => {
             width: '18%'
         },
         {
-            title: 'Déploiement',
+            title: 'Date de création',
             key: 'deployment',
             render: (_, record) => (
                 <div>
-                    <div style={{ fontSize: '12px' }}>
+                    {/* <div style={{ fontSize: '12px' }}>
                         Version: {record.version || record.camundaVersion || 'N/A'}
-                    </div>
+                    </div> */}
                     <div style={{ fontSize: '12px', color: '#666' }}>
                         {record.deployedAt ? new Date(record.deployedAt).toLocaleDateString('fr-FR') : 'Date inconnue'}
                     </div>
@@ -347,8 +334,8 @@ const Configuration = () => {
         },
         {
             title: 'Mots-clés',
-            dataIndex: 'tags',
-            key: 'tags',
+            dataIndex: 'processTags',
+            key: 'processTags',
             render: (tags) => (
                 <div style={{ maxWidth: '100px' }}>
                     {tags && tags.length > 0 ? (
@@ -561,7 +548,7 @@ const Configuration = () => {
                                 
                                 {/* Drawer pour afficher les détails du processus sélectionné */}
                                 <Drawer
-                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.name || selectedProcess.processDefinitionKey}` : "Détails du processus"}
+                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.processName || selectedProcess.processDefinitionKey}` : "Détails du processus"}
                                     placement="right"
                                     closable={true}
                                     onClose={closeDrawer}
@@ -571,11 +558,10 @@ const Configuration = () => {
                                     {selectedProcess && (
                                         <div>
                                             <h3>Informations générales</h3>
-                                            <p><strong>Nom:</strong> {selectedProcess.name || "Non défini"}</p>
-                                            <p><strong>Clé:</strong> {selectedProcess.processDefinitionKey}</p>
-                                            <p><strong>Description:</strong> {selectedProcess.description || "Pas de description"}</p>
+                                            <p><strong>Nom:</strong> {selectedProcess.processName || "Non défini"}</p>
+                                            <p><strong>Description:</strong> {selectedProcess.processDescription || "Pas de description"}</p>
                                             <p><strong>Version:</strong> {selectedProcess.version || selectedProcess.camundaVersion || "N/A"}</p>
-                                            <p><strong>Déployé le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
+                                            <p><strong>Crée le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
                                             <p><strong>Statut:</strong> {selectedProcess.suspended ? "Suspendu" : "Actif"}</p>
                                             
                                             <h3>Instances</h3>
@@ -601,6 +587,25 @@ const Configuration = () => {
                                                         ))}
                                                     </div>
                                                 </>
+                                            )}
+                                            
+                                            {selectedProcess.images && selectedProcess.images.length > 0 ? (
+                                                <div>
+                                                    <h3>Images</h3>
+                                                    <Carousel autoplay>
+                                                        {selectedProcess.images.map((image, index) => (
+                                                            <div key={index}>
+                                                                <img
+                                                                    src={ `${API_URL}/api/process-engine/files${image.filePath || ''}` || 'default-image-path' }
+                                                                    alt={image.description || 'Process image'}
+                                                                    style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </Carousel>
+                                                </div>
+                                            ) : (
+                                                <p>Aucune image disponible.</p>
                                             )}
                                             
                                             <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
@@ -649,7 +654,6 @@ const Configuration = () => {
                                                             message.error("Veuillez remplir tous les champs obligatoires");
                                                             return;
                                                         }
-                                                        console.log("✅ CONFIGURATION - Données General sauvegardées lors du passage à l'étape suivante");
                                                     }
                                                 }
                                                 
@@ -680,7 +684,6 @@ const Configuration = () => {
                                                         
                                                         message.success("Modèle BPMN analysé avec succès");
                                                     } catch (error) {
-                                                        console.error("Erreur lors de l'analyse du modèle BPMN:", error);
                                                         message.error("Erreur lors de l'analyse du modèle BPMN");
                                                         return;
                                                     }

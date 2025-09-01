@@ -104,77 +104,52 @@ public class BpmnTransformationService {
     private void applyConfigurationToUserTask(UserTask userTask, TaskConfiguration config) {
         log.info("Application de la configuration à la tâche: {} avec config: {}", userTask.getId(), config);
         
-        // Gestion de l'assignation flexible selon le type
+        // Gestion de l'assignation stricte selon le type
         String assigneeType = config.getAssigneeType();
         log.info("Type d'assignation détecté: {}", assigneeType);
         
-        if ("user".equals(assigneeType) && config.getAssigneeUser() != null) {
-            // Assignation utilisateur
-            String camundaUserId = camundaIdentityService.getCamundaId(config.getAssigneeUser());
-            if (camundaUserId == null) {
-                log.error("ERREUR: Mapping Camunda manquant pour l'utilisateur {}. Synchronisation requise.", config.getAssigneeUser());
-                throw new RuntimeException("Mapping Camunda manquant pour l'utilisateur: " + config.getAssigneeUser());
-            }
-            userTask.setCamundaAssignee(camundaUserId);
-            log.info("Assignation utilisateur: {} -> {}", config.getAssigneeUser(), camundaUserId);
-            
-        } else if ("group".equals(assigneeType) && config.getAssigneeGroup() != null) {
-            // Assignation groupe
-            String camundaGroupId = camundaIdentityService.getCamundaId(config.getAssigneeGroup());
-            if (camundaGroupId == null) {
-                log.error("ERREUR: Mapping Camunda manquant pour le groupe {}. Synchronisation requise.", config.getAssigneeGroup());
-                throw new RuntimeException("Mapping Camunda manquant pour le groupe: " + config.getAssigneeGroup());
-            }
-            userTask.setCamundaCandidateGroups(camundaGroupId);
-            log.info("Assignation groupe: {} -> {}", config.getAssigneeGroup(), camundaGroupId);
-            
-        } else if ("entity".equals(assigneeType) && config.getAssigneeEntity() != null) {
-            // Assignation entité (traitée comme un groupe spécial)
-            String camundaEntityId = camundaIdentityService.getCamundaId(config.getAssigneeEntity());
-            if (camundaEntityId == null) {
-                log.error("ERREUR: Mapping Camunda manquant pour l'entité {}. Synchronisation requise.", config.getAssigneeEntity());
-                throw new RuntimeException("Mapping Camunda manquant pour l'entité: " + config.getAssigneeEntity());
-            }
-            userTask.setCamundaCandidateGroups(camundaEntityId);
-            log.info("Assignation entité: {} -> {}", config.getAssigneeEntity(), camundaEntityId);
-            
-        } else {
-            // Assignation par défaut ou multiple
-            boolean hasAssignment = false;
-            
-            // Assignation utilisateur (priorité la plus haute)
+        if (assigneeType.equals("user")) {
             if (config.getAssigneeUser() != null) {
                 String camundaUserId = camundaIdentityService.getCamundaId(config.getAssigneeUser());
                 if (camundaUserId != null) {
                     userTask.setCamundaAssignee(camundaUserId);
-                    log.info("Assignation utilisateur par défaut: {} -> {}", config.getAssigneeUser(), camundaUserId);
-                    hasAssignment = true;
+                    log.info("Assignation utilisateur stricte: {} -> {}", config.getAssigneeUser(), camundaUserId);
+                } else {
+                    log.error("Utilisateur non trouvé en Camunda pour assigneeUser: {}", config.getAssigneeUser());
+                    throw new IllegalArgumentException("Assignee user not found in Camunda");
                 }
+            } else {
+                log.warn("Aucune assignation utilisateur spécifiée pour assigneeType 'user'");
+                // Optionnellement, ne pas assigner ou gérer l'erreur
             }
-            
-            // Assignation groupe (si pas d'utilisateur)
-            if (!hasAssignment && config.getAssigneeGroup() != null) {
+        } else if (assigneeType.equals("group")) {
+            if (config.getAssigneeGroup() != null) {
                 String camundaGroupId = camundaIdentityService.getCamundaId(config.getAssigneeGroup());
                 if (camundaGroupId != null) {
                     userTask.setCamundaCandidateGroups(camundaGroupId);
-                    log.info("Assignation groupe par défaut: {} -> {}", config.getAssigneeGroup(), camundaGroupId);
-                    hasAssignment = true;
+                    log.info("Assignation groupe stricte: {} -> {}", config.getAssigneeGroup(), camundaGroupId);
+                } else {
+                    log.error("Groupe non trouvé en Camunda pour assigneeGroup: {}", config.getAssigneeGroup());
+                    throw new IllegalArgumentException("Assignee group not found in Camunda");
                 }
+            } else {
+                log.warn("Aucune assignation groupe spécifiée pour assigneeType 'group'");
             }
-            
-            // Assignation entité (si pas d'utilisateur ni groupe)
-            if (!hasAssignment && config.getAssigneeEntity() != null) {
+        } else if (assigneeType.equals("entity")) {
+            if (config.getAssigneeEntity() != null) {
                 String camundaEntityId = camundaIdentityService.getCamundaId(config.getAssigneeEntity());
                 if (camundaEntityId != null) {
                     userTask.setCamundaCandidateGroups(camundaEntityId);
-                    log.info("Assignation entité par défaut: {} -> {}", config.getAssigneeEntity(), camundaEntityId);
-                    hasAssignment = true;
+                    log.info("Assignation entité stricte: {} -> {}", config.getAssigneeEntity(), camundaEntityId);
+                } else {
+                    log.error("Entité non trouvée en Camunda pour assigneeEntity: {}", config.getAssigneeEntity());
+                    throw new IllegalArgumentException("Assignee entity not found in Camunda");
                 }
+            } else {
+                log.warn("Aucune assignation entité spécifiée pour assigneeType 'entity'");
             }
-            
-            if (!hasAssignment) {
-                log.warn("Aucune assignation valide trouvée pour la tâche {}", userTask.getId());
-            }
+        } else {
+            log.warn("Type d'assignation non reconnu: {}, aucune assignation appliquée", config.getAssigneeType());
         }
         
         // Set task name if configured

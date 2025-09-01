@@ -2,12 +2,13 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Installer les dépendances système nécessaires pour PM4Py
+# Installer les dépendances système nécessaires pour PM4Py et matplotlib
 RUN apt-get update && apt-get install -y \
     graphviz \
     graphviz-dev \
     pkg-config \
     build-essential \
+    python3-tk \
     && rm -rf /var/lib/apt/lists/*
 
 # Copier les fichiers de dépendances

@@ -392,7 +392,7 @@ function Dashboard() {
                   <Clock size={20} />
                   Mes tâches récentes
                 </h2>
-                <Link to="/tasks" className="view-all">Voir tout</Link>
+                <Link to="/todo" className="view-all">Voir tout</Link>
               </div>
               <div className="widget-content">
                 {tasks.length === 0 ? (

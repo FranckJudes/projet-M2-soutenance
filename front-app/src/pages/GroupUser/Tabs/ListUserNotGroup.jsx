@@ -34,6 +34,13 @@ const ListUserNotGroup = () => {
     // Définition des colonnes pour le tableau antd
     const columns = [
         {
+            title: '#',
+            key: 'index',
+            render: (_, __, index) => index + 1,
+            width: 60
+        },
+      
+        {
             title: 'Nom',
             key: 'name',
             render: (_, record) => `${record.firstName || ''} ${record.lastName || ''}`,
@@ -46,8 +53,14 @@ const ListUserNotGroup = () => {
         {
             title: 'Username',
             dataIndex: 'username',
-            key: 'username',
-        }
+            render: (_, record) => `${record.firstName || ''} `,
+        },
+        {
+            title: 'Date création',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (date) => date ? new Date(date).toLocaleDateString() : '-'
+        },
     ];
 
     return (

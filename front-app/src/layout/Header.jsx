@@ -52,7 +52,7 @@ class Header extends Component{
                             <a href="profile.html" className="dropdown-item has-icon"> <i className="far
                                                         fa-user" /> Profile
                             </a>
-                            <Link to="/kanban" className="dropdown-item has-icon">
+                            <Link to="/todo" className="dropdown-item has-icon">
                                 <i className="fas fa-tasks" /> Mes tâches
                             </Link>
                             <Link to="/notifications" className="dropdown-item has-icon">

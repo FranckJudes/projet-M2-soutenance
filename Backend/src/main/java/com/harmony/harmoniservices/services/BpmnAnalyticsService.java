@@ -49,8 +49,8 @@ public class BpmnAnalyticsService {
             return response.getBody();
             
         } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("Error calling process discovery service: {}", e.getMessage());
-            throw new RuntimeException("Failed to perform process discovery: " + e.getMessage());
+            log.error("Error calling process discovery service: {} - Response body: {}", e.getMessage(), e.getResponseBodyAsString());
+            throw new RuntimeException("Failed to perform process discovery: " + e.getMessage() + " - Response: " + e.getResponseBodyAsString());
         } catch (Exception e) {
             log.error("Unexpected error in process discovery", e);
             throw new RuntimeException("Unexpected error in process discovery: " + e.getMessage());

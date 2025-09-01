@@ -54,40 +54,66 @@ const AdvancedAnalytics = () => {
     if (!dto) return null;
     const variants = Array.isArray(dto.variants)
       ? dto.variants.map(v => ({
-          variant: Array.isArray(v.activities) ? v.activities.join(' → ') : '',
-          activities: v.activities || [],
+          variant: v.variant || (Array.isArray(v.activities) ? v.activities.join(' → ') : ''),
+          activities: v.activities || v.variant?.split(',') || [],
           count: v.count ?? 0,
-          percentage: (v.frequency ?? 0) * 100,
+          percentage: v.percentage ?? (v.frequency ?? 0) * 100,
           averageDuration: v.averageDuration ?? 0,
         }))
       : [];
+    
+    // Use the case_statistics from the response if available, otherwise calculate from variants
+    const stats = dto.case_statistics || {};
     return {
       variants,
       case_statistics: {
-        total_cases: variants.reduce((acc, v) => acc + (v.count || 0), 0),
-        median_duration: 0,
-        min_duration: 0,
-        max_duration: 0,
-        case_duration_image: null,
+        total_cases: stats.total_cases ?? variants.reduce((acc, v) => acc + (v.count || 0), 0),
+        median_duration: stats.median_duration ?? 0,
+        min_duration: stats.min_duration ?? 0,
+        max_duration: stats.max_duration ?? 0,
+        case_duration_image: stats.case_duration_image ?? null,
       },
     };
   };
 
   const transformBottleneckResponse = (dto) => {
     if (!dto) return null;
+    
+    // Handle bottlenecks data from the Python service
     const bottlenecks = Array.isArray(dto.bottlenecks)
       ? dto.bottlenecks.map(b => ({
           activity: b.activity,
-          sojourn_time: b.averageWaitingTime ?? 0,
+          sojourn_time: b.sojourn_time ?? b.averageWaitingTime ?? 0,
           resource_utilization: b.resourceUtilization ?? null,
           frequency: b.frequency ?? null,
           severity: b.severity ?? null,
         }))
       : [];
+      
+    // If no bottlenecks but we have sojourn_times, create bottlenecks from that
+    if (bottlenecks.length === 0 && dto.sojourn_times) {
+      const activities = Object.keys(dto.sojourn_times);
+      const times = activities.map(act => dto.sojourn_times[act]);
+      
+      // Sort activities by sojourn time (descending)
+      const sortedIndices = times.map((t, i) => i)
+        .sort((a, b) => times[b] - times[a]);
+      
+      // Take top 5 bottlenecks
+      for (let i = 0; i < Math.min(5, sortedIndices.length); i++) {
+        const idx = sortedIndices[i];
+        bottlenecks.push({
+          activity: activities[idx],
+          sojourn_time: times[idx],
+          severity: (i === 0) ? 'high' : (i < 3 ? 'medium' : 'low')
+        });
+      }
+    }
+    
     return {
       bottlenecks,
-      sojourn_time_image: null,
-      sorted_sojourn_image: null,
+      sojourn_time_image: dto.sojourn_time_image ?? null,
+      sorted_sojourn_image: dto.sorted_sojourn_image ?? null,
     };
   };
 
@@ -108,44 +134,92 @@ const AdvancedAnalytics = () => {
 
   const transformPredictionResponse = (dto, logs, selectedCaseId) => {
     if (!dto) return null;
-    const predictions = Array.isArray(dto.predictions) ? dto.predictions : [];
-    const chosen = predictions.find(p => (p.caseId === selectedCaseId)) || predictions[0] || null;
-    const perCaseDur = computeCaseDurations(logs);
-    const currentSec = selectedCaseId ? (perCaseDur.get(selectedCaseId) || 0) : 0;
-    // On suppose que predictedCompletionTime est en secondes
-    const predictedTotal = chosen?.predictedCompletionTime ?? 0;
-
-    // Moyenne calculée à partir des logs si non fournie par le modèle
-    const values = Array.from(perCaseDur.values());
-    const avgFromLogs = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-    const averageDuration = dto.modelMetrics?.averageDuration ?? avgFromLogs;
-
-    const remaining = Math.max(0, (predictedTotal || 0) - currentSec);
-    const delayRisk = averageDuration ? (predictedTotal > averageDuration * 1.1) : false;
-
+    
+    // Use direct properties from the Python service response if available
+    const caseId = dto.case_id || selectedCaseId;
+    const currentDuration = dto.current_duration ?? 0;
+    const predictedRemainingDuration = dto.predicted_remaining_duration ?? 0;
+    const predictedTotalDuration = dto.predicted_total_duration ?? (currentDuration + predictedRemainingDuration);
+    const averageDuration = dto.average_duration ?? 0;
+    const delayRisk = dto.delay_risk ?? false;
+    const comparisonImage = dto.comparison_image ?? null;
+    const similarCasesCount = dto.similar_cases_count ?? 0;
+    
+    // If we don't have direct properties, try to compute from logs and predictions array
+    if (!dto.case_id && !dto.current_duration) {
+      const predictions = Array.isArray(dto.predictions) ? dto.predictions : [];
+      const chosen = predictions.find(p => (p.caseId === selectedCaseId)) || predictions[0] || null;
+      const perCaseDur = computeCaseDurations(logs);
+      const currentSec = selectedCaseId ? (perCaseDur.get(selectedCaseId) || 0) : 0;
+      
+      // Use computed values as fallbacks
+      const predictedTotal = chosen?.predictedCompletionTime ?? 0;
+      
+      // Moyenne calculée à partir des logs si non fournie par le modèle
+      const values = Array.from(perCaseDur.values());
+      const avgFromLogs = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+      const avgDur = dto.modelMetrics?.averageDuration ?? avgFromLogs;
+      
+      const remaining = Math.max(0, (predictedTotal || 0) - currentSec);
+      const riskOfDelay = avgDur ? (predictedTotal > avgDur * 1.1) : false;
+      
+      return {
+        case_id: chosen?.caseId || selectedCaseId || null,
+        current_duration: currentSec,
+        predicted_remaining_duration: remaining,
+        predicted_total_duration: predictedTotal,
+        average_duration: avgDur,
+        delay_risk: !!riskOfDelay,
+        comparison_image: dto.predictionChart || null,
+        similar_cases_count: dto.modelMetrics?.similarCasesCount ?? 0,
+      };
+    }
+    
+    // Return direct properties from Python service
     return {
-      case_id: chosen?.caseId || selectedCaseId || null,
-      current_duration: currentSec,
-      predicted_remaining_duration: remaining,
-      predicted_total_duration: predictedTotal,
+      case_id: caseId,
+      current_duration: currentDuration,
+      predicted_remaining_duration: predictedRemainingDuration,
+      predicted_total_duration: predictedTotalDuration,
       average_duration: averageDuration,
       delay_risk: !!delayRisk,
-      comparison_image: dto.predictionChart || null,
-      similar_cases_count: dto.modelMetrics?.similarCasesCount ?? 0,
+      comparison_image: comparisonImage,
+      similar_cases_count: similarCasesCount,
     };
   };
 
   const transformSnaResponse = (dto) => {
     if (!dto) return null;
-    const edges = Array.isArray(dto.edges) ? dto.edges : [];
-    return {
-      roles: [],
-      social_network: edges.map(e => ({
+    
+    // Handle roles data from Python service
+    const roles = Array.isArray(dto.roles) 
+      ? dto.roles 
+      : [];
+      
+    // Handle social network data from Python service
+    let networkData = [];
+    
+    // Check if we have the expected format from Python service
+    if (Array.isArray(dto.social_network)) {
+      networkData = dto.social_network.map(e => ({
+        source: e.source,
+        target: e.target,
+        value: e.value ?? 1,
+      }));
+    } 
+    // Fallback to edges format if available
+    else if (Array.isArray(dto.edges)) {
+      networkData = dto.edges.map(e => ({
         source: e.source,
         target: e.target,
         value: e.weight ?? e.value ?? 1,
-      })),
-      social_network_image: dto.networkChart || null,
+      }));
+    }
+    
+    return {
+      roles,
+      social_network: networkData,
+      social_network_image: dto.social_network_image ?? dto.networkChart ?? null,
     };
   };
 
@@ -174,33 +248,21 @@ const AdvancedAnalytics = () => {
       
       try {
         // 1. Test de connectivité d'abord
-        console.log('🚀 Début du diagnostic analytics...');
-        console.log('🧪 Test de connectivité backend...');
         
-        await BpmnAnalyticsService.testConnection();
-        console.log('✅ Backend accessible');
         
         // 2. Chargement des définitions de processus
-        console.log('📋 Chargement des définitions de processus...');
         const data = await BpmnAnalyticsService.getProcessDefinitions();
-        console.log('📄 Données brutes reçues:', data);
         
         const normalized = normalizeProcessDefinitions(data);
-        console.log('🔄 Données normalisées:', normalized);
         
         setProcessDefinitions(normalized);
         if (normalized.length > 0) {
           setSelectedProcessKey(normalized[0].key);
-          console.log('🎯 Processus sélectionné:', normalized[0].key);
-          console.log('✅ Chargement réussi!');
         } else {
           const msg = 'Aucune définition de processus disponible';
-          console.warn('⚠️', msg);
           setError(msg);
         }
       } catch (error) {
-        console.error('❌ Erreur complète:', error);
-        console.error('📊 Stack trace:', error.stack);
         
         let errorMessage = 'Erreur inconnue';
         if (error.response) {
@@ -421,7 +483,7 @@ const AdvancedAnalytics = () => {
             <PerformancePredictionTab data={analysisData['performance-prediction']} loading={loading} />
           </TabPane>
           <TabPane
-            tab={<span><TeamOutlined /> Analyse du réseau social</span>}
+            tab={<span><TeamOutlined /> Analyse du réseau social (organisationnels)</span>}
             key="social-network-analysis"
           >
             <SocialNetworkAnalysisTab data={analysisData['social-network-analysis']} loading={loading} />

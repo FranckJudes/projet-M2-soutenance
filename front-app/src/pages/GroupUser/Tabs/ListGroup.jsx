@@ -23,6 +23,13 @@ const ListGroup = ({ groups = [], onEdit, onDelete }) => {
     // Définition des colonnes pour le tableau antd
     const columns = [
         {
+            title: '#',
+            key: 'index',
+            render: (_, __, index) => index + 1,
+            width: 60
+        },
+      
+        {
             title: 'Libellé',
             dataIndex: 'libeleGroupeUtilisateur',
             key: 'libeleGroupeUtilisateur',
@@ -34,10 +41,10 @@ const ListGroup = ({ groups = [], onEdit, onDelete }) => {
             render: (text) => text || <span style={{ color: '#999' }}>Aucune description</span>
         },
         {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type) => getTypeTag(type)
+            title: 'Date création',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (date) => date ? new Date(date).toLocaleDateString() : '-'
         },
         {
             title: 'Actions',

@@ -14,13 +14,19 @@ import com.harmony.harmoniservices.services.CamundaIdentityService;
 import com.harmony.harmoniservices.services.ProcessEngineService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,9 +55,23 @@ public class ProcessEngineController {
             @RequestParam(value = "forceCreate", defaultValue = "false") boolean forceCreate,
             Authentication authentication) {
         
-        System.out.println("Deploying process with configurations: " + configurationsJson);
-        System.out.println("File: " + bpmnFile); 
-        System.out.println("Metada: " + metadataJson); 
+    
+
+        // DEBUG: Vérifier les configurations reçues
+        System.out.println("=== DEBUG CONFIGURATIONS RECEIVED ===");
+
+        System.out.println("=== DEBUG CONFIGURATIONS RECEIVED ===>" + configurationsJson);
+        try {
+            List<TaskConfigurationDTO> taskConfigurations = objectMapper.readValue(
+                    configurationsJson,
+                    new TypeReference<List<TaskConfigurationDTO>>() {}
+            );
+
+           
+        } catch (Exception e) {
+            System.out.println("Error parsing configurations for debug: " + e.getMessage());
+        }
+        System.out.println("=== END DEBUG CONFIGURATIONS ==="); 
         try {
             // Validate file
             if (bpmnFile.isEmpty()) {
@@ -461,6 +481,47 @@ public class ProcessEngineController {
             log.error("Error synchronizing user: {}", userId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.fail("Failed to synchronize user: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Serve process images by file path (supports multiple image types)
+     */
+    @GetMapping("/files/{filePath:.+}")
+    public ResponseEntity<Resource> serveFile(@PathVariable String filePath) {
+        try {
+            Path file = Paths.get(filePath);
+            Resource resource = new UrlResource(file.toUri());
+            
+            if (resource.exists() || resource.isReadable()) {
+                String contentType = determineContentType(filePath);
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .body(resource);
+            } else {
+                throw new RuntimeException("Could not read file: " + filePath);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error: " + e.getMessage());
+        }
+    }
+    
+    private String determineContentType(String filename) {
+        String extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
+        switch (extension) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "svg":
+                return "image/svg+xml";
+            case "webp":
+                return "image/webp";
+            default:
+                return "application/octet-stream";
         }
     }
 }

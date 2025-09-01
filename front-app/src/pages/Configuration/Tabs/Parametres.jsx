@@ -123,12 +123,10 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
       const validation = informationGeneralRef.current.validateData();
       
       if (!validation.isValid) {
-        console.error('Données incomplètes pour la tâche actuelle:', validation.errors);
         toast.error(t('Veuillez remplir tous les champs obligatoires pour la tâche sélectionnée'));
         return false;
       }
       
-      console.log('Données valides pour la tâche actuelle:', validation.data);
       return true;
     }
     
@@ -141,13 +139,11 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
       const validation = habilitationRef.current.validateData();
       
       if (!validation.isValid) {
-        console.warn('Avertissement sur les données d\'habilitation pour la tâche actuelle:', validation.errors);
         // Afficher un avertissement mais ne pas bloquer la soumission
         toast.error(t('Certains détails du point de contrôle sont manquants mais la soumission est autorisée'));
         return true; // Permettre la soumission même avec des avertissements
       }
       
-      console.log('Données d\'habilitation valides pour la tâche actuelle:', validation.data);
       return true;
     }
     
@@ -159,7 +155,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
     if (selectedEvent && selectedEvent.id === taskId && notificationsRef.current) {
       const data = notificationsRef.current.getNotificationData();
       if (data) {
-        console.log(`Données notification récupérées depuis le composant pour ${taskId}:`, data);
         return data;
       }
     }
@@ -198,7 +193,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
           selectedReminders: config.selectedReminders || []
         };
         
-        console.log(`Données notification récupérées depuis localStorage pour ${taskId}:`, data);
         return data;
       }
     } catch (error) {
@@ -244,7 +238,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
     if (selectedEvent && selectedEvent.id === taskId && informationGeneralRef.current) {
       const data = informationGeneralRef.current.getInformationData();
       if (data) {
-        console.log(`Données information récupérées depuis le composant pour ${taskId}:`, data);
         return data;
       }
     }
@@ -260,7 +253,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
           expectedDeliverable: config.results || '',
           category: config.category || null
         };
-        console.log(`Données information récupérées depuis localStorage pour ${taskId}:`, data);
         return data;
       }
     } catch (error) {
@@ -281,7 +273,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
     if (selectedEvent && selectedEvent.id === taskId && planificationRef.current) {
       const data = planificationRef.current.getPlanificationData();
       if (data) {
-        console.log(`Données planification récupérées depuis le composant pour ${taskId}:`, data);
         return data;
       }
     }
@@ -326,7 +317,6 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
           planBOuTacheAlternative: config.planBOuTacheAlternative || false
         };
         
-        console.log(`Données planification récupérées depuis localStorage pour ${taskId}:`, data);
         return data;
       }
     } catch (error) {
@@ -370,7 +360,6 @@ const getResourceData = (taskId) => {
   if (selectedEvent && selectedEvent.id === taskId && ressourceRef.current) {
     const data = ressourceRef.current.getResourceData();
     if (data) {
-      console.log(`Données ressource récupérées depuis le composant pour ${taskId}:`, data);
       return data;
     }
   }
@@ -412,7 +401,6 @@ const getResourceData = (taskId) => {
         downloadOriginalFormat: config.download_original_format || false
       };
       
-      console.log(`Données ressource récupérées depuis localStorage pour ${taskId}:`, data);
       return data;
     }
   } catch (error) {
@@ -456,7 +444,6 @@ const getResourceData = (taskId) => {
     if (selectedEvent && selectedEvent.id === taskId && habilitationRef.current) {
       const data = habilitationRef.current.getHabilitationData();
       if (data) {
-        console.log(`Données habilitation récupérées depuis le composant pour ${taskId}:`, data);
         return data;
       }
     }
@@ -513,7 +500,6 @@ const getResourceData = (taskId) => {
           assigneeType: assigneeType
         };
         
-        console.log(`Données habilitation récupérées depuis localStorage pour ${taskId}:`, data);
         return data;
       }
     } catch (error) {
@@ -533,7 +519,48 @@ const getResourceData = (taskId) => {
   };
  
 
-  // Fonction pour calculer les positions des nœuds avec dagre
+  // Fonction pour mapper les configurations de notification vers le format backend
+  const mapNotificationToBackend = (rawNotification) => {
+    if (!rawNotification || Object.keys(rawNotification).length === 0) {
+      return {
+        notifyOnCreation: false,
+        notifyOnDeadline: false,
+        reminderBeforeDeadline: null,
+        notificationSensitivity: 'public',
+        selectedReminders: []
+      };
+    }
+
+    // Transformer la configuration notification vers le format backend
+    let sensitivity = 'public';
+    switch (rawNotification.selectedPriority) {
+      case 1:
+        sensitivity = 'public';
+        break;
+      case 2:
+        sensitivity = 'confidential';
+        break;
+      default:
+        sensitivity = 'public';
+    }
+
+    // Extraire le premier rappel comme reminderBeforeDeadline
+    let reminderBeforeDeadline = null;
+    if (rawNotification.selectedReminders && rawNotification.selectedReminders.length > 0) {
+      const firstReminder = rawNotification.selectedReminders[0];
+      if (firstReminder && firstReminder.value) {
+        reminderBeforeDeadline = extractMinutesFromReminder(firstReminder.value);
+      }
+    }
+
+    return {
+      notifyOnCreation: rawNotification.notificationByAttribution || false,
+      notifyOnDeadline: rawNotification.alertEscalade || false,
+      reminderBeforeDeadline: reminderBeforeDeadline,
+      notificationSensitivity: sensitivity,
+      selectedReminders: rawNotification.selectedReminders || []
+    };
+  };
   const calculateLayout = useCallback((nodes, edges, direction) => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -877,17 +904,10 @@ const getResourceData = (taskId) => {
     
     
     if (sharedData && sharedData.processElements) {
-      
-      
-      // Extraire les éléments BPMN de processElements.data si la structure est {success, message, data}
       const bpmnElements = sharedData.processElements.data ? sharedData.processElements.data : sharedData.processElements;
-   
       clearTaskConfigurationsFromLocalStorage();
-      
       setBpmnData(bpmnElements);
-    } else {
-      console.warn("Aucune donnée de diagramme trouvée dans sharedData");
-    }
+    } 
   }, [sharedData]);
 
   // Mettre à jour le diagramme lorsque les données BPMN ou la direction changent
@@ -966,10 +986,35 @@ const getResourceData = (taskId) => {
           localStorage.setItem(`task_notification_config_${taskId}`, JSON.stringify(config.notification));
         }
       });
-      
-      console.log('Configurations de tâches chargées avec succès');
     }
   }, [isUpdateMode, sharedData]);
+
+  // État pour gérer le changement de tâche
+  const [isTaskChanging, setIsTaskChanging] = useState(false);
+
+  // Fonction pour changer de tâche de manière sécurisée
+  const changeTaskSafely = useCallback(async (newTask) => {
+    setIsTaskChanging(true);
+    
+    if (selectedEvent) {
+      await saveCurrentTaskConfig();
+    }
+
+    informationGeneralRef.current?.reset();
+    habilitationRef.current?.reset();
+    planificationRef.current?.reset();
+    ressourceRef.current?.reset();
+    notificationsRef.current?.reset();
+
+    setSelectedEvent(newTask);
+    setIsTaskChanging(false);
+  }, [selectedEvent]);
+
+  // Fonction pour sauvegarder la configuration de la tâche actuelle
+  const saveCurrentTaskConfig = useCallback(async () => {
+    if (!selectedEvent || isTaskChanging) return;
+ 
+  }, [selectedEvent, isTaskChanging]);
 
   // MODIFICATION DES TAB ITEMS avec les références
   const tabItems = [
@@ -1121,20 +1166,16 @@ const getResourceData = (taskId) => {
                     }
 
                     // 2. Récupérer le XML BPMN en utilisant la même approche que handleDownloadXML
-                    console.log("Exportation du XML BPMN...");
                     let xmlContent;
                     try {
                       xmlContent = await sharedData.modelerRef.current.saveXML({ format: true });
-                      console.log('XML BPMN exporté avec succès');
                     } catch (err) {
-                      console.error('Erreur lors de l\'export XML:', err);
                       throw new Error("Erreur lors de l'export du modèle BPMN");
                     }
 
                     // Vérifier que le XML est bien récupéré
                     if (!xmlContent || !xmlContent.xml) {
-                      console.error('XML non récupéré correctement:', xmlContent);
-                      throw new Error("Format XML invalide");
+                     throw new Error("Format XML invalide");
                     }
 
 
@@ -1151,7 +1192,6 @@ const getResourceData = (taskId) => {
                               const value = localStorage.getItem(key);
                               return value ? JSON.parse(value) : {};
                             } catch (e) {
-                              console.warn(`Erreur parsing ${key}:`, e);
                               return {};
                             }
                           };
@@ -1175,6 +1215,13 @@ const getResourceData = (taskId) => {
                           const mappedCondition = mapConditionToBackend(rawCondition);
                           const mappedNotification = mapNotificationToBackend(rawNotification);
                           
+                          // DEBUG: Vérifier que les données de notification sont correctement récupérées
+                          console.log(`🔍 PARAMETRES - Tâche ${taskId} - Notification data:`, {
+                            rawNotification,
+                            notificationData,
+                            mappedNotification
+                          });
+                          
                           const taskConfig = {
                             taskId: taskId,
                             taskName: task.name || taskId,
@@ -1184,8 +1231,11 @@ const getResourceData = (taskId) => {
                             habilitation: habilitationData, // Utiliser directement les données récupérées
                             planification: planificationData, // Utiliser directement les données récupérées
                             condition: mappedCondition,
-                            notification: notificationData // Utiliser directement les données récupérées
+                            notification: mappedNotification // Utiliser la version mappée
                           };
+                          
+                          // DEBUG: Vérifier que taskConfig contient bien les notifications
+                          console.log(`🔍 PARAMETRES - TaskConfig pour ${taskId}:`, taskConfig);
                           allTaskConfigurations.push(taskConfig);
                         } catch (error) {
                           console.error(`Erreur configuration tâche ${taskId}:`, error);
@@ -1237,7 +1287,14 @@ const getResourceData = (taskId) => {
                         });
                         
                         // Transformer les configurations pour le backend Camunda
+                        console.log('🔍 PARAMETRES - Toutes les configurations avant transformation:', allTaskConfigurations);
+                        console.log('🔍 PARAMETRES - Vérification des notifications dans les configurations:');
+                        allTaskConfigurations.forEach((config, index) => {
+                          console.log(`Tâche ${index + 1} (${config.taskId}): notification =`, config.notification);
+                        });
+                        
                         const camundaConfigurations = ProcessEngineService.transformTaskConfigurations(allTaskConfigurations);
+                        console.log('🔍 PARAMETRES - Configurations après transformation Camunda:', camundaConfigurations);
                         
                         // Préparer les métadonnées générales du processus
                         const processMetadata = {
@@ -1299,27 +1356,16 @@ const getResourceData = (taskId) => {
                                             displayOrder: displayOrder++
                                         });
                                         
-                                        console.log(`🔍 PARAMETRES - Image ${displayOrder} ajoutée:`, {
-                                            fileName: fileName,
-                                            size: image instanceof File ? image.size : 0,
-                                            contentType: contentType
-                                        });
+                                       
                                     }
                                 } catch (error) {
                                     console.error(`Erreur lors de la préparation de l'image ${displayOrder + 1}:`, error);
                                 }
                             }
                             
-                            console.log("🔍 PARAMETRES - Toutes les images traitées:", {
-                                totalImages: processMetadata.images.length
-                            });
-                        } else {
-                            console.log("==========Aucune image fournie==========");
-                        }
-                       console.log("===============DEPLOYMENT================");
-                       console.log("camundaConfigurations", camundaConfigurations);
-                       console.log("===============DEPLOYMENT================");
-                       
+                          
+                        } 
+                      
                         
                         // Déployer vers Camunda avec les métadonnées
                         deploymentResponse = await ProcessEngineService.deployProcess(
@@ -1330,7 +1376,6 @@ const getResourceData = (taskId) => {
                           !isUpdateMode // forceCreate = true si ce n'est PAS un mode update
                         );
                         
-                        console.log("Processus déployé avec succès:", deploymentResponse.data);
                         toast.success(t("Processus déployé avec succès vers Camunda !"));
                         
                         // Stocker les informations de déploiement
@@ -1344,19 +1389,16 @@ const getResourceData = (taskId) => {
                           // S'abonner aux notifications de tâches
                           const userId = localStorage.getItem('userId') || 'current-user';
                           WebSocketService.subscribeToTaskAssignments(userId, (notification) => {
-                            console.log('Nouvelle assignation de tâche:', notification);
                             toast.success(`Nouvelle tâche assignée: ${notification.taskName}`);
                           });
                           
                           // S'abonner aux mises à jour de processus
                           WebSocketService.subscribeToProcessUpdates((notification) => {
-                            console.log('Mise à jour de processus:', notification);
                             if (notification.type === 'PROCESS_STARTED') {
                               toast.success(`Processus démarré: ${notification.processDefinitionKey}`);
                             }
                           });
                           
-                          console.log('Notifications WebSocket initialisées pour le processus');
                         } catch (wsError) {
                           console.warn('Erreur lors de l\'initialisation WebSocket:', wsError);
                           // Ne pas faire échouer le déploiement pour un problème WebSocket
@@ -1403,7 +1445,7 @@ const getResourceData = (taskId) => {
                         userId: localStorage.getItem('userId') || 'current-user'
                       };
                       
-                      console.log('Démarrage du processus avec variables:', processVariables);
+                      
                       
                       // Utiliser le nouveau ProcessEngineService
                       const result = await ProcessEngineService.startProcess(
@@ -1412,13 +1454,11 @@ const getResourceData = (taskId) => {
                       );
                       
                       toast.success(t("Instance de processus démarrée avec succès !"));
-                      console.log("Instance Camunda créée:", result);
                       
                       // Optionnel: rediriger vers la liste des tâches
                       // navigate('/tasks');
                       
                     } catch (error) {
-                      console.error("Erreur lors du démarrage:", error);
                       toast.error(t("Erreur lors du démarrage du processus: " + (error.message || 'Erreur inconnue')));
                     }
                   }}

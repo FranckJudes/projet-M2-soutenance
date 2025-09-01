@@ -211,8 +211,8 @@ const Groupe = () => {
                         </Col> 
                         <Col xs={24} md={16}>
                             <Card 
-                                className="shadow-sm"
-                                title="Objet Role"
+                                className="shadow-sm"   
+                                title="Paramètres"
                             >
                                 <Tabs defaultActiveKey="UserTabP">
                                     <Tabs.TabPane key="UserTabP" tab="Utilisateurs">

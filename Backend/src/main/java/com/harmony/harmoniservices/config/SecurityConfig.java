@@ -86,7 +86,7 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**","/swagger-ui/**","/v3/api-docs/**","/ws/**").permitAll()
-                .requestMatchers("/api/process-engine/deploy", "/api/process-engine/processes", "/api/process-engine/diagnose/**", "/api/process-engine/camunda-users", "/api/process-engine/test-assignment", "/api/process-engine/tasks/my-tasks", "/api/process-engine/start/**", "/api/process-engine/tasks/**").permitAll()
+                .requestMatchers("/api/process-engine/deploy", "/api/process-engine/processes", "/api/process-engine/diagnose/**", "/api/process-engine/camunda-users", "/api/process-engine/test-assignment", "/api/process-engine/tasks/my-tasks", "/api/process-engine/start/**", "/api/process-engine/tasks/**", "/api/process-engine/files/**").permitAll()
                 .requestMatchers("/api/analytics/**").authenticated()
                 .anyRequest().authenticated()
             )
