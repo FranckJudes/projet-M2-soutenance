@@ -860,10 +860,12 @@ const getResourceData = (taskId) => {
     let processes = bpmnData?.subProcesses || [];
     
     for (const item of newBreadcrumb) {
+      if (!Array.isArray(processes)) return;
+      
       currentProcess = processes.find(p => p.id === item.id);
       if (!currentProcess) return;
       
-      processes = currentProcess.subProcesses || [];
+      processes = currentProcess.subProcesses;
     }
     
     if (currentProcess) {
@@ -1049,6 +1051,38 @@ const getResourceData = (taskId) => {
   
   const connectionLineStyle = { stroke: "white" };
 
+  const handleLowerDiagramSubProcessClick = (node) => {
+    // Handle click on lower diagram subprocess
+    if (node.type === 'subProcess') {
+      // Update breadcrumb and nodes for the lower diagram
+      setLowerBreadcrumb(prev => [...prev, {
+        id: node.id,
+        name: node.data?.label || 'Subprocess'
+      }]);
+      
+      // Load subprocess nodes (replace with your actual logic)
+      const subprocessNodes = node.data?.children || [];
+      setLowerNodes(subprocessNodes);
+    }
+  };
+
+  const navigateToLowerBreadcrumbLevel = (index) => {
+    // If clicking on first breadcrumb item, return to main diagram
+    if (index === 0) {
+      setLowerBreadcrumb([]); // Clear breadcrumb
+      setLowerNodes([]); // Clear subprocess nodes
+      return;
+    }
+    
+    // Otherwise navigate to the selected subprocess level
+    const newBreadcrumb = lowerBreadcrumb.slice(0, index + 1);
+    setLowerBreadcrumb(newBreadcrumb);
+    
+    // Load nodes for the selected subprocess level
+    const currentNodes = []; // Replace with your node loading logic
+    setLowerNodes(currentNodes);
+  };
+
   return (
     <>
       <div className="row">
@@ -1077,7 +1111,7 @@ const getResourceData = (taskId) => {
                       if (lowerBreadcrumb.length > 0) {
                         handleLowerNestedSubProcessClick(node.id);
                       } else {
-                        handleLowerDiagramSubProcessClick(node.id);
+                        handleLowerDiagramSubProcessClick(node);
                       }
                     } else {
                       // Sélectionner d'autres types de nœuds

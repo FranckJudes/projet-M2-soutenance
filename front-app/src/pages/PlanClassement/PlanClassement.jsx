@@ -22,7 +22,7 @@ export default function PlanClassement(){
 
                     ]}
                 />
-                <NormalTabs items={tabItems} title="Titre du tabs" />
+                <NormalTabs items={tabItems} title="Gestion documentaire" />
         </Main>
     );
 }   

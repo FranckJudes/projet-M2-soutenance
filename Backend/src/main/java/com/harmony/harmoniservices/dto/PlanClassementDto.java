@@ -1,5 +1,8 @@
 package com.harmony.harmoniservices.dto;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PlanClassementDto {
     private Long id;
     private String codePlanClassement;
@@ -7,6 +10,7 @@ public class PlanClassementDto {
     private String descriptionPlanClassement;
     private Long parentId;
     private Integer numeroOrdre;
+    private List<PlanClassementDto> children = new ArrayList<>();
 
     // Getters and setters
     public Long getId() {
@@ -55,5 +59,13 @@ public class PlanClassementDto {
 
     public void setNumeroOrdre(Integer numeroOrdre) {
         this.numeroOrdre = numeroOrdre;
+    }
+    
+    public List<PlanClassementDto> getChildren() {
+        return children;
+    }
+
+    public void setChildren(List<PlanClassementDto> children) {
+        this.children = children;
     }
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Checkbox, Input, Radio } from '../../../../components/Input';
 import Select from 'react-select';
 import JsTree from '../../../../components/JsTree.jsx';
+import FormService from '../../../../services/FormService';
 
 const Ressource = forwardRef(({ selectedTask }, ref) => {
     const { t } = useTranslation();
@@ -10,6 +11,7 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
     const [isDisplayDoc, setIsDisplayDoc] = useState(false);
     const [isDisplayFol, setIsDisplayFol] = useState(false);
     const [taskConfig, setTaskConfig] = useState(null);
+    const [formsList, setFormsList] = useState([]);
     const initialRender = useRef(true);
     const selectedNodeRef = useRef(null);
 
@@ -202,7 +204,8 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
             download_original_format: false,
             // Sections communes supplémentaires
             scriptRegleMetier: false,
-            addFormResource: false
+            addFormResource: false,
+            selectedForm: ''
         };
         
         setTaskConfig(initialConfig);
@@ -219,6 +222,28 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
     // Marquer le premier rendu comme terminé
     useEffect(() => {
         initialRender.current = false;
+    }, []);
+
+    useEffect(() => {
+        const fetchForms = async () => {
+            try {
+                const response = await FormService.getAllForms();
+                if (response.data && response.data.success && response.data.data) {
+                    setForms(response.data.data);
+                } else {
+                    const errorMsg = response.data?.message || t("Error loading forms");
+                    message.error(errorMsg);
+                }
+            } catch (error) {
+                console.error("Error loading forms:", error);
+                const errorMsg = error.response?.data?.message || t("Error loading forms");
+                message.error(errorMsg);
+            } finally {
+                setLoading(false);
+            }
+        };
+        
+        fetchForms();
     }, []);
 
     const handleCheckAttachement = () => {
@@ -373,6 +398,13 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
             type: 1 // 1 = file
         }
     ], []);
+
+    // Liste des formulaires (à remplacer par une API ou une source de données réelle)
+    // const formsList = [
+    //     { id: 1, name: 'Formulaire 1' },
+    //     { id: 2, name: 'Formulaire 2' },
+    //     { id: 3, name: 'Formulaire 3' },
+    // ];
 
     // Si aucune tâche n'est sélectionnée, afficher un message
     if (!selectedTask) {
@@ -635,18 +667,53 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
                                 disabled={!selectedTask}
                             />
                         ) : (
-                            <div className="custom-control custom-checkbox">
-                              <input 
-                                type="checkbox" 
-                                className="custom-control-input" 
-                                id={`id_${section.field}`}
-                                checked={taskConfig && taskConfig[section.field] || false}
-                                onChange={(e) => handleCheckboxChange(section.field, e.target.checked)}
-                                disabled={!selectedTask}
-                              />
-                              <label className="custom-control-label" htmlFor={`id_${section.field}`}>
-                                {section.radioLabel}
-                              </label>
+                            <div>
+                                {section.field === 'addFormResource' && (
+                                    <>
+                                        <div className="custom-control custom-checkbox">
+                                          <input 
+                                            type="checkbox" 
+                                            className="custom-control-input" 
+                                            id={`id_${section.field}`}
+                                            checked={taskConfig && taskConfig[section.field] || false}
+                                            onChange={(e) => handleCheckboxChange(section.field, e.target.checked)}
+                                            disabled={!selectedTask}
+                                          />
+                                          <label className="custom-control-label" htmlFor={`id_${section.field}`}>
+                                            {section.radioLabel}
+                                          </label>
+                                        </div>
+                                        {taskConfig?.addFormResource && (
+                                            <select 
+                                                className="form-control mt-2"
+                                                value={taskConfig?.selectedForm || ''}
+                                                onChange={(e) => {
+                                                  handleInputChange('selectedForm', e.target.value);
+                                                }}
+                                            >
+                                                <option value="">Select a form</option>
+                                                {Array.isArray(formsList) && formsList.map(form => (
+                                                    <option key={form.id} value={form.id}>{form.nom}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </>
+                                )}
+                                {section.field !== 'addFormResource' && section.radioLabel ? (
+                                    <div className="custom-control custom-checkbox">
+                                      <input 
+                                        type="checkbox" 
+                                        className="custom-control-input" 
+                                        id={`id_${section.field}`}
+                                        checked={taskConfig && taskConfig[section.field] || false}
+                                        onChange={(e) => handleCheckboxChange(section.field, e.target.checked)}
+                                        disabled={!selectedTask}
+                                      />
+                                      <label className="custom-control-label" htmlFor={`id_${section.field}`}>
+                                        {section.radioLabel}
+                                      </label>
+                                    </div>
+                                ) : null}
                             </div>
                         )}
                     </div>

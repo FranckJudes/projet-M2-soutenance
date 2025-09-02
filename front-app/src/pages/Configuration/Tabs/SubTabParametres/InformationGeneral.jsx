@@ -2,10 +2,13 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'rea
 import { useTranslation } from 'react-i18next';
 import { Input, Textarea, InputAdd } from '../../../../components/Input.jsx';
 import Select from 'react-select';
+import { getAllPlanClassement } from '../../../../services/PlanClassementService';
+
 
 const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
   const { t } = useTranslation();
   const [taskConfig, setTaskConfig] = useState(null);
+  const [categoryOptions, setCategoryOptions] = useState([]);
   
   // Exposer les méthodes au composant parent via ref
   useImperativeHandle(ref, () => ({
@@ -90,6 +93,40 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
     };
   }, [selectedTask]);
   
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const planClassements = await getAllPlanClassement();
+        const options = planClassements.map(pc => ({
+          value: pc.id,
+          label: pc.libellePlanClassement
+        }));
+        setCategoryOptions(options);
+      } catch (error) {
+        console.error('Failed to load plan classement categories', error);
+      }
+    };
+    
+    loadCategories();
+  }, []);
+
+  // useEffect(() => {
+  //   const loadCategories = async () => {
+  //     try {
+  //       const planClassements = await getAllPlanClassement();
+  //       const options = planClassements.map(pc => ({
+  //         value: pc.id,
+  //         label: pc.libellePlanClassement
+  //       }));
+  //       setCategoryOptions(options);
+  //     } catch (error) {
+  //       console.error('Failed to load plan classement categories', error);
+  //     }
+  //   };
+    
+  //   loadCategories();
+  // }, []);
+  
   // Fonction pour initialiser une nouvelle configuration
   const initializeNewConfig = () => {
     const newConfig = {
@@ -126,14 +163,6 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
     }
   };
   
-  // Options pour le Select (exemple)
-  const categoryOptions = [
-    { value: 'administrative', label: t('Administrative') },
-    { value: 'technical', label: t('Technical') },
-    { value: 'financial', label: t('Financial') },
-    { value: 'hr', label: t('Human Resources') },
-  ];
-
   return (
     <div className="row">
       <div className="col-md-12">
@@ -178,7 +207,7 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
           </div>
           <div className="col-8">
             <div className="form-group">
-              <textarea 
+              <Textarea 
                 className="form-control" 
                 placeholder={t('__detail_work_inst')}
                 value={taskConfig ? taskConfig.instructions : ''}
@@ -195,7 +224,7 @@ const InformationGeneral = forwardRef(({ selectedTask }, ref) => {
           </div>
           <div className="col-8">
             <div className="form-group">
-              <textarea 
+              <Textarea 
                 className="form-control" 
                 name="results" 
                 placeholder={t('__inf_result_livrab__')} 

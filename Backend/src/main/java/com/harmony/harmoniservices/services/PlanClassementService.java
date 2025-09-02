@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class PlanClassementService {
@@ -22,7 +23,32 @@ public class PlanClassementService {
     }
 
     public List<PlanClassementDto> getAllPlanClassement() {
-        return mapper.toDtoList(repository.findAll());
+        List<PlanClassement> allEntities = repository.findAll();
+        
+        // Filtrer pour ne récupérer que les éléments racines (parentId = null)
+        List<PlanClassement> rootEntities = allEntities.stream()
+                .filter(entity -> entity.getParentId() == null)
+                .collect(Collectors.toList());
+        
+        // Convertir en DTO avec les enfants
+        return rootEntities.stream()
+                .map(entity -> {
+                    PlanClassementDto dto = mapper.toDto(entity);
+                    dto.setChildren(findChildrenRecursively(entity.getId(), allEntities));
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+    
+    private List<PlanClassementDto> findChildrenRecursively(Long parentId, List<PlanClassement> allEntities) {
+        return allEntities.stream()
+                .filter(entity -> parentId.equals(entity.getParentId()))
+                .map(entity -> {
+                    PlanClassementDto dto = mapper.toDto(entity);
+                    dto.setChildren(findChildrenRecursively(entity.getId(), allEntities));
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     public PlanClassementDto createPlanClassement(PlanClassementDto dto) {
@@ -45,5 +71,12 @@ public class PlanClassementService {
 
     public void deletePlanClassement(Long id) {
         repository.deleteById(id);
+    }
+
+    public List<PlanClassementDto> getChildrenByParentId(Long parentId) {
+        return repository.findByParentId(parentId)
+                .stream()
+                .map(mapper::toDto)
+                .collect(Collectors.toList());
     }
 }

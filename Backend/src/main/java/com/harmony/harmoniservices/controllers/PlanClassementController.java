@@ -41,4 +41,9 @@ public class PlanClassementController {
         service.deletePlanClassement(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/children/{parentId}")
+    public ResponseEntity<List<PlanClassementDto>> getChildrenByParentId(@PathVariable Long parentId) {
+        return ResponseEntity.ok(service.getChildrenByParentId(parentId));
+    }
 }

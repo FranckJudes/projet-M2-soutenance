@@ -5,7 +5,7 @@ import {
     deletePlanClassement,
     updatePlanClassement,
     createPlanClassement,
-} from "../../../api/PlanClassementApi.jsx";
+} from "../../../services/PlanClassementService";
 import { showAlert } from "../../../components/SweetAlert.jsx";
 import { useToast } from "../../../components/Toast";
 import { 
@@ -36,176 +36,60 @@ import {
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-// Données fictives pour tester le composant
-const fakeData = [
-  {
-    plan_classement_id: 1,
-    codeplanclassement: "ADM",
-    libelleplanclassement: "Administration",
-    descriptionplanclassement: "Documents administratifs généraux",
-    parent_id: null,
-    isCollapsed: false,
-    children: [
-      {
-        plan_classement_id: 2,
-        codeplanclassement: "ADM-RH",
-        libelleplanclassement: "Ressources Humaines",
-        descriptionplanclassement: "Documents relatifs à la gestion du personnel",
-        parent_id: 1,
-        isCollapsed: true,
-        children: [
-          {
-            plan_classement_id: 6,
-            codeplanclassement: "ADM-RH-CONT",
-            libelleplanclassement: "Contrats",
-            descriptionplanclassement: "Contrats de travail",
-            parent_id: 2,
-            isCollapsed: true,
-            children: []
-          },
-          {
-            plan_classement_id: 7,
-            codeplanclassement: "ADM-RH-PAIE",
-            libelleplanclassement: "Paie",
-            descriptionplanclassement: "Documents de paie",
-            parent_id: 2,
-            isCollapsed: true,
-            children: []
-          }
-        ]
-      },
-      {
-        plan_classement_id: 3,
-        codeplanclassement: "ADM-FIN",
-        libelleplanclassement: "Finance",
-        descriptionplanclassement: "Documents financiers",
-        parent_id: 1,
-        isCollapsed: true,
-        children: [
-          {
-            plan_classement_id: 8,
-            codeplanclassement: "ADM-FIN-FACT",
-            libelleplanclassement: "Factures",
-            descriptionplanclassement: "Factures clients et fournisseurs",
-            parent_id: 3,
-            isCollapsed: true,
-            children: []
-          },
-          {
-            plan_classement_id: 9,
-            codeplanclassement: "ADM-FIN-COMPT",
-            libelleplanclassement: "Comptabilité",
-            descriptionplanclassement: "Documents comptables",
-            parent_id: 3,
-            isCollapsed: true,
-            children: []
-          }
-        ]
-      }
-    ]
-  },
-  {
-    plan_classement_id: 4,
-    codeplanclassement: "TECH",
-    libelleplanclassement: "Technique",
-    descriptionplanclassement: "Documents techniques",
-    parent_id: null,
-    isCollapsed: false,
-    children: [
-      {
-        plan_classement_id: 10,
-        codeplanclassement: "TECH-PROJ",
-        libelleplanclassement: "Projets",
-        descriptionplanclassement: "Documentation des projets techniques",
-        parent_id: 4,
-        isCollapsed: true,
-        children: []
-      },
-      {
-        plan_classement_id: 11,
-        codeplanclassement: "TECH-MAINT",
-        libelleplanclassement: "Maintenance",
-        descriptionplanclassement: "Documents de maintenance",
-        parent_id: 4,
-        isCollapsed: true,
-        children: []
-      }
-    ]
-  },
-  {
-    plan_classement_id: 5,
-    codeplanclassement: "COMM",
-    libelleplanclassement: "Commercial",
-    descriptionplanclassement: "Documents commerciaux",
-    parent_id: null,
-    isCollapsed: false,
-    children: [
-      {
-        plan_classement_id: 12,
-        codeplanclassement: "COMM-MKT",
-        libelleplanclassement: "Marketing",
-        descriptionplanclassement: "Documents marketing",
-        parent_id: 5,
-        isCollapsed: true,
-        children: []
-      },
-      {
-        plan_classement_id: 13,
-        codeplanclassement: "COMM-VENTE",
-        libelleplanclassement: "Ventes",
-        descriptionplanclassement: "Documents de vente",
-        parent_id: 5,
-        isCollapsed: true,
-        children: [
-          {
-            plan_classement_id: 14,
-            codeplanclassement: "COMM-VENTE-PROP",
-            libelleplanclassement: "Propositions commerciales",
-            descriptionplanclassement: "Propositions et devis clients",
-            parent_id: 13,
-            isCollapsed: true,
-            children: []
-          },
-          {
-            plan_classement_id: 15,
-            codeplanclassement: "COMM-VENTE-CONT",
-            libelleplanclassement: "Contrats clients",
-            descriptionplanclassement: "Contrats signés avec les clients",
-            parent_id: 13,
-            isCollapsed: true,
-            children: []
-          }
-        ]
-      }
-    ]
-  }
-];
-
 // Transformation des données API en structure arborescente
 const transformToTreeData = (data) => {
-  // Créer une map pour un accès rapide aux nœuds par ID
+  if (!data || !Array.isArray(data)) return [];
+  
+  // Vérifier si les données sont déjà hiérarchiques (avec des enfants)
+  const hasHierarchicalData = data.some(item => item.children && Array.isArray(item.children));
+  
+  if (hasHierarchicalData) {
+    // Les données sont déjà hiérarchiques, normaliser seulement le format
+    return normalizeHierarchicalData(data);
+  } else {
+    // Les données sont plates, construire l'arborescence
+    return buildTreeFromFlatData(data);
+  }
+};
+
+// Normaliser les données hiérarchiques pour le format attendu par le composant
+const normalizeHierarchicalData = (data) => {
+  return data.map(item => ({
+    ...item,
+    plan_classement_id: item.id,
+    codePlanClassement: item.codePlanClassement || item.codeplanclassement,
+    libellePlanClassement: item.libellePlanClassement || item.libelleplanclassement,
+    descriptionPlanClassement: item.descriptionPlanClassement || item.descriptionplanclassement,
+    parentId: item.parentId || item.parent_id,
+    isCollapsed: false,
+    children: item.children ? normalizeHierarchicalData(item.children) : []
+  }));
+};
+
+// Construire l'arborescence à partir de données plates
+const buildTreeFromFlatData = (data) => {
   const nodeMap = new Map();
   data.forEach(item => {
-    // Normaliser les noms de champs pour s'assurer qu'ils correspondent au format attendu par le backend
     const normalizedItem = {
       ...item,
+      plan_classement_id: item.id || item.plan_classement_id,
       codePlanClassement: item.codePlanClassement || item.codeplanclassement,
       libellePlanClassement: item.libellePlanClassement || item.libelleplanclassement,
       descriptionPlanClassement: item.descriptionPlanClassement || item.descriptionplanclassement,
       parentId: item.parentId || item.parent_id,
-      numeroOrdre: item.numeroOrdre || 1,
       isCollapsed: false,
       children: []
     };
-    nodeMap.set(item.plan_classement_id, normalizedItem);
+    nodeMap.set(normalizedItem.plan_classement_id, normalizedItem);
   });
 
-  // Construire l'arborescence
   const treeData = [];
   data.forEach(item => {
-    const node = nodeMap.get(item.plan_classement_id);
+    const itemId = item.id || item.plan_classement_id;
+    const node = nodeMap.get(itemId);
     const parentId = item.parentId || item.parent_id;
-    if (parentId === null) {
+    
+    if (!parentId) {
       treeData.push(node);
     } else {
       const parent = nodeMap.get(parentId);
@@ -264,13 +148,16 @@ function OrgChart() {
             try {
                 // Utiliser l'API réelle
                 const response = await getAllPlanClassement();
-                if (response && response.data) {
+                console.log("Données reçues du backend:", response);
+                
+                if (response) {
                     // Transformer les données plates en structure arborescente
-                    const treeData = transformToTreeData(response.data);
+                    const treeData = transformToTreeData(response);
+                    console.log("Données transformées:", treeData);
                     setNodes(treeData);
                 } else {
-                    // Utiliser les données fictives en cas d'erreur ou pour le développement
-                    setNodes(transformToTreeData(fakeData));
+                    message.error("Aucune donnée reçue du backend");
+                    setNodes([]);
                 }
             } catch (error) {
                 console.error("Erreur lors du chargement des données", error);
@@ -284,8 +171,8 @@ function OrgChart() {
                 } else {
                     message.error("Impossible de charger les plans de classement");
                 }
-                // Utiliser les données fictives en cas d'erreur
-                setNodes(transformToTreeData(fakeData));
+                // Ne plus utiliser les fake data en cas d'erreur
+                setNodes([]);
             } finally {
                 setLoading(false);
             }
@@ -311,33 +198,29 @@ function OrgChart() {
             
             if (editingNode) {
                 // Utiliser l'API réelle pour la mise à jour
-                const response = await updatePlanClassement(editingNode.plan_classement_id, dataToSubmit);
-                if (response && response.success) {
-                    message.success("Plan de classement mis à jour avec succès");
-                    showToast({
-                        title: "Succès",
-                        message: "Plan de classement mis à jour avec succès.",
-                        color: "green",
-                        position: "topRight",
-                    });
-                }
+                await updatePlanClassement(editingNode.plan_classement_id, dataToSubmit);
+                message.success("Plan de classement mis à jour avec succès");
+                showToast({
+                    title: "Succès",
+                    message: "Plan de classement mis à jour avec succès.",
+                    color: "green",
+                    position: "topRight",
+                });
             } else {
                 // Utiliser l'API réelle pour la création
-                const response = await createPlanClassement(dataToSubmit);
-                if (response && response.success) {
-                    message.success("Nouveau plan de classement créé avec succès");
-                    showToast({
-                        title: "Succès",
-                        message: "Nouveau plan de classement ajouté.",
-                        color: "green",
-                        position: "topRight",
-                    });
-                }
+                await createPlanClassement(dataToSubmit);
+                message.success("Nouveau plan de classement créé avec succès");
+                showToast({
+                    title: "Succès",
+                    message: "Nouveau plan de classement ajouté.",
+                    color: "green",
+                    position: "topRight",
+                });
             }
             // Recharger les données depuis l'API
-            const response = await getAllPlanClassement();
-            if (response && response.data) {
-                const treeData = transformToTreeData(response.data);
+            const updatedData = await getAllPlanClassement();
+            if (updatedData) {
+                const treeData = transformToTreeData(updatedData);
                 setNodes(treeData);
             }
             setShowModal(false);
@@ -385,8 +268,8 @@ function OrgChart() {
                         message.success("Plan de classement supprimé avec succès");
                         // Recharger les données depuis l'API
                         const apiResponse = await getAllPlanClassement();
-                        if (apiResponse && apiResponse.data) {
-                            const treeData = transformToTreeData(apiResponse.data);
+                        if (apiResponse) {
+                            const treeData = transformToTreeData(apiResponse);
                             setNodes(treeData);
                         }
                         setSelectedNode(null);
@@ -506,7 +389,7 @@ function OrgChart() {
                 <div style={{ padding: '20px' }}>
                     <Card>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <Title level={4}>Gestion des Plans de Classement</Title>
+                            <Title level={4}>Gestion de Categorie</Title>
                             <Button 
                                 type="primary" 
                                 icon={<PlusOutlined />} 
@@ -521,7 +404,7 @@ function OrgChart() {
                                     setShowModal(true);
                                 }}
                             >
-                                {t("Ajouter un plan de classement")}
+                                {t("Ajouter une categorie")}
                             </Button>
                         </div>
                         
@@ -536,7 +419,7 @@ function OrgChart() {
                                     />
                                 ) : (
                                     <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                                        <Text type="secondary">Aucun plan de classement disponible</Text>
+                                        <Text type="secondary">Aucune    categorie disponible</Text>
                                     </div>
                                 )}
                             </div>
@@ -544,7 +427,7 @@ function OrgChart() {
                             <div style={{ width: '40%' }}>
                                 {selectedNode ? (
                                     <Card
-                                        title={<span><InfoCircleOutlined /> Détails du plan de classement</span>}
+                                        title={<span><InfoCircleOutlined /> Détails de la categorie</span>}
                                         bordered={true}
                                         style={{ marginBottom: '20px' }}
                                     >
@@ -618,20 +501,20 @@ function OrgChart() {
                     <Form.Item 
                         name="codePlanClassement" 
                         label={t("Code")} 
-                        rules={[{ required: true, message: 'Veuillez saisir le code du plan de classement' }]}
+                        rules={[{ required: true, message: 'Veuillez saisir le code de la categorie' }]}
                     >
                         <Input 
-                            placeholder="Code du plan de classement" 
+                            placeholder="Code de la categorie" 
                         />
                     </Form.Item>
                     
                     <Form.Item 
                         name="libellePlanClassement" 
                         label={t("Libellé")} 
-                        rules={[{ required: true, message: 'Veuillez saisir le libellé du plan de classement' }]}
+                        rules={[{ required: true, message: 'Veuillez saisir le libellé de la categorie' }]}
                     >
                         <Input 
-                            placeholder="Libellé du plan de classement" 
+                            placeholder="Libellé de la categorie" 
                         />
                     </Form.Item>
                     
@@ -642,7 +525,7 @@ function OrgChart() {
                     >
                         <TextArea 
                             rows={4} 
-                            placeholder="Description du plan de classement" 
+                            placeholder="Description de la categorie" 
                         />
                     </Form.Item>
                     

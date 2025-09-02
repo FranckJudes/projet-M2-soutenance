@@ -1,9 +1,13 @@
 package com.harmony.harmoniservices.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.harmony.harmoniservices.models.PlanClassement;
 
 @Repository
-public interface PlanClassementRepository extends JpaRepository<PlanClassement, Long> {}
+public interface PlanClassementRepository extends JpaRepository<PlanClassement, Long> {
+    List<PlanClassement> findByParentId(Long parentId);
+}

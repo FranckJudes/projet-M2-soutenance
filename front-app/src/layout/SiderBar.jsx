@@ -95,34 +95,7 @@ class SiderBar extends Component {
                 </li>
               </ul>
             </li>
-            {/* Dropdown Settings */}
-            <li className={`dropdown ${openDropdowns.settings ? 'active' : ''}`}>
-              <a
-                href="#"
-                className="menu-toggle nav-link has-dropdown"
-                onClick={() => this.toggleDropdown('settings')}
-              >
-                <i data-feather="settings"></i>
-                <span>{t('setting_sidebar_title')}</span>
-              </a>
-              <ul className={`dropdown-menu ${openDropdowns.settings ? 'show' : ''}`}>
-                <li>
-                  <Link className="nav-link" to="/settings/profile">
-                    <span>{t('profile_settings')}</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link className="nav-link" to="/settings/security">
-                    <span>{t('security_settings')}</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link className="nav-link" to="/settings/security">
-                    <span>Gestion de KPI</span>
-                  </Link>
-                </li>
-              </ul>
-            </li>
+          
             {/* Security  */}
             <li className={`dropdown ${openDropdowns.security ? 'active' : ''}`}>
               <a
@@ -156,6 +129,13 @@ class SiderBar extends Component {
               <Link className="nav-link" to="/advanced-analytics">
                 <i data-feather="bar-chart"></i>
                 <span>Analyse avancée</span>
+              </Link>
+            </li>
+            {/* Dropdown Settings */}
+            <li>
+              <Link className="nav-link" to="/settings">
+                <i data-feather="settings"></i>
+                <span>{t('setting_sidebar_title')}</span>
               </Link>
             </li>
           </ul>
