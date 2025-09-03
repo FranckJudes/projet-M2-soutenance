@@ -154,6 +154,8 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
         
         // Récupérer les groupes
         const groupsResponse = await GroupeService.getAllGroups();
+        console.log(groupsResponse);
+        
         const groupsData = groupsResponse.data || [];
         const formattedGroups = groupsData.map(group => ({
           value: group.id.toString(),

@@ -54,24 +54,7 @@ public class ProcessEngineController {
             @RequestParam(value = "deployToEngine", defaultValue = "true") boolean deployToEngine,
             @RequestParam(value = "forceCreate", defaultValue = "false") boolean forceCreate,
             Authentication authentication) {
-        
-    
-
-        // DEBUG: Vérifier les configurations reçues
-        System.out.println("=== DEBUG CONFIGURATIONS RECEIVED ===");
-
-        System.out.println("=== DEBUG CONFIGURATIONS RECEIVED ===>" + configurationsJson);
-        try {
-            List<TaskConfigurationDTO> taskConfigurations = objectMapper.readValue(
-                    configurationsJson,
-                    new TypeReference<List<TaskConfigurationDTO>>() {}
-            );
-
-           
-        } catch (Exception e) {
-            System.out.println("Error parsing configurations for debug: " + e.getMessage());
-        }
-        System.out.println("=== END DEBUG CONFIGURATIONS ==="); 
+       
         try {
             // Validate file
             if (bpmnFile.isEmpty()) {
@@ -120,11 +103,7 @@ public class ProcessEngineController {
             // Get user ID for deployment (this is what will be used in process configurations)
             String deployedByUserId = user.get().getId().toString();
             
-            System.out.println("=============================>>>>>>Deployed by user: " + user.get().toString());
-            System.out.println("=============================>>>>>>User ID for deployment: " + deployedByUserId);
             
-            // Deploy process with conditional deployment based on deployToEngine parameter
-            // Pass user ID (not email) as this is what's expected in task configurations
             ProcessDefinitionDTO processDefinition = processEngineService.deployProcess(
                     bpmnXml, taskConfigurations, processMetadata, deployedByUserId, deployToEngine, forceCreate);
 
