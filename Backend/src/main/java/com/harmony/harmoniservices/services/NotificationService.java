@@ -336,8 +336,9 @@ public class NotificationService {
     }
 
     private boolean shouldSendEmailNotification(TaskConfiguration config) {
-        return config.getNotificationType() == null && 
-               (config.getNotificationType().contains("email") || !config.getNotificationType().contains("both"));
+        //     return config.getNotificationType() == null && 
+        //            (config.getNotificationType().contains("email") || !config.getNotificationType().contains("both"));
+        return true;
     }
 
     /**

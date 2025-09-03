@@ -49,9 +49,9 @@ class Header extends Component{
                         <li className="dropdown"><a href="#" data-toggle="dropdown" className="nav-link dropdown-toggle nav-link-lg nav-link-user"> <img alt="image" src="assets/img/user.png" className="user-img-radious-style" /> <span className="d-sm-none d-lg-inline-block" /></a>
                         <div className="dropdown-menu dropdown-menu-right pullDown">
                             <div className="dropdown-title">Hello Sarah Smith</div>
-                            <a href="profile.html" className="dropdown-item has-icon"> <i className="far
+                            <Link to="/profile" className="dropdown-item has-icon"> <i className="far
                                                         fa-user" /> Profile
-                            </a>
+                            </Link>
                             <Link to="/todo" className="dropdown-item has-icon">
                                 <i className="fas fa-tasks" /> Mes tâches
                             </Link>

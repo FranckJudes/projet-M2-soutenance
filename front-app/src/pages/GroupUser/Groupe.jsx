@@ -118,13 +118,6 @@ const Groupe = () => {
         setSelectedGroup(null);
     };
 
-    // Options pour le select de type
-    const typeOptions = [
-        { value: 'TYPE_0', label: 'Type 0' },
-        { value: 'TYPE_1', label: 'Type 1' },
-        { value: 'TYPE_2', label: 'Type 2' }
-    ];
-
     useEffect(() => {
         loadGroups();
     }, []);

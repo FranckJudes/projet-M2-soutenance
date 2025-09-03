@@ -31,7 +31,7 @@ class SiderBar extends Component {
         <aside id="sidebar-wrapper">
           <div className="sidebar-brand">
             <Link to="/dashboard">
-              <img alt="logo" src="assets/img/logo.png" className="header-logo" />
+              {/* <img alt="logo" src="assets/img/logo.png" className="header-logo" /> */}
               <span className="logo-name">Harmoni</span>
             </Link>
           </div>

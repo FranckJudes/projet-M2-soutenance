@@ -12,7 +12,7 @@ const UserTabP = () => {
         setIsLoading(true);
         try {
             const response = await UserService.getAllUsers();
-            if (response.data && response.data.success) {
+            if (response.data) {
                 setUsers(response.data.data.map(user => ({
                     value: user.id,
                     label: `${user.firstName} ${user.lastName}`

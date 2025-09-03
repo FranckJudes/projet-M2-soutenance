@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Main from "../../layout/Main";
 import { Card, Table, Button, Badge, Spin, Space, Tag, Popconfirm, message, Tooltip, Breadcrumb, theme } from "antd";
-import { EditOutlined, DeleteOutlined, KeyOutlined, PlusOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, HomeOutlined, UserOutlined } from "@ant-design/icons";
+import { EditOutlined, DeleteOutlined, KeyOutlined, PlusOutlined, CheckCircleOutlined, CloseCircleOutlined, ReloadOutlined, HomeOutlined, UserOutlined, StopOutlined, PlayCircleOutlined, CameraOutlined } from "@ant-design/icons";
 import UserService from "../../services/UserService";
 import "../../styles/users.css";
 
 // Importation des composants
-import UserModal from "./components/UserModal";
+import UserModal from "./components/UserModal.jsx";
 
 const User = () => {
     const [users, setUsers] = useState([]);
@@ -28,9 +28,11 @@ const User = () => {
         setIsLoading(true);
         try {
             const response = await UserService.getAllUsers();
-            if (response.data && response.data.success) {
+            console.log("1",response);
+            if (response.data) {
                 setUsers(response.data.data);
             } else {
+                console.log("3",response.data.data);
                 message.error("Erreur lors du chargement des utilisateurs");
             }
         } catch (error) {
@@ -62,6 +64,22 @@ const User = () => {
             });
             setEditMode(false);
         }
+        setShowModal(true);
+    };
+
+    // Ouvrir le modal pour créer un utilisateur avec photo
+    const openUserModalWithPhoto = () => {
+        setCurrentUser({
+            id: null,
+            firstName: "",
+            lastName: "",
+            email: "",
+            password: "",
+            role: "USER",
+            active: true,
+            withPhoto: true
+        });
+        setEditMode(false);
         setShowModal(true);
     };
 
@@ -138,6 +156,7 @@ const User = () => {
     const resetPassword = async (id) => {
         try {
             const response = await UserService.resetUserPassword(id);
+            console.log(response);
             if (response.data && response.data.success) {
                 message.success("Mot de passe réinitialisé avec succès");
             } else {
@@ -149,8 +168,45 @@ const User = () => {
         }
     };
 
+    // Désactiver un utilisateur
+    const deactivateUser = async (id) => {
+        try {
+            const response = await UserService.deactivateUser(id);
+            if (response.data && response.data.success) {
+                message.success("Utilisateur désactivé avec succès");
+                loadUsers();
+            } else {
+                message.error("Erreur lors de la désactivation de l'utilisateur");
+            }
+        } catch (error) {
+            console.error("Erreur lors de la désactivation de l'utilisateur", error);
+            message.error("Erreur lors de la désactivation de l'utilisateur");
+        }
+    };
+
+    // Activer un utilisateur
+    const activateUser = async (id) => {
+        try {
+            const response = await UserService.activateUser(id);
+            if (response.data && response.data.success) {
+                message.success("Utilisateur activé avec succès");
+                loadUsers();
+            } else {
+                message.error("Erreur lors de l'activation de l'utilisateur");
+            }
+        } catch (error) {
+            console.error("Erreur lors de l'activation de l'utilisateur", error);
+            message.error("Erreur lors de l'activation de l'utilisateur");
+        }
+    };
+
     // Définition des colonnes pour le tableau antd
     const columns = [
+        {
+            title: 'N°',
+            key: 'index',
+            render: (_, record) => record.index + 1
+        },
         {
             title: 'Nom',
             key: 'name',
@@ -162,27 +218,31 @@ const User = () => {
             key: 'email',
         },
         {
-            title: 'Rôle',
-            dataIndex: 'role',
-            key: 'role',
-            render: (role) => (
-                <Tag color={role === "ADMIN" ? "red" : "blue"} key={role}>
-                    {role}
-                </Tag>
-            )
+            title: 'Telephone',
+            dataIndex: 'phone',
+            key: 'phone',
         },
         {
             title: 'Statut',
-            dataIndex: 'active',
-            key: 'active',
-            render: (active) => (
-                <Tag 
-                    icon={active ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-                    color={active ? "success" : "default"}
-                >
-                    {active ? 'Actif' : 'Inactif'}
-                </Tag>
-            )
+            dataIndex: 'status',
+            key: 'status',
+            render: (status) => {
+                const isActive = status === 'ACTIVE';
+                return (
+                    <Tag 
+                        icon={isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                        color={isActive ? "success" : "default"}
+                    >
+                        {isActive ? 'Actif' : 'Inactif'}
+                    </Tag>
+                );
+            }
+        },
+        {
+            title: 'Date de création',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (date) => date ? new Date(date).toLocaleDateString() : '-'
         },
         {
             title: 'Actions',
@@ -227,6 +287,40 @@ const User = () => {
                             />
                         </Popconfirm>
                     </Tooltip>
+                    {record.status === 'ACTIVE' ? (
+                        <Tooltip title="Désactiver le compte">
+                            <Popconfirm
+                                title="Désactiver ce compte ?"
+                                description="L'utilisateur ne pourra plus se connecter"
+                                onConfirm={() => deactivateUser(record.id)}
+                                okText="Oui, désactiver"
+                                cancelText="Annuler"
+                                okButtonProps={{ danger: true }}
+                            >
+                                <Button 
+                                    danger
+                                    shape="circle" 
+                                    icon={<StopOutlined />} 
+                                />
+                            </Popconfirm>
+                        </Tooltip>
+                    ) : (
+                        <Tooltip title="Activer le compte">
+                            <Popconfirm
+                                title="Activer ce compte ?"
+                                description="L'utilisateur pourra se connecter à nouveau"
+                                onConfirm={() => activateUser(record.id)}
+                                okText="Oui, activer"
+                                cancelText="Annuler"
+                            >
+                                <Button 
+                                    type="primary"
+                                    shape="circle" 
+                                    icon={<PlayCircleOutlined />} 
+                                />
+                            </Popconfirm>
+                        </Tooltip>
+                    )}
                 </Space>
             )
         }
@@ -266,13 +360,15 @@ const User = () => {
                             <h4 className="mb-0">Gestion des utilisateurs</h4>
                             <p className="text-muted mb-0">Gérez les comptes utilisateurs de l'application</p>
                         </div>
-                        <Button 
-                            type="primary" 
-                            icon={<PlusOutlined />} 
-                            onClick={() => openUserModal()}
-                        >
-                            Ajouter un utilisateur
-                        </Button>
+                        <Space>
+                            <Button 
+                                type="primary" 
+                                icon={<PlusOutlined />} 
+                                onClick={() => openUserModal()}
+                            >
+                                Ajouter un utilisateur
+                            </Button>
+                        </Space>
                     </div>
                 </Card>
                 

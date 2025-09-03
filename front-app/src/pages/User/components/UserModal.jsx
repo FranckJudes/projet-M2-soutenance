@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, Form, Input, Button, Row, Col, Checkbox, Select, Space } from 'antd';
+import { Modal, Form, Input, Button, Row, Col, Checkbox, Space, Upload, Select } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 
 const UserModal = ({ 
   showModal, 
@@ -20,9 +21,11 @@ const UserModal = ({
     handleInputChange({ target: { name, checked, type: 'checkbox' } });
   };
 
-  // Custom handler for Select
-  const handleSelectChange = (value, name) => {
-    handleInputChange({ target: { name, value } });
+  // Custom handler for file upload
+  const handleFileChange = ({ file }) => {
+    if (file.status === 'done') {
+      handleInputChange({ target: { name: 'profilePicture', value: file.originFileObj } });
+    }
   };
 
   return (
@@ -64,7 +67,20 @@ const UserModal = ({
             </Form.Item>
           </Col>
         </Row>
-        
+
+        <Form.Item 
+          label="Nom d'utilisateur"
+          required
+          tooltip="Le nom d'utilisateur unique"
+        >
+          <Input
+            name="username"
+            value={currentUser.username || ''}
+            onChange={handleAntInputChange}
+            placeholder="Nom d'utilisateur"
+          />
+        </Form.Item>
+
         <Form.Item 
           label="Email"
           required
@@ -80,20 +96,47 @@ const UserModal = ({
         </Form.Item>
 
         <Form.Item 
-          label="Rôle"
-          required
-          tooltip="Le rôle de l'utilisateur dans l'application"
+          label="Téléphone"
+          tooltip="Le numéro de téléphone de l'utilisateur"
+        >
+          <Input
+            name="phone"
+            value={currentUser.phone || ''}
+            onChange={handleAntInputChange}
+            placeholder="Téléphone"
+          />
+        </Form.Item>
+
+        <Form.Item 
+          label="Statut"
+          tooltip="Le statut de l'utilisateur"
         >
           <Select
-            value={currentUser.role || 'USER'}
-            onChange={(value) => handleSelectChange(value, 'role')}
-            style={{ width: '100%' }}
+            name="status"
+            value={currentUser.status || 'ACTIVE'}
+            onChange={(value) => handleInputChange({ target: { name: 'status', value } })}
           >
-            <Select.Option value="USER">Utilisateur</Select.Option>
-            <Select.Option value="ADMIN">Administrateur</Select.Option>
+            <Select.Option value="ACTIVE">Actif</Select.Option>
+            <Select.Option value="INACTIVE">Inactif</Select.Option>
           </Select>
         </Form.Item>
-        
+
+      
+
+        <Form.Item 
+          label="Photo de profil"
+          tooltip="Télécharger la photo de profil de l'utilisateur"
+        >
+          <Upload
+            name="profilePicture"
+            listType="picture"
+            onChange={handleFileChange}
+            maxCount={1}
+          >
+            <Button icon={<UploadOutlined />}>Télécharger</Button>
+          </Upload>
+        </Form.Item>
+
         <Form.Item>
           <Checkbox
             checked={currentUser.active || false}

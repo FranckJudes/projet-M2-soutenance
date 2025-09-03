@@ -26,6 +26,21 @@ class UserService {
         });
     }
 
+    createUserWithProfilePicture(userData, profilePicture) {
+        const formData = new FormData();
+        formData.append('user', new Blob([JSON.stringify(userData)], { type: 'application/json' }));
+        if (profilePicture) {
+            formData.append('profilePicture', profilePicture);
+        }
+        
+        return axios.post(`${API_URL}/api/users/with-profile-picture`, formData, {
+            headers: {
+                ...this.getAuthHeaders(),
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    }
+
     updateUser(id, userData) {
         return axios.put(`${API_URL}/api/users/${id}`, userData, {
             headers: this.getAuthHeaders()
@@ -53,6 +68,18 @@ class UserService {
 
     resetUserPassword(id) {
         return axios.post(`${API_URL}/api/users/${id}/reset-password`, {}, {
+            headers: this.getAuthHeaders()
+        });
+    }
+
+    deactivateUser(id) {
+        return axios.post(`${API_URL}/api/users/${id}/deactivate`, {}, {
+            headers: this.getAuthHeaders()
+        });
+    }
+
+    activateUser(id) {
+        return axios.post(`${API_URL}/api/users/${id}/activate`, {}, {
             headers: this.getAuthHeaders()
         });
     }

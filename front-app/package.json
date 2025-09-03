@@ -20,6 +20,7 @@
     "@stomp/stompjs": "^7.1.1",
     "@xyflow/react": "^12.4.4",
     "antd": "^5.26.4",
+    "antd-img-crop": "^4.25.0",
     "axios": "^1.7.8",
     "bootstrap": "^4.6.2",
     "bpmn-js": "^17.11.1",

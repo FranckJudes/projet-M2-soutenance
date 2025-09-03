@@ -29,7 +29,6 @@ import {
   Radio
 } from 'antd';
 import {
-  SecurityScanOutlined,
   SettingOutlined,
   SearchOutlined,
   SaveOutlined,
@@ -37,33 +36,21 @@ import {
   KeyOutlined,
   PlusOutlined,
   DeleteOutlined,
-  EditOutlined,
   ClockCircleOutlined,
   DatabaseOutlined,
   MailOutlined,
   CloudOutlined,
-  LockOutlined,
-  SettingFilled,
-  InfoCircleOutlined,
-  ExclamationCircleOutlined,
-  CheckCircleOutlined
+  LockOutlined
 } from '@ant-design/icons';
 
 const { Content, Sider } = Layout;
 const { Title, Text } = Typography;
 
 function Settings() {
-    const [activeSection, setActiveSection] = useState("security");
+    const [activeSection, setActiveSection] = useState("passwords");
     const [searchQuery, setSearchQuery] = useState("");
 
     const settingsSections = [
-        {
-            key: "security",
-            icon: <SecurityScanOutlined />,
-            label: "Configuration d'indice de sécurité",
-            description: "Gérer les paramètres de sécurité",
-            component: <SecurityConfig />
-        },
         {
             key: "passwords",
             icon: <KeyOutlined />,
@@ -85,74 +72,6 @@ function Settings() {
         //  || section.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    function SecurityConfig() {
-        return (
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <Alert
-                    message="Indices de Sécurité"
-                    description="Configurez les niveaux de sécurité pour vos documents"
-                    type="info"
-                    icon={<SecurityScanOutlined />}
-                    showIcon
-                />
-                
-                <Row gutter={[16, 16]}>
-                    <Col xs={24} lg={12}>
-                        <Card title="Niveaux de Classification" size="small">
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox defaultChecked>Public</Checkbox>
-                                    <Tag color="green">Niveau 1</Tag>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox defaultChecked>Interne</Checkbox>
-                                    <Tag color="orange">Niveau 2</Tag>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox defaultChecked>Confidentiel</Checkbox>
-                                    <Tag color="red">Niveau 3</Tag>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Checkbox>Secret</Checkbox>
-                                    <Tag color="purple">Niveau 4</Tag>
-                                </div>
-                            </Space>
-                        </Card>
-                    </Col>
-                    
-                    <Col xs={24} lg={12}>
-                        <Card title="Paramètres de Sécurité" size="small">
-                            <Space direction="vertical" style={{ width: '100%' }}>
-                                <div>
-                                    <Text strong>Durée de session (minutes)</Text>
-                                    <InputNumber
-                                        style={{ width: '100%', marginTop: 8 }}
-                                        defaultValue={30}
-                                        min={5}
-                                        max={480}
-                                    />
-                                </div>
-                                <div>
-                                    <Text strong>Tentatives de connexion max</Text>
-                                    <InputNumber
-                                        style={{ width: '100%', marginTop: 8 }}
-                                        defaultValue={3}
-                                        min={1}
-                                        max={10}
-                                    />
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-                                    <Text>Authentification à deux facteurs</Text>
-                                    <Switch defaultChecked />
-                                </div>
-                            </Space>
-                        </Card>
-                    </Col>
-                </Row>
-            </Space>
-        );
-    }
-    
     function PasswordManagement() {
         const [form] = Form.useForm();
         const [passwords, setPasswords] = useState([]);

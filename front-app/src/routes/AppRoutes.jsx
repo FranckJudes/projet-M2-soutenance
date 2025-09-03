@@ -16,6 +16,7 @@ import NotificationsPage from '../pages/Notifications/NotificationsPage';
 import Workflows from '../pages/Workflows';
 import BpmnDeploymentStatus from '../pages/BpmnDeployment/BpmnDeploymentStatus';
 import AdvancedAnalytics from '../pages/AdvancedAnalytics';
+import Profile from '../pages/Profile';
 import ProtectedRoute from '../services/ProtectedRoute';
 import Organigramme from '../pages/organigramme';
 const router = createBrowserRouter([
@@ -160,6 +161,14 @@ const router = createBrowserRouter([
         element: (
             <ProtectedRoute>
                 <AdvancedAnalytics />
+            </ProtectedRoute>
+        )
+    },
+    {
+        path: "/profile",
+        element: (
+            <ProtectedRoute>
+                <Profile />
             </ProtectedRoute>
         )
     },
