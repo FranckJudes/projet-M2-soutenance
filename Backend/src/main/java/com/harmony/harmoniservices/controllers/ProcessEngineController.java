@@ -56,6 +56,8 @@ public class ProcessEngineController {
             Authentication authentication) {
        
         try {
+
+          log.info("=============================>>>>>>Deploying process=---" , metadataJson);
             // Validate file
             if (bpmnFile.isEmpty()) {
                 return ResponseEntity.badRequest()
