@@ -1,0 +1,221 @@
+\pdfobjcompresslevel 0
+\documentclass[12pt,a4paper,oneside]{extbook}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{titlesec}
+\titleformat{\chapter}[display]{\normalfont\huge\bfseries}{\chaptertitlename\ \thechapter}{20pt}{\Huge}
+\usepackage{tabularx} 
+\usepackage{chngcntr}
+\usepackage[table]{xcolor}
+\usepackage{fancyvrb,xcolor}
+\usepackage{moreverb}
+\usepackage[french]{babel}
+\usepackage{listings}
+\usepackage{glossaries}
+\makeglossaries
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathrsfs}
+\usepackage{titlesec, blindtext, color}
+\usepackage{xcolor}
+% Color helper used before list items in chapters
+\newcommand{\itemcolor}[1]{\color{#1}}
+\usepackage{pifont}
+\usepackage{enumitem}
+\definecolor{listGreen}{RGB}{34,139,34}
+\usepackage[Lenny]{fncychap}
+\usepackage{nomencl}
+\usepackage{graphicx}
+\usepackage{float} % for [H] exact placement of floats
+\usepackage[section]{placeins} % prevent floats from crossing section boundaries
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{algorithm,algorithmic}
+\usepackage{pdfpages}
+\usepackage{eqparbox,array}
+\usepackage{longtable}
+\usepackage{adjustbox}
+\usepackage{caption}
+\usepackage[left=1in, right=1in, top=1in, bottom=1in, includefoot, headheight=28pt]{geometry}
+\usepackage{fancyhdr} % header/footer customization
+\newcommand{\fonction}[5]
+{
+  \begin{array}{lrcl}
+    #1:&#2& \rightarrow& #3 \\
+    & #4&\mapsto&#5
+  \end{array}
+}
+
+\newtheorem{theo}{\textbf{Theorem}}[section]
+\newtheorem{prop}{\textbf{Property}}[section]
+\newenvironment{proof}[1][Proof:]
+{\begin{trivlist} \item[\hskip \labelsep  {\bfseries #1}]}
+{\end{trivlist}}
+
+\newenvironment{proofInd}[1][Proof indications :]
+{\begin{trivlist} \item[\hskip \labelsep  {\bfseries #1}]}
+{\end{trivlist}}
+
+\renewcommand\algorithmiccomment[1]{%
+  \hfill  \eqparbox{COMMENT}{\scriptsize \textit{#1}}%
+}
+\newcommand\LONGCOMMENT[1]{%
+  \hfill\#\ \begin{minipage}[t]{\eqboxwidth{COMMENT}}#1\strut\end{minipage}%
+}
+\usepackage{url}
+\usepackage{titling}
+
+
+\title{\fontsize{20}{30}\selectfont APPLICATION DE MODELISATION ET AUTOMATION DES PROCESSUS METIER}
+\author{\fontsize{15}{36}\selectfont INNOCENTS NJIEMOUN JUDES FRANCK 20V2436 \\
+\fontsize{15}{36}\selectfont Dr. NZEKON NZEKO'O Armel Jacques }
+\linespread{1.3}
+
+
+ 
+\begin{document}
+
+\includepdf[pages={1}]{Page.pdf}
+
+\maketitle
+\thispagestyle{empty}
+\clearpage
+% Start page numbering in arabic from here (main content)
+\pagenumbering{arabic}
+\setcounter{page}{1}
+% Center page number in footer across the document
+\pagestyle{fancy}
+\fancyhf{}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+% Make chapter-opening pages (plain style) use the same centered footer
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \cfoot{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+\vspace{0.5cm}
+\section*{Dédicaces}
+\ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\ \ \\
+\begin{center}
+     \textit{
+ ``Je dedie cette soutenance à tous ceux qui ont contribué à notre réussite et à notre parcours universitaire, en particulier à nos parents respectifs.''}
+\end{center}
+
+
+\newpage
+\addcontentsline{toc}{chapter}{\large {Remerciements}}
+ \section*{Remerciements}
+Nous tenons à exprimer nos sincères remerciements à toutes les personnes qui ont contribué à la réussite de notre projet et de notre soutenance.
+
+Nous tenons naturellement à adresser nos profonds remerciements :
+
+\begin{itemize}
+    
+
+\item Au jury, Pr XXXXX , M.XXXXXX, Dr. XXXXXX pour avoir accepter d'évaluer notre 
+travail au terme de ce projet de fin d'etudes
+
+
+
+\item À Dr. \textbf{ XXXXXX },  En temps qu'encadreur promoteur et coordinateur du projet de XXXXXXXX. Nos travaux ont été effectués dans le cadre de ce projet et sous leurs encadrements à travers des remarques et des suggestions.
+
+\item Au \textbf{Dr AMINOU HALIDOU}, chef du département d’informatique de l’Université de Yaoundé I pour les moyens qu’il a mis à notre disposition en vue de notre formation et de l’élaboration de ce travail.
+
+\item À tous nos enseignants qui ont su nous donner les notions transmises et le savoir qui nous ont permis de mener ce travail à bien, de l'analyse jusqu'à son implémentation.
+
+\item nous disons un grand merci à nos différentes familles pour leur soutien constant et moral, leur encouragement et leur compréhension durant les moments de stress et de doute. Nous pensons ainsi à : \textbf{ M. NJIEMOUN EMILE }, \textbf{ Mme MAPON ELISABETH}et tous les autres membres de nos familles.
+
+\item À nos camarades de promotion qui ont mis en avant leur esprit collaboratif afin nous aider dans la réalisation de ce travail.
+
+ 
+\end{itemize}
+Nous sommes fiers de ce que nous avons accompli ensemble et nous espérons que notre projet sera bénéfique pour la communauté universitaire et au-delà.
+
+
+
+
+
+\newpage
+\addcontentsline{toc}{chapter}{\large {Acknowledgments}}
+ \section*{Acknowledgments}
+We would like to express our sincere thanks to all the people who contributed to the success of our project and our defense.
+
+Naturally, we would like to express our deepest thanks to:
+
+\begin{itemize}
+    
+
+\item To the jury, Pr XXXXX, M.XXXXXX, Dr. XXXXXX for accepting to evaluate our
+work at the end of this graduation project
+
+
+
+\item To Dr. \textbf{ XXXXXXXx}, As supervisor, promoter and coordinator of the project to design and implement XXXXXXXXXXX Our work was carried out within the framework of this project and under their supervision through the remarks and suggestions they made as well as their attention to detail for the realization of this thesis.
+
+
+\item To \textbf{Dr Aminou Halidou}, head of the computer science department of the University of Yaoundé I for the means he made available to us for our training and the development of this work.
+
+\item To all our teachers who knew how to give us the transmitted notions and the knowledge that allowed us to carry out this work from the analysis to its implementation.
+
+\item we say a big thank you to our different families for their constant and moral support, their encouragement and their understanding during times of stress and doubt. We are thinking of: \textbf{ Mr. NJIEMOUN EMILE }, \textbf{ Mrs. MAPON ELISABETH}  and all the other members of our families.
+
+\item To our classmates who have put forward their collaborative spirit to help us in the realization of this work.
+
+ 
+\end{itemize}
+We are proud of what we have achieved together and hope that our project will benefit the university community and beyond.
+
+% Thank you again to all those who contributed to our success.
+
+\tableofcontents
+\listoftables
+
+\renewcommand{\listfigurename}{Liste des figures}
+\listoffigures
+
+\newpage
+\section*{Définition des sigles et des acronymes}
+\begin{table}[H]
+   
+
+
+\end{table}
+
+\newpage
+% \pagenumbering{roman}
+\section*{Avant-Propos}
+La filière  \textbf{SIGL} est l'une des filières que compte l' \textbf{UYI}. Créée en 2013 dans le but d'accompagner le Cameroun dans son ambition de s'approprier les  \textbf{TIC}, elle forme des ingénieurs  informatiques qui en fin de cycle doivent effectuer un stage pratique d'au moins trois (06) mois dans une entreprise. Ce stage met l'accent sur une réalisation concrète aux cours du quelle l'étudiant suit un canevas de travail bien déterminé. C'est ainsi que j'ai realise  effectué, auprès de KAIROS, un stage pratique au cours duquel nous avons réalisé un projet de fin d'études dont le présent document tient lieu de rapport.
+
+
+\newpage
+% {\fontsize{10.46}{13}\selectfont}
+\section*{Résumé}
+
+% iCI JE VAIS FAIRE LE RESUMER
+
+
+
+\textbf % ici J'ajoute les mots cles
+\newpage
+% {\fontsize{10.46}{13}\selectfont}
+\section*{Abstract}
+
+% Ici j'ajoumte les mots en anglais 
+% \newpage
+% % \pagenumbering{roman}
+% \section*{Mots Clés}
+
+\input{chap1}
+\input{chap2}
+\input{chap3}
+\input{chap4}
+\input{chap5}
+\input{chap6}
+\input{chap7}
+% Bibliography temporarily disabled (no citations yet)
+% \bibliographystyle{plain}
+% \bibliography{bibli}
+\end{document}

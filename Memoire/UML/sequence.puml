@@ -1,0 +1,28 @@
+@startuml
+title Exécution d’un processus BPMN par un utilisateur
+actor Utilisateur as User
+participant "Frontend" as FE
+participant "Serveur" as BE
+participant "Moteur BPMN" as Engine
+database "Base de données" as DB
+participant "Notification Service" as Notif
+
+User -> FE: Démarre un processus
+FE -> BE:  (Modèle BPMN + configuration)
+BE -> Engine: Demarrer(model, config)
+Engine -> DB: Enregistrer instance + tâches
+DB --> Engine: OK
+Engine --> BE: InstanceId, tâches initiales
+BE --> FE: Liste des tâches de l’utilisateur
+FE -> User: Affiche Kanban (tâches)
+
+User -> FE: Marque une tâche comme terminée
+FE -> BE:  complete une tâche
+BE -> Engine: completeTask(taskId)
+Engine -> DB: Mettre à jour l’état de la tâche
+DB --> Engine: OK
+Engine --> BE: Tâche complétée
+BE -> Notif: Envoyer notification (email / websocket)
+Notif --> User: Notification reçue
+
+@enduml

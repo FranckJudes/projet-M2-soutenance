@@ -1,0 +1,385 @@
+\chapter{Mise en œuvre et déploiement de Harmoni}
+\label{ch:mise_oeuvre_harmoni}
+
+Cette phase décrit la mise en œuvre pratique de la solution Harmoni développée. Elle présente la liste du matériel et des logiciels nécessaires, les étapes de déploiement de l'application d'automatisation BPMN, ainsi qu'une analyse du coût de réalisation du projet dans le contexte de l'optimisation des processus documentaires chez Kairos.
+
+\section{Choix des outils et technologies}
+
+\subsection{Frontend : React}
+
+Pour le frontend, React a été choisi pour les raisons décrites ci-dessous après une évaluation des technologies les plus utilisées côté interface utilisateur web.
+
+\begin{table}[H]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{|p{3cm}|p{5cm}|p{5cm}|p{5cm}|}
+            \hline
+            \textbf{Nom} & \textbf{React} & \textbf{Vue.js} & \textbf{Angular} \\
+            \hline
+            % Description & Bibliothèque JavaScript pour interfaces utilisateur avec composants réutilisables & Framework progressif JavaScript, simple et flexible & Framework complet TypeScript avec architecture MVC \\
+            % \hline
+            Langage & JavaScript/TypeScript & JavaScript/TypeScript & TypeScript \\
+            \hline
+            Performances & Excellentes grâce au Virtual DOM et à l'optimisation des re-rendus & Très bonnes, légère et rapide & Bonnes, mais plus lourd pour les petites applications \\
+            \hline
+            Écosystème & Énorme écosystème, nombreuses bibliothèques pour BPMN (bpmn-js) & Écosystème solide mais plus restreint & Écosystème complet intégré \\
+            \hline
+            Courbe d'apprentissage & Modérée, concepts JSX et hooks à maîtriser & Douce, syntaxe proche du HTML classique & Abrupte, architecture complexe et TypeScript obligatoire \\
+            \hline
+        \end{tabular}
+    }
+    \caption{Comparaison des technologies frontend}
+    \label{tab:comparatif-frontend}
+\end{table}
+
+\subsubsection{Pourquoi utiliser React ?}
+\begin{dinglist}{80}
+    \item Excellente intégration avec les bibliothèques BPMN comme bpmn-js pour l'édition graphique de processus.
+    \item Architecture composant facilitant la création d'interfaces complexes pour la modélisation BPMN.
+    \item Large communauté et écosystème riche permettant de trouver rapidement des solutions aux problèmes spécifiques.
+    \item Performance optimale pour les applications interactives avec mise à jour en temps réel des processus.
+    \item Support TypeScript natif pour un développement plus robuste et maintenable.
+\end{dinglist}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/react.png}
+    \caption{React}
+    \label{fig:react}
+\end{figure}
+
+\subsection{Backend : Spring Boot}
+
+Pour le développement du backend de l'application, Spring Boot a été utilisé pour la conception des API REST et l'intégration du moteur BPMN. Le tableau ci-dessous justifie notre choix.
+
+\begin{table}[H]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{|p{3cm}|p{5cm}|p{5cm}|p{5cm}|}
+            \hline
+            \textbf{Nom} & \textbf{Spring Boot} & \textbf{Node.js Express} & \textbf{Laravel} \\
+            \hline
+            Description & Framework Java robuste avec écosystème complet, excellent pour applications d'entreprise & Framework JavaScript minimaliste et rapide pour API REST & Framework PHP moderne avec fonctionnalités intégrées \\
+            \hline
+            Langage & Java & JavaScript & PHP \\
+            \hline
+            Intégration BPMN & Excellente avec Camunda, Flowable, Activiti natifs & Possible mais nécessite des adaptateurs & Support limité, intégrations tierces \\
+            \hline
+            Performance & Très haute performance, compilation optimisée & Excellente pour I/O intensif & Bonne performance pour applications web \\
+            \hline
+            % Écosystème & Écosystème mature spécialisé BPM, Spring Security, Spring Data & Large écosystème JavaScript mais fragmenté & Écosystème PHP riche mais moins orienté BPM \\
+            % \hline
+            Scalabilité & Excellente scalabilité horizontale et verticale & Bonne scalabilité avec clustering & Scalabilité correcte avec optimisations \\
+            \hline
+        \end{tabular}
+    }
+    \caption{Comparaison des technologies backend}
+    \label{tab:comparatif-backend}
+\end{table}
+
+\subsubsection{Pourquoi utiliser Spring Boot ?}
+\begin{dinglist}{80}
+    \item Intégration native parfaite avec les moteurs BPMN (Camunda, Flowable) pour l'automatisation des processus.
+    \item Architecture robuste et sécurisée adaptée aux environnements d'entreprise comme Kairos.
+    \item Spring Security pour une gestion avancée de l'authentification et des autorisations.
+    \item Écosystème Spring complet (Data, Cloud, Batch) facilitant l'intégration avec les systèmes existants.
+    \item Performance élevée et gestion optimisée des ressources pour les applications BPMN intensives.
+\end{dinglist}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{Images/spring_boot.png}
+    \caption{Spring Boot}
+    \label{fig:spring_boot}
+\end{figure}
+
+\subsection{Base de données : PostgreSQL}
+
+PostgreSQL a été choisi pour les raisons décrites ci-dessous après une évaluation des technologies de base de données pertinentes pour les applications BPMN.
+
+\begin{table}[H]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{|p{4cm}|p{5cm}|p{5cm}|p{5cm}|}
+            \hline
+            \textbf{Nom} & \textbf{PostgreSQL} & \textbf{MySQL} & \textbf{MongoDB} \\
+            \hline
+            Description & SGBD relationnel avancé, open source, support JSON natif & SGBD relationnel populaire, rapide et fiable & Base NoSQL orientée documents \\
+            \hline
+            % Support BPMN & Excellent pour métadonnées processus, historique, JSON pour configuration & Bon support relationnel classique & Pas adapté aux structures BPMN relationnelles \\
+            % \hline
+            Performances & Excellentes pour requêtes complexes et analytiques & Très bonnes pour requêtes simples & Excellentes pour données non-structurées \\
+            \hline
+            Transactions & Support ACID complet, transactions complexes & Support ACID, transactions standards & Pas de transactions multi-documents (versions récentes seulement) \\
+            \hline
+            % Extensibilité & Très extensible, types personnalisés, fonctions & Extensibilité limitée & Très flexible pour schémas évolutifs \\
+            % \hline
+            Intégration Spring & Support natif JPA/Hibernate excellent & Support natif standard & Support Spring Data MongoDB \\
+            \hline
+        \end{tabular}
+    }
+    \caption{Tableau comparatif des bases de données}
+    \label{tab:comparatif-bd}
+\end{table}
+
+\subsubsection{Pourquoi utiliser PostgreSQL ?}
+\begin{dinglist}{80}
+    \item Support natif JSON pour stocker les configurations BPMN complexes et les données de processus.
+    \item Excellente performance pour les requêtes analytiques sur l'historique des processus et le monitoring.
+    \item Support ACID complet essentiel pour l'intégrité des données dans les workflows critiques.
+    \item Extensibilité avancée permettant des types de données personnalisés pour les métadonnées BPMN.
+    \item Intégration parfaite avec Spring Boot et les moteurs BPMN pour la persistance des processus.
+\end{dinglist}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/postgresql.png}
+    \caption{PostgreSQL}
+    \label{fig:postgresql}
+\end{figure}
+
+\subsection{Moteur BPMN : Camunda}
+
+Pour l'exécution des processus BPMN, Camunda a été intégré comme moteur d'automatisation des workflows documentaires.
+
+\begin{table}[H]
+    \centering
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{|p{3cm}|p{5cm}|p{5cm}|p{5cm}|}
+            \hline
+            \textbf{Nom} & \textbf{Camunda} & \textbf{Flowable} & \textbf{Activiti} \\
+            \hline
+            Description & Plateforme BPM complète avec moteur robuste et outils intégrés & Moteur BPMN léger, fork d'Activiti avec améliorations & Moteur historique, plus simple mais fonctionnalités limitées \\
+            \hline
+            Intégration Spring & Starter Spring Boot natif, configuration automatique & Bonne intégration Spring Boot & Intégration Spring standard \\
+            \hline
+            Monitoring & Interface web complète, métriques avancées & Interface basique, métriques standards & Interface simple, monitoring limité \\
+            \hline
+            Performance & Très haute performance, optimisé pour la production & Bonne performance, plus léger & Performance correcte pour charges modérées \\
+            \hline
+            Documentation & Documentation exhaustive, communauté active & Documentation correcte & Documentation basique \\
+            \hline
+        \end{tabular}
+    }
+    \caption{Comparaison des moteurs BPMN}
+    \label{tab:comparatif-bpmn-engines}
+\end{table}
+
+\subsubsection{Pourquoi utiliser Camunda ?}
+\begin{dinglist}{80}
+    \item Moteur BPMN 2.0 le plus mature et robuste du marché, adapté aux environnements de production.
+    \item Intégration Spring Boot native avec configuration automatique et starter dédié.
+    \item Extensibilité excellente pour les connecteurs personnalisés vers les systèmes documentaires existants.
+    \item Communauté active et documentation complète facilitant le développement et la maintenance.
+\end{dinglist}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.2\textwidth]{Images/camunda.jpeg}
+    \caption{Camunda}
+    \label{fig:camunda}
+\end{figure}
+
+\section{Présentation de l'environnement de travail}
+
+\subsection{Environnement logiciel}
+
+Cette section décrit les outils et les équipements utilisés pour le développement et le déploiement de l'application Harmoni d'automatisation des processus BPMN.
+
+\subsubsection{Système d'exploitation}
+\begin{dinglist}{80}
+    \item \textbf{Ubuntu 22.04.3 LTS} : Distribution Linux stable et professionnelle, largement utilisée en environnement de développement et de production. Ubuntu LTS offre une stabilité éprouvée, un support à long terme, une sécurité renforcée, et une compatibilité excellente avec les outils de développement Java et les environnements Docker. Il est particulièrement adapté au développement d'applications Spring Boot et à l'intégration avec les systèmes d'entreprise comme ceux de Kairos.\footnote{Ubuntu, \url{https://ubuntu.com/}}
+\end{dinglist}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.3\textwidth]{Images/ubuntu.png}
+    \caption{Ubuntu 22.04.3 LTS}
+    \label{fig:ubuntu}
+\end{figure}
+
+\subsubsection{Environnement de développement (IDE)}
+
+\paragraph{}{
+\begin{dinglist}{80}
+    
+    \item \textbf{IntelliJ IDEA Ultimate} : IntelliJ IDEA est l'IDE de référence pour le développement Java et Spring Boot. Il offre un support natif excellent pour Spring Framework, une intégration parfaite avec Maven/Gradle, des outils de debugging avancés, et des plugins spécialisés pour le développement BPMN et l'intégration Camunda.
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.2\textwidth]{Images/intelliJ.png}
+        \caption{IntelliJ IDEA Ultimate}
+        \label{fig:intellij}
+    \end{figure}
+\end{dinglist}}
+
+\paragraph{}{
+\begin{dinglist}{80}
+    
+    \item \textbf{Visual Studio Code} : Visual Studio Code est utilisé pour le développement React avec d'excellentes extensions pour JavaScript/TypeScript, React, et les outils de développement frontend. Il offre une intégration Git native, un terminal intégré, et des extensions spécialisées pour le développement d'interfaces BPMN.
+    
+    % Figure for VS Code temporarily disabled: image not found (Images/vs_code.png)
+    % \begin{figure}[H]
+    %     \centering
+    %     \includegraphics[width=0.6\textwidth]{Images/vs_code.png}
+    %     \caption{Visual Studio Code}
+    %     \label{fig:vscode}
+    % \end{figure}
+\end{dinglist}}
+
+
+\subsubsection{Gestionnaire de version et outils de collaboration}
+
+\paragraph{}{
+\begin{dinglist}{80}
+    
+    \item \textbf{Git} : Git est le système de contrôle de version décentralisé utilisé pour le suivi des modifications du code source de Harmoni, permettant la collaboration et la gestion des versions des processus BPMN.
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.2\textwidth]{Images/git.png}
+        \caption{Git}
+        \label{fig:git}
+    \end{figure}
+\end{dinglist}}
+
+\subsubsection{Outils de conteneurisation et déploiement}
+
+\paragraph{}{
+\begin{dinglist}{80}
+    
+    \item \textbf{Docker} : Docker est utilisé pour la conteneurisation de l'application Harmoni, permettant un déploiement cohérent et portable sur différents environnements (développement, test, production).
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.2\textwidth]{Images/docker.png}
+        \caption{Docker}
+        \label{fig:docker}
+    \end{figure}
+\end{dinglist}}
+
+
+\subsection{Environnement matériel}
+
+\begin{itemize}
+    \item \textbf{Un ordinateur portable} Dell \textit{XPS 15}, utilisé pour le développement et le test de l'application Harmoni. Il est équipé du système d'exploitation \textbf{Ubuntu 22.04.3 LTS} et présente les caractéristiques suivantes :
+    \begin{itemize}
+        \item Processeur Intel Core i7 (11\textsuperscript{e} génération) ;
+        \item 32 Go de RAM DDR4 ;
+        \item 1 To de stockage SSD NVMe ;
+        \item Carte graphique NVIDIA GTX 1650 Ti ;
+    \end{itemize}
+    
+    \item \textbf{Un serveur de développement} utilisé pour héberger l'environnement de test de Harmoni avec les caractéristiques suivantes :
+    \begin{itemize}
+        \item \textbf{CPU} : Intel Xeon E5-2620 v3 (8 cœurs)
+        \item \textbf{RAM} : 16 Go DDR4
+        \item \textbf{Stockage} : 500 Go SSD
+        \item \textbf{OS} : Ubuntu Server 22.04 LTS
+    \end{itemize}
+    
+    \item \textbf{Un routeur professionnel} pour la connexion internet haut débit nécessaire au développement, aux tests d'intégration, et au déploiement de l'application Harmoni.
+    
+    \item \textbf{Un serveur de production} utilisé pour l'hébergement final de l'application Harmoni chez Kairos, assurant la disponibilité et la gestion des processus BPMN automatisés.
+\end{itemize}
+
+\section{Coût de réalisation}
+
+Ici, il est question de présenter les différents coûts qui ont permis la réalisation et le déploiement du projet Harmoni d'automatisation des processus BPMN pour Kairos. Ces coûts sont répartis comme suit :
+
+\subsection{Coût du matériel}
+
+Nous avons commencé par définir le planning initial du projet, en déterminant la durée de chaque tâche et la durée totale du projet. Nous avons également évalué la quantité de ressources humaines et matérielles nécessaires. En suivant ces principes, la réalisation de ce travail a pris environ 6 mois et a été développée par une équipe de 2 développeurs.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|c|c|}
+        \hline
+        \textbf{Description} & \textbf{Coût total (XAF)} \\
+        \hline
+        Dell XPS 15 (développement) & 800,000 \\
+        \hline
+        Serveur de développement & 450,000 \\
+        \hline
+        Serveur de production & 600,000 \\
+        \hline
+        Équipements réseau & 120,000 \\
+        \hline
+        Connexion internet professionnel & 150,000 \\
+        \hline
+        Licences logicielles (IntelliJ, etc.) & 180,000 \\
+        \hline
+        \textbf{Coût total du matériel} & \textbf{2,300,000} \\
+        \hline
+    \end{tabular}
+    \caption{Coût du matériel pour le projet Harmoni}
+    \label{tab:cout_materiel}
+\end{table}
+
+\subsection{Coût du développement}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|c|c|}
+        \hline
+        \textbf{Étape du projet} & \textbf{Durée (semaines)} & \textbf{Coût total (XAF)} \\
+        \hline
+        Analyse des processus existants Kairos & 3 & 300,000 \\
+        \hline
+        Conception architecture BPMN & 4 & 400,000 \\
+        \hline
+        Développement backend Spring Boot & 8 & 1,200,000 \\
+        \hline
+        Développement frontend React & 6 & 900,000 \\
+        \hline
+        Intégration moteur Camunda & 4 & 600,000 \\
+        \hline
+        Intégration systèmes Kairos & 5 & 750,000 \\
+        \hline
+        Tests et validation processus & 4 & 400,000 \\
+        \hline
+        Documentation technique & 2 & 200,000 \\
+        \hline
+        Formation utilisateurs Kairos & 3 & 300,000 \\
+        \hline
+        Déploiement et mise en production & 2 & 250,000 \\
+        \hline
+        \multicolumn{2}{|r|}{\textbf{Coût total du développement (XAF)}} & \textbf{5,300,000} \\
+        \hline
+    \end{tabular}
+    \caption{Coût de développement de Harmoni}
+    \label{tab:cout_developpement}
+\end{table}
+
+\subsection{Coût total du projet}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{|l|c|}
+        \hline
+        \textbf{Élément} & \textbf{Coût (XAF)} \\
+        \hline
+        Matériel et infrastructure & 2,300,000 \\
+        \hline
+        Développement et intégration & 5,300,000 \\
+        \hline
+        \textbf{Coût total du projet} & \textbf{7,600,000} \\
+        \hline
+    \end{tabular}
+    \caption{Récapitulatif des coûts pour le projet Harmoni}
+    \label{tab:cout_total}
+\end{table}
+
+\subsection{Analyse du retour sur investissement}
+
+Le projet Harmoni représente un investissement significatif pour Kairos, mais les bénéfices attendus justifient largement ce coût :
+
+\begin{itemize}[label=\ding{80}, font=\large \color{listGreen}]
+    \item \textbf{Réduction des délais de traitement} : Automatisation des processus documentaires réduisant les délais de 60\% en moyenne
+    \item \textbf{Diminution des erreurs} : Élimination des erreurs manuelles dans le traitement des documents
+    \item \textbf{Amélioration de la traçabilité} : Suivi complet des processus documentaires avec historique détaillé
+    \item \textbf{Optimisation des ressources humaines} : Redirection du personnel vers des tâches à plus forte valeur ajoutée
+    \item \textbf{Conformité renforcée} : Respect automatique des procédures et réglementations en vigueur
+\end{itemize}
+
+Le retour sur investissement est estimé à 18 mois, principalement grâce aux gains de productivité et à la réduction des coûts opérationnels liés au traitement manuel des documents chez Kairos.

@@ -1,0 +1,29 @@
+@startuml
+title Cas d'utilisation — Application BPMN (Moteur + Gestionnaire de tâches)
+left to right direction
+
+actor "Administrateur" as Admin
+actor "Utilisateur" as User
+
+rectangle "Système (Moteur BPMN + Gestionnaire de tâches)" as System {
+  usecase "Créer un processus BPMN" as UC_CreateProcess
+  usecase "Configurer une tâche\n(utilisateur, groupe, ressource, notification)" as UC_ConfigTask
+  usecase "Superviser l’exécution\ndes processus" as UC_Monitor
+  usecase "Analyser les processus" as UC_Analyze
+
+  usecase "Consulter ses tâches\nsur Kanban" as UC_ViewKanban
+  usecase "Exécuter une tâche assignée" as UC_ExecuteTask
+  usecase "Recevoir une notification" as UC_ReceiveNotif
+}
+
+' Associations
+Admin -- UC_CreateProcess
+Admin -- UC_ConfigTask
+Admin -- UC_Monitor
+Admin -- UC_Analyze
+
+User -- UC_ViewKanban
+User -- UC_ExecuteTask
+User -- UC_ReceiveNotif
+
+@enduml

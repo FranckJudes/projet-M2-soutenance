@@ -1,0 +1,77 @@
+@startuml
+
+
+
+' Classes
+class User {
+  +id: String
+  +name: String
+  +email: String
+  +password: String
+  +role: String
+}
+
+class Group {
+  +id: String
+  +name: String
+}
+
+class Process {
+  +id: String
+  +name: String
+  +description: String
+  +bpmnModel: Text
+}
+
+class Task {
+  +id: String
+  +name: String
+  +status: TaskStatus
+  +dueDate: Date
+}
+
+class Notification {
+  +id: String
+  +message: String
+  +type: NotificationType
+  +dateSent: DateTime
+}
+
+class KanbanBoard {
+  +id: String
+  +title: String
+}
+
+' Relations principales
+' User ↔ Group (plusieurs à plusieurs)
+User "1..*" -- "1..*" Group : appartient à / contient
+
+' Process 1 ↔ * Task
+Process "1" o-- "0..*" Task : contient
+
+' Task 1 ↔ * Notification
+Task "1" -- "0..*" Notification : génère
+
+' User 1 ↔ * Task (assignation directe, optionnelle)
+User "1" -- "0..*" Task : assigne
+
+' Group 1 ↔ * Task (assignation collective, optionnelle)
+Group "1" -- "0..*" Task : assigne
+
+' User 1 ↔ 1 KanbanBoard
+User "1" -- "1" KanbanBoard : possède
+
+' Notifications envoyées à un User
+Notification "0..*" --> "1" User : destinataire
+
+' Notes pour clarifier les contraintes d’assignation
+note right of Task
+  Une Task est associée à un Process.
+  Elle peut être assignée à:
+  - un User (direct), ou
+  - un Group (collectif).
+  L’un des deux au minimum (contrainte métier).
+end note
+
+'@enduml
+@enduml
