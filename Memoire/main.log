@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.9.3)  4 SEP 2025 11:44
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.9.3)  4 SEP 2025 13:25
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -989,7 +989,9 @@ Underfull \hbox (badness 10000) in paragraph at lines 101--102
 
  [8
 
-] [9] [10] [11] (./chap1.tex [12]
+] [9] [10] [11] (./chap1.tex [12] [13
+
+]) (./chap2.tex [14]
 Chapitre 1.
 LaTeX Font Info:    Trying to load font information for OT1+phv on input line 3.
 (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1phv.fd
@@ -998,13 +1000,9 @@ File: ot1phv.fd 2020/03/25 scalable font definitions for OT1/phv.
 LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 3.
  (/usr/share/texlive/texmf-dist/tex/latex/psnfss/ot1ptm.fd
 File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
-) [13
+) [15
 
-{/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}]) (./chap2.tex [14]
-Chapitre 2.
-[15
-
-]
+{/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc}]
 <Images/localisation.jpg, id=106, 1284.8pt x 689.57625pt>
 File: Images/localisation.jpg Graphic file (type jpg)
 <use Images/localisation.jpg>
@@ -1017,7 +1015,7 @@ File: Images/org2.png Graphic file (type png)
 Package pdftex.def Info: Images/org2.png  used on input line 75.
 (pdftex.def)             Requested size: 452.9679pt x 244.35449pt.
  [18 <./Images/org2.png>] [19] [20]) (./chap3.tex [21]
-Chapitre 3.
+Chapitre 2.
 [22
 
 ] [23] [24] [25] [26] [27] [28] [29] [30]
@@ -1026,7 +1024,7 @@ Overfull \hbox (6.39014pt too wide) in paragraph at lines 175--176
  []
 
 ) (./chap4.tex [31] [32]
-Chapitre 4.
+Chapitre 3.
 [33
 
 ]
@@ -1055,7 +1053,7 @@ Package pdftex.def Info: Images/Architecture.png  used on input line 71.
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 [35 <./Images/sequence.png (PNG copy)>]) (./chap5.tex [36 <./Images/Architecture.png (PNG copy)>]
-Chapitre 5.
+Chapitre 4.
 
 Underfull \hbox (badness 3312) in paragraph at lines 30--30
 []|\T1/cmr/m/n/12 Bonnes, mais plus lourd
@@ -1219,57 +1217,66 @@ File: Images/docker.png Graphic file (type png)
 Package pdftex.def Info: Images/docker.png  used on input line 255.
 (pdftex.def)             Requested size: 90.5922pt x 80.89581pt.
  [43 <./Images/git.png> <./Images/docker.png>] [44] [45]) (./chap6.tex [46]
-Chapitre 6.
-<Images/dashboard.png, id=230, 1926.19624pt x 929.4725pt>
+Chapitre 5.
+<Images/dashboard.png, id=230, 1927.2pt x 939.51pt>
 File: Images/dashboard.png Graphic file (type png)
 <use Images/dashboard.png>
 Package pdftex.def Info: Images/dashboard.png  used on input line 11.
-(pdftex.def)             Requested size: 407.66833pt x 196.71252pt.
+(pdftex.def)             Requested size: 407.66833pt x 198.7365pt.
 [47
 
  <./Images/dashboard.png>]
-<Images/configuration.png, id=235, 1927.2pt x 933.4875pt>
-File: Images/configuration.png Graphic file (type png)
-<use Images/configuration.png>
-Package pdftex.def Info: Images/configuration.png  used on input line 26.
-(pdftex.def)             Requested size: 407.66833pt x 197.46254pt.
+<Images/modelisation.png, id=235, 1927.2pt x 937.5025pt>
+File: Images/modelisation.png Graphic file (type png)
+<use Images/modelisation.png>
+Package pdftex.def Info: Images/modelisation.png  used on input line 26.
+(pdftex.def)             Requested size: 407.66833pt x 198.31184pt.
+<Images/configuration.png, id=236, 1927.2pt x 933.4875pt>
 File: Images/configuration.png Graphic file (type png)
 <use Images/configuration.png>
 Package pdftex.def Info: Images/configuration.png  used on input line 41.
 (pdftex.def)             Requested size: 407.66833pt x 197.46254pt.
- [48 <./Images/configuration.png>]
-<Images/task.png, id=239, 1927.2pt x 935.495pt>
+ [48 <./Images/modelisation.png>]
+<Images/task.png, id=240, 1927.2pt x 935.495pt>
 File: Images/task.png Graphic file (type png)
 <use Images/task.png>
 Package pdftex.def Info: Images/task.png  used on input line 56.
 (pdftex.def)             Requested size: 407.66833pt x 197.88719pt.
- [49]
-<Images/notification.png, id=243, 1927.2pt x 935.495pt>
+ [49 <./Images/configuration.png>]
+<Images/notification.png, id=244, 1927.2pt x 935.495pt>
 File: Images/notification.png Graphic file (type png)
 <use Images/notification.png>
-Package pdftex.def Info: Images/notification.png  used on input line 71.
+Package pdftex.def Info: Images/notification.png  used on input line 76.
 (pdftex.def)             Requested size: 407.66833pt x 197.88719pt.
  [50 <./Images/task.png>]
-<Images/historique.png, id=247, 1927.2pt x 939.51pt>
+<Images/historique.png, id=248, 1927.2pt x 939.51pt>
 File: Images/historique.png Graphic file (type png)
 <use Images/historique.png>
 Package pdftex.def Info: Images/historique.png  used on input line 86.
 (pdftex.def)             Requested size: 407.66833pt x 198.7365pt.
- [51 <./Images/notification.png>]
-<Images/avancee.png, id=251, 1927.2pt x 939.51pt>
+ [51 <./Images/notification.png> <./Images/historique.png>]
+<Images/avancee.png, id=252, 1927.2pt x 939.51pt>
 File: Images/avancee.png Graphic file (type png)
 <use Images/avancee.png>
 Package pdftex.def Info: Images/avancee.png  used on input line 101.
 (pdftex.def)             Requested size: 407.66833pt x 198.7365pt.
- [52 <./Images/historique.png>] [53 <./Images/avancee.png>]) (./chap7.tex [54])
+ [52 <./Images/avancee.png>]) (./chap7.tex [53]
+Overfull \hbox (26.5064pt too wide) in paragraph at lines 19--20
+\T1/cmr/m/n/12 mas-sive, la \T1/cmr/bx/n/12 dé-pen-dance au mo-teur BPMN \T1/cmr/m/n/12 sous-jacent, ainsi que le be-soin d'\T1/cmr/bx/n/12 optimisations
+ []
+
+[54
+
+]) [55] (./main.bbl [56
+
+
+])
 
 Package glossaries Warning: No \printglossary or \printglossaries found. 
 (Remove \makeglossaries if you don't want any glossaries.) 
 This document will not have a glossary.
 
-[55
-
-] (./main.aux)
+[57] (./main.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
@@ -1284,17 +1291,17 @@ LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 20560 strings out of 474222
- 359223 string characters out of 5748734
- 1937975 words of memory out of 5000000
- 42394 multiletter control sequences out of 15000+600000
+ 20603 strings out of 474222
+ 359881 string characters out of 5748734
+ 1938975 words of memory out of 5000000
+ 42434 multiletter control sequences out of 15000+600000
  581652 words of font info for 96 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  110i,17n,117p,2400b,547s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf/fonts/type1/public/cm-super/sfbx1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1440.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfbx1728.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfcc1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm0800.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1000.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1440.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm2074.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm2488.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfti1200.pfb></usr/share/texmf/fonts/type1/public/cm-super/sftt1000.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/helvetic/uhvr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/times/utmr8a.pfb></usr/share/texlive/texmf-dist/fonts/type1/urw/zapfding/uzdr.pfb>
-Output written on main.pdf (57 pages, 2456613 bytes).
+Output written on main.pdf (59 pages, 2579300 bytes).
 PDF statistics:
- 331 PDF objects out of 1000 (max. 8388607)
+ 338 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
- 116 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 121 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -1,27 +1,26 @@
 \babel@toc {french}{}\relax 
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {1.1}{\ignorespaces Localisation GPS de KAIROS}}{16}{}%
+\contentsline {figure}{\numberline {1.2}{\ignorespaces Organigramme de l'entreprise KAIROS}}{18}{}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {2.1}{\ignorespaces Localisation GPS de KAIROS}}{16}{}%
-\contentsline {figure}{\numberline {2.2}{\ignorespaces Organigramme de l'entreprise KAIROS}}{18}{}%
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {3.1}{\ignorespaces Diagramme de cas d'utilisation — Application BPMN}}{34}{}%
+\contentsline {figure}{\numberline {3.2}{\ignorespaces Diagramme de séquence — Exécution d’un processus BPMN par un utilisateur}}{35}{}%
+\contentsline {figure}{\numberline {3.3}{\ignorespaces Architecture globale de Harmoni}}{36}{}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1}{\ignorespaces Diagramme de cas d'utilisation — Application BPMN}}{34}{}%
-\contentsline {figure}{\numberline {4.2}{\ignorespaces Diagramme de séquence — Exécution d’un processus BPMN par un utilisateur}}{35}{}%
-\contentsline {figure}{\numberline {4.3}{\ignorespaces Architecture globale de Harmoni}}{36}{}%
+\contentsline {figure}{\numberline {4.1}{\ignorespaces React}}{38}{}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Spring Boot}}{39}{}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces PostgreSQL}}{40}{}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces Camunda}}{41}{}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Ubuntu 22.04.3 LTS}}{42}{}%
+\contentsline {figure}{\numberline {4.6}{\ignorespaces IntelliJ IDEA Ultimate}}{42}{}%
+\contentsline {figure}{\numberline {4.7}{\ignorespaces Git}}{43}{}%
+\contentsline {figure}{\numberline {4.8}{\ignorespaces Docker}}{43}{}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {5.1}{\ignorespaces React}}{38}{}%
-\contentsline {figure}{\numberline {5.2}{\ignorespaces Spring Boot}}{39}{}%
-\contentsline {figure}{\numberline {5.3}{\ignorespaces PostgreSQL}}{40}{}%
-\contentsline {figure}{\numberline {5.4}{\ignorespaces Camunda}}{41}{}%
-\contentsline {figure}{\numberline {5.5}{\ignorespaces Ubuntu 22.04.3 LTS}}{42}{}%
-\contentsline {figure}{\numberline {5.6}{\ignorespaces IntelliJ IDEA Ultimate}}{42}{}%
-\contentsline {figure}{\numberline {5.7}{\ignorespaces Git}}{43}{}%
-\contentsline {figure}{\numberline {5.8}{\ignorespaces Docker}}{43}{}%
-\addvspace {10\p@ }
-\contentsline {figure}{\numberline {6.1}{\ignorespaces Tableau de bord (Dashboard) — vue générale de Harmoni}}{47}{}%
-\contentsline {figure}{\numberline {6.2}{\ignorespaces Éditeur BPMN — modélisation graphique}}{48}{}%
-\contentsline {figure}{\numberline {6.3}{\ignorespaces Configuration d’une tâche — affectation, règles et paramètres}}{49}{}%
-\contentsline {figure}{\numberline {6.4}{\ignorespaces Tableau Kanban — gestion et priorisation des tâches par utilisateur}}{50}{}%
-\contentsline {figure}{\numberline {6.5}{\ignorespaces Centre de notifications / alerte en temps réel}}{51}{}%
-\contentsline {figure}{\numberline {6.6}{\ignorespaces Historique des exécutions et vue détaillée d’une instance}}{52}{}%
-\contentsline {figure}{\numberline {6.7}{\ignorespaces Module d’analyse — variantes, goulets, prédictions et réseau social organisationnel}}{53}{}%
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Tableau de bord (Dashboard) — vue générale de Harmoni}}{47}{}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces Éditeur BPMN — modélisation graphique}}{48}{}%
+\contentsline {figure}{\numberline {5.3}{\ignorespaces Configuration d’une tâche — affectation, règles et paramètres}}{49}{}%
+\contentsline {figure}{\numberline {5.4}{\ignorespaces Tableau Kanban — gestion et priorisation des tâches par utilisateur}}{50}{}%
+\contentsline {figure}{\numberline {5.5}{\ignorespaces Centre de notifications / alerte en temps réel}}{51}{}%
+\contentsline {figure}{\numberline {5.6}{\ignorespaces Historique des exécutions et vue détaillée d’une instance}}{51}{}%
+\contentsline {figure}{\numberline {5.7}{\ignorespaces Module d’analyse — variantes, goulets, prédictions et réseau social organisationnel}}{52}{}%

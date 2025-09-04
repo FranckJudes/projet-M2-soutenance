@@ -179,9 +179,60 @@ We are proud of what we have achieved together and hope that our project will be
 \newpage
 \section*{Définition des sigles et des acronymes}
 \begin{table}[H]
-   
-
-
+   \centering
+   \begin{adjustbox}{max width=\textwidth}
+   \begin{tabularx}{1.0\textwidth}{|l|X|}
+     \hline
+     \textbf{Sigle} & \textbf{Définition} \\
+     \hline
+     BPMN & Business Process Model and Notation (standard de modélisation des processus) \\
+     \hline
+     BPM & Business Process Management (gestion des processus métier) \\
+     \hline
+     BPR & Business Process Reengineering (reconception des processus) \\
+     \hline
+     SOA & Service-Oriented Architecture (architecture orientée services) \\
+     \hline
+     XML & eXtensible Markup Language \\
+     \hline
+     API & Application Programming Interface (interface de programmation) \\
+     \hline
+     REST & Representational State Transfer (style d’architecture pour API) \\
+     \hline
+     JSON & JavaScript Object Notation (format d’échange de données) \\
+     \hline
+     JPA & Java Persistence API (spécification de persistance Java) \\
+     \hline
+     JWT & JSON Web Token (jeton d’authentification) \\
+     \hline
+     HTTPS & HyperText Transfer Protocol Secure (HTTP sécurisé) \\
+     \hline
+     UML & Unified Modeling Language (langage de modélisation unifié) \\
+     \hline
+     KPI & Key Performance Indicator (indicateur clé de performance) \\
+     \hline
+     SLA & Service Level Agreement (accord de niveau de service) \\
+     \hline
+     UI & User Interface (interface utilisateur) \\
+     \hline
+     UX & User Experience (expérience utilisateur) \\
+     \hline
+     SGBD & Système de Gestion de Base de Données \\
+     \hline
+     ACID & Atomicité, Cohérence (Consistency), Isolation, Durabilité \\
+     \hline
+     SIGL & Systèmes d’Information et Génie Logiciel \\
+     \hline
+     UYI & Université de Yaoundé I \\
+     \hline
+     TIC & Technologies de l’Information et de la Communication \\
+     \hline
+     GPS & Global Positioning System \\
+     \hline
+     IDE & Integrated Development Environment (environnement de développement) \\
+     \hline
+   \end{tabularx}
+   \end{adjustbox}
 \end{table}
 
 \newpage
@@ -192,16 +243,33 @@ La filière  \textbf{SIGL} est l'une des filières que compte l' \textbf{UYI}. C
 
 \newpage
 % {\fontsize{10.46}{13}\selectfont}
+\newpage
+\addcontentsline{toc}{chapter}{\large {Résumé}}
 \section*{Résumé}
 
-% iCI JE VAIS FAIRE LE RESUMER
+La gestion et l'automatisation des processus métier représentent un enjeu majeur pour les organisations, notamment dans le domaine de la gestion documentaire et opérationnelle. Les entreprises sont confrontées à la complexité des workflows, au suivi des tâches et à la nécessité d'optimiser la performance des processus existants. Face à ce constat, \textbf{comment concevoir une plateforme permettant de modéliser, exécuter et analyser les processus métier de manière intuitive et efficace ?}  
+
+Pour répondre à cette problématique, nous avons développé \textbf{Harmoni}, une application basée sur la notation BPMN 2.0 et suivant une approche de conception modulaire et itérative. Le projet a débuté par une analyse des besoins fonctionnels et non fonctionnels, suivie de la définition des exigences techniques et de l'architecture globale de la solution. La plateforme repose sur un \textbf{frontend React} pour la modélisation et le suivi des processus, un \textbf{backend Spring Boot} pour l’exécution et la gestion des workflows, et un \textbf{moteur BPMN} intégré pour automatiser les tâches métier.  
+
+Harmoni intègre également des \textbf{modules analytiques avancés} permettant l'analyse des variantes de processus, la détection des goulets d’étranglement, la prédiction de performance, l’étude des réseaux organisationnels et la découverte automatique des processus. Ces fonctionnalités offrent une vision complète et en temps réel des processus métier, facilitant leur optimisation et l'amélioration continue.  
+
+Le résultat final est une plateforme complète et conviviale qui permet aux utilisateurs métier de Kairos de modéliser visuellement des processus complexes, de suivre leur exécution, de gérer les tâches et d’obtenir des analyses approfondies pour améliorer la performance organisationnelle. Des perspectives d’évolution existent, notamment l’intégration de l’intelligence artificielle pour l’optimisation dynamique des workflows et l’extension vers une interopérabilité plus large avec les systèmes tiers.
 
 
 
 \textbf % ici J'ajoute les mots cles
 \newpage
-% {\fontsize{10.46}{13}\selectfont}
+\newpage
+\addcontentsline{toc}{chapter}{\large {Abstract}}
 \section*{Abstract}
+
+Business process management and automation represent a major challenge for organizations, particularly in the areas of document and operational workflow management. Companies face complex workflows, task tracking challenges, and the need to optimize the performance of existing processes. In this context, \textbf{how can a platform be designed to model, execute, and analyze business processes in an intuitive and efficient way?}  
+
+To address this challenge, we developed \textbf{Harmoni}, an application based on BPMN 2.0 notation and following a modular, iterative design approach. The project began with a detailed analysis of functional and non-functional requirements, followed by the definition of technical specifications and the overall system architecture. The platform is built on a \textbf{React frontend} for process modeling and monitoring, a \textbf{Spring Boot backend} for workflow management and execution, and an integrated \textbf{BPMN engine} for automating business tasks.  
+
+Harmoni also includes \textbf{advanced analytical modules} for process variants analysis, bottleneck detection, performance prediction, organizational network analysis, and automatic process discovery. These features provide a comprehensive, real-time view of business processes, enabling continuous optimization and improvement.  
+
+The final result is a complete and user-friendly platform that allows Kairos business users to visually model complex processes, monitor their execution, manage tasks, and obtain in-depth analyses to enhance organizational performance. Future perspectives include integrating artificial intelligence for dynamic workflow optimization and extending interoperability with third-party systems.
 
 % Ici j'ajoumte les mots en anglais 
 % \newpage
@@ -215,7 +283,9 @@ La filière  \textbf{SIGL} est l'une des filières que compte l' \textbf{UYI}. C
 \input{chap5}
 \input{chap6}
 \input{chap7}
-% Bibliography temporarily disabled (no citations yet)
-% \bibliographystyle{plain}
-% \bibliography{bibli}
+\cleardoublepage
+\addcontentsline{toc}{chapter}{\large {Bibliographie}}
+\nocite{*}
+\bibliographystyle{plain}
+\bibliography{bibli}
 \end{document}

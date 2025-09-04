@@ -1,0 +1,122 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: plain.bst
+Database file #1: bibli.bib
+Warning--entry type for "ubuntu2025" isn't style-file defined
+--line 5 of file bibli.bib
+Warning--entry type for "react" isn't style-file defined
+--line 13 of file bibli.bib
+Warning--entry type for "springboot" isn't style-file defined
+--line 21 of file bibli.bib
+Warning--entry type for "postgresql" isn't style-file defined
+--line 29 of file bibli.bib
+Warning--entry type for "camunda" isn't style-file defined
+--line 37 of file bibli.bib
+Warning--entry type for "flowable" isn't style-file defined
+--line 45 of file bibli.bib
+Warning--entry type for "activiti" isn't style-file defined
+--line 53 of file bibli.bib
+Warning--entry type for "jbpm" isn't style-file defined
+--line 61 of file bibli.bib
+Warning--entry type for "signavio" isn't style-file defined
+--line 69 of file bibli.bib
+Warning--entry type for "bizagi" isn't style-file defined
+--line 77 of file bibli.bib
+Warning--entry type for "nintex" isn't style-file defined
+--line 85 of file bibli.bib
+Warning--entry type for "lucidchart" isn't style-file defined
+--line 93 of file bibli.bib
+Warning--entry type for "diagramsnet" isn't style-file defined
+--line 101 of file bibli.bib
+Warning--entry type for "visio" isn't style-file defined
+--line 109 of file bibli.bib
+Warning--entry type for "git" isn't style-file defined
+--line 117 of file bibli.bib
+Warning--entry type for "docker" isn't style-file defined
+--line 125 of file bibli.bib
+Warning--entry type for "intellij" isn't style-file defined
+--line 133 of file bibli.bib
+Warning--entry type for "vscode" isn't style-file defined
+--line 141 of file bibli.bib
+Warning--entry type for "omg-bpmn" isn't style-file defined
+--line 149 of file bibli.bib
+Warning--entry type for "bpmnjs" isn't style-file defined
+--line 157 of file bibli.bib
+Warning--entry type for "servicenow-hr" isn't style-file defined
+--line 165 of file bibli.bib
+Warning--entry type for "bamboohr" isn't style-file defined
+--line 173 of file bibli.bib
+Warning--entry type for "zapier" isn't style-file defined
+--line 181 of file bibli.bib
+Warning--entry type for "aris" isn't style-file defined
+--line 189 of file bibli.bib
+Warning--entry type for "pega" isn't style-file defined
+--line 197 of file bibli.bib
+Warning--to sort, need author or key in ubuntu2025
+Warning--to sort, need author or key in react
+Warning--to sort, need author or key in springboot
+Warning--to sort, need author or key in postgresql
+Warning--to sort, need author or key in camunda
+Warning--to sort, need author or key in flowable
+Warning--to sort, need author or key in activiti
+Warning--to sort, need author or key in jbpm
+Warning--to sort, need author or key in signavio
+Warning--to sort, need author or key in bizagi
+Warning--to sort, need author or key in nintex
+Warning--to sort, need author or key in lucidchart
+Warning--to sort, need author or key in diagramsnet
+Warning--to sort, need author or key in visio
+Warning--to sort, need author or key in git
+Warning--to sort, need author or key in docker
+Warning--to sort, need author or key in intellij
+Warning--to sort, need author or key in vscode
+Warning--to sort, need author or key in omg-bpmn
+Warning--to sort, need author or key in bpmnjs
+Warning--to sort, need author or key in servicenow-hr
+Warning--to sort, need author or key in bamboohr
+Warning--to sort, need author or key in zapier
+Warning--to sort, need author or key in aris
+Warning--to sort, need author or key in pega
+You've used 25 entries,
+            2118 wiz_defined-function locations,
+            573 strings with 5319 characters,
+and the built_in function-call counts, 3822 in all, are:
+= -- 325
+> -- 25
+< -- 0
++ -- 25
+- -- 0
+* -- 152
+:= -- 386
+add.period$ -- 25
+call.type$ -- 25
+change.case$ -- 75
+chr.to.int$ -- 0
+cite$ -- 50
+duplicate$ -- 175
+empty$ -- 576
+format.name$ -- 0
+if$ -- 951
+int.to.chr$ -- 0
+int.to.str$ -- 25
+missing$ -- 0
+newline$ -- 78
+num.names$ -- 0
+pop$ -- 225
+preamble$ -- 1
+purify$ -- 50
+quote$ -- 0
+skip$ -- 199
+stack$ -- 0
+substring$ -- 125
+swap$ -- 25
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 100
+warning$ -- 25
+while$ -- 0
+width$ -- 27
+write$ -- 152
+(There were 50 warnings)
