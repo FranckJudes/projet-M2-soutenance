@@ -64,39 +64,63 @@
 \contentsline {subsection}{\numberline {4.1.2}Besoins non fonctionnels}{34}{}%
 \contentsline {section}{\numberline {4.2}Conception fonctionnelle}{34}{}%
 \contentsline {subsection}{\numberline {4.2.1}Diagramme de cas d’utilisation}{34}{}%
-\contentsline {subsection}{\numberline {4.2.2}Diagramme de classes}{34}{}%
-\contentsline {subsection}{\numberline {4.2.3}Diagramme de séquence}{34}{}%
-\contentsline {section}{\numberline {4.3}Structure des composants et dépendances}{37}{}%
-\contentsline {subsection}{\numberline {4.3.1}Schéma directeur de Harmoni}{37}{}%
-\contentsline {subsection}{\numberline {4.3.2}Choix de l’architecture}{37}{}%
-\contentsline {subsection}{\numberline {4.3.3}Flux de données et interactions}{37}{}%
-\contentsline {section}{\numberline {4.4}Implémentation technique}{38}{}%
-\contentsline {subsection}{\numberline {4.4.1}Le cœur logique de Harmoni}{38}{}%
-\contentsline {subsection}{\numberline {4.4.2}L’interface utilisateur React}{38}{}%
-\contentsline {chapter}{\numberline {5}Mise en œuvre et déploiement de Harmoni}{39}{}%
-\contentsline {section}{\numberline {5.1}Choix des outils et technologies}{39}{}%
-\contentsline {subsection}{\numberline {5.1.1}Frontend : React}{39}{}%
-\contentsline {subsubsection}{Pourquoi utiliser React ?}{40}{}%
-\contentsline {subsection}{\numberline {5.1.2}Backend : Spring Boot}{40}{}%
-\contentsline {subsubsection}{Pourquoi utiliser Spring Boot ?}{41}{}%
-\contentsline {subsection}{\numberline {5.1.3}Base de données : PostgreSQL}{41}{}%
-\contentsline {subsubsection}{Pourquoi utiliser PostgreSQL ?}{42}{}%
-\contentsline {subsection}{\numberline {5.1.4}Moteur BPMN : Camunda}{42}{}%
-\contentsline {subsubsection}{Pourquoi utiliser Camunda ?}{43}{}%
-\contentsline {section}{\numberline {5.2}Présentation de l'environnement de travail}{43}{}%
-\contentsline {subsection}{\numberline {5.2.1}Environnement logiciel}{43}{}%
-\contentsline {subsubsection}{Système d'exploitation}{43}{}%
-\contentsline {subsubsection}{Environnement de développement (IDE)}{44}{}%
-\contentsline {paragraph}{}{44}{}%
-\contentsline {paragraph}{}{44}{}%
-\contentsline {subsubsection}{Gestionnaire de version et outils de collaboration}{44}{}%
-\contentsline {paragraph}{}{44}{}%
-\contentsline {subsubsection}{Outils de conteneurisation et déploiement}{45}{}%
-\contentsline {paragraph}{}{45}{}%
-\contentsline {subsection}{\numberline {5.2.2}Environnement matériel}{45}{}%
-\contentsline {section}{\numberline {5.3}Coût de réalisation}{46}{}%
-\contentsline {subsection}{\numberline {5.3.1}Coût du matériel}{46}{}%
-\contentsline {subsection}{\numberline {5.3.2}Coût du développement}{47}{}%
-\contentsline {subsection}{\numberline {5.3.3}Coût total du projet}{47}{}%
-\contentsline {subsection}{\numberline {5.3.4}Analyse du retour sur investissement}{47}{}%
-\contentsline {chapter}{\numberline {6}RÉSULTATS}{49}{}%
+\contentsline {subsection}{\numberline {4.2.2}Diagramme de classes}{35}{}%
+\contentsline {subsection}{\numberline {4.2.3}Diagramme de séquence}{35}{}%
+\contentsline {section}{\numberline {4.3}Structure des composants et dépendances}{35}{}%
+\contentsline {subsection}{\numberline {4.3.1}Schéma directeur de Harmoni}{35}{}%
+\contentsline {subsection}{\numberline {4.3.2}Choix de l’architecture}{36}{}%
+\contentsline {subsection}{\numberline {4.3.3}Flux de données et interactions}{36}{}%
+\contentsline {section}{\numberline {4.4}Implémentation technique}{36}{}%
+\contentsline {subsection}{\numberline {4.4.1}Le cœur logique de Harmoni}{36}{}%
+\contentsline {subsection}{\numberline {4.4.2}L’interface utilisateur React}{36}{}%
+\contentsline {chapter}{\numberline {5}Mise en œuvre et déploiement de Harmoni}{37}{}%
+\contentsline {section}{\numberline {5.1}Choix des outils et technologies}{37}{}%
+\contentsline {subsection}{\numberline {5.1.1}Frontend : React}{37}{}%
+\contentsline {subsubsection}{Pourquoi utiliser React ?}{38}{}%
+\contentsline {subsection}{\numberline {5.1.2}Backend : Spring Boot}{38}{}%
+\contentsline {subsubsection}{Pourquoi utiliser Spring Boot ?}{39}{}%
+\contentsline {subsection}{\numberline {5.1.3}Base de données : PostgreSQL}{39}{}%
+\contentsline {subsubsection}{Pourquoi utiliser PostgreSQL ?}{40}{}%
+\contentsline {subsection}{\numberline {5.1.4}Moteur BPMN : Camunda}{40}{}%
+\contentsline {subsubsection}{Pourquoi utiliser Camunda ?}{41}{}%
+\contentsline {section}{\numberline {5.2}Présentation de l'environnement de travail}{41}{}%
+\contentsline {subsection}{\numberline {5.2.1}Environnement logiciel}{41}{}%
+\contentsline {subsubsection}{Système d'exploitation}{41}{}%
+\contentsline {subsubsection}{Environnement de développement (IDE)}{42}{}%
+\contentsline {paragraph}{}{42}{}%
+\contentsline {paragraph}{}{42}{}%
+\contentsline {subsubsection}{Gestionnaire de version et outils de collaboration}{42}{}%
+\contentsline {paragraph}{}{42}{}%
+\contentsline {subsubsection}{Outils de conteneurisation et déploiement}{43}{}%
+\contentsline {paragraph}{}{43}{}%
+\contentsline {subsection}{\numberline {5.2.2}Environnement matériel}{43}{}%
+\contentsline {section}{\numberline {5.3}Coût de réalisation}{44}{}%
+\contentsline {subsection}{\numberline {5.3.1}Coût du matériel}{44}{}%
+\contentsline {subsection}{\numberline {5.3.2}Coût du développement}{45}{}%
+\contentsline {subsection}{\numberline {5.3.3}Coût total du projet}{45}{}%
+\contentsline {subsection}{\numberline {5.3.4}Analyse du retour sur investissement}{45}{}%
+\contentsline {chapter}{\numberline {6}Résultats et validation}{47}{}%
+\contentsline {section}{\numberline {6.1}Vue générale — Dashboard}{47}{}%
+\contentsline {paragraph}{Description de la capture.}{47}{}%
+\contentsline {paragraph}{Interprétation et validation.}{48}{}%
+\contentsline {section}{\numberline {6.2}Modélisation BPMN}{48}{}%
+\contentsline {paragraph}{Description de la capture.}{48}{}%
+\contentsline {paragraph}{Interprétation et validation.}{48}{}%
+\contentsline {section}{\numberline {6.3}Configuration des tâches}{49}{}%
+\contentsline {paragraph}{Description de la capture.}{49}{}%
+\contentsline {paragraph}{Interprétation et validation.}{49}{}%
+\contentsline {section}{\numberline {6.4}Kanban utilisateur}{50}{}%
+\contentsline {paragraph}{Description de la capture.}{50}{}%
+\contentsline {paragraph}{Interprétation et validation.}{50}{}%
+\contentsline {section}{\numberline {6.5}Notifications en temps réel}{51}{}%
+\contentsline {paragraph}{Description de la capture.}{51}{}%
+\contentsline {paragraph}{Interprétation et validation.}{51}{}%
+\contentsline {section}{\numberline {6.6}Historique et monitoring}{52}{}%
+\contentsline {paragraph}{Description de la capture.}{52}{}%
+\contentsline {paragraph}{Interprétation et validation.}{52}{}%
+\contentsline {section}{\numberline {6.7}Analyses BPMN avancées}{53}{}%
+\contentsline {paragraph}{Description de la capture.}{53}{}%
+\contentsline {paragraph}{Interprétation et validation.}{53}{}%
+\contentsline {section}{\numberline {6.8}Synthèse et recommandations pour les captures}{54}{}%
+\contentsline {paragraph}{Synthèse.}{54}{}%
+\contentsline {paragraph}{Recommandations pour finaliser les images (à insérer) :}{54}{}%
