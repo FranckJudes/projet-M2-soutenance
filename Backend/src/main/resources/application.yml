@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://192.168.43.228:5432/harmony_db3
+    url: jdbc:postgresql://192.168.43.228:5432/harmony_db
     username: gallagher
     password: gallagher09
     driver-class-name: org.postgresql.Driver
