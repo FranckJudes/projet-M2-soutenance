@@ -123,4 +123,3 @@
 \contentsline {paragraph}{Interprétation et validation.}{53}{}%
 \contentsline {section}{\numberline {6.8}Synthèse et recommandations pour les captures}{54}{}%
 \contentsline {paragraph}{Synthèse.}{54}{}%
-\contentsline {paragraph}{Recommandations pour finaliser les images (à insérer) :}{54}{}%
