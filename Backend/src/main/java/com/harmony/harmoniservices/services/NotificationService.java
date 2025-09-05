@@ -126,6 +126,7 @@ public class NotificationService {
     /**
      * Send WebSocket notification for task completion
      */
+    @Async
     public void sendTaskCompletionNotification(String taskId, String userId) {
         try {
             Map<String, Object> notification = new HashMap<>();
@@ -191,6 +192,7 @@ public class NotificationService {
     /**
      * Send deadline reminder notifications
      */
+    @Async
     public void sendDeadlineReminder(Task task) {
         try {
             TaskConfiguration config = getTaskConfiguration(task);
@@ -278,6 +280,7 @@ public class NotificationService {
     /**
      * Send process start notification
      */
+    @Async
     public void sendProcessStartNotification(String processDefinitionKey, String processInstanceId, String startedBy) {
         try {
             Map<String, Object> notification = new HashMap<>();
@@ -373,7 +376,7 @@ public class NotificationService {
                 "Harmony Services - " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
             
             mailMessage.setText(formattedMessage);
-            mailMessage.setFrom("noreply@harmony-services.com");
+            mailMessage.setFrom("noreply@kufulis.com");
             
             // Logs détaillés avant l'envoi
             System.out.println("=== DÉBUT ENVOI EMAIL ====");
@@ -424,7 +427,7 @@ public class NotificationService {
             helper.setTo(emailAddress);
             helper.setSubject("[Harmony Services] " + subject);
             helper.setText(htmlContent, true); // true indique que c'est du HTML
-            helper.setFrom("noreply@harmony-services.com");
+            helper.setFrom("noreply@kufulis.com");
             
             // Logs détaillés avant l'envoi
             System.out.println("=== DÉBUT ENVOI EMAIL HTML ====");

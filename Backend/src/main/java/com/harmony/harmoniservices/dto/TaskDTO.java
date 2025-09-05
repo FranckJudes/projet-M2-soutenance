@@ -30,4 +30,6 @@ public class TaskDTO {
     private Map<String, Object> variables;
     private String formKey;
     private boolean suspended;
+    // Enriched configuration coming from TaskConfiguration
+    private TaskConfigurationDTO taskConfiguration;
 }

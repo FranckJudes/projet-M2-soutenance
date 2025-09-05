@@ -193,8 +193,7 @@ class ProcessEngineService {
     // Log la structure complète des configurations pour débogage
     console.log('Structure complète des configurations:', JSON.stringify(frontendConfigurations, null, 2));
 
-    // Récupérer l'ID utilisateur courant comme valeur par défaut
-    const currentUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'admin';
+    
 
     return frontendConfigurations.map(config => {
       // Log détaillé de chaque configuration
@@ -212,11 +211,11 @@ class ProcessEngineService {
       let assigneeEntity = habilitationData.assignedEntity;
       let assigneeType = habilitationData.assigneeType;
 
-      // Vérifier si au moins un type d'assignation est présent
-      if (!assigneeUser && !assigneeGroup && !assigneeEntity) {
-        console.log(`Aucune assignation définie pour la tâche ${config.taskId}, utilisation de l'utilisateur courant par défaut`);
-        assigneeUser = currentUserId;
-        assigneeType = 'user';
+      // Si le type est manquant mais qu'une assignation existe, le déduire
+      if (!assigneeType) {
+        if (assigneeUser) assigneeType = 'user';
+        else if (assigneeGroup) assigneeType = 'group';
+        else if (assigneeEntity) assigneeType = 'entity';
       }
 
       // Créer la configuration backend avec les noms de champs corrects

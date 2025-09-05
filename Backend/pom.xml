@@ -161,6 +161,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
+        <!-- Enable Spring AOP proxies required by @Async -->
+        <!-- <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency> -->
         <!-- Faker for generating realistic seed data -->
         <dependency>
             <groupId>com.github.javafaker</groupId>

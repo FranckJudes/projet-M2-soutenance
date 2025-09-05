@@ -596,7 +596,15 @@ const Configuration = () => {
                                                         {selectedProcess.images.map((image, index) => (
                                                             <div key={index}>
                                                                 <img
-                                                                    src={ `${API_URL}/api/process-engine/files${image.filePath || ''}` || 'default-image-path' }
+                                                                    src={
+                                                                        image?.url
+                                                                            ? `${API_URL}${image.url}`
+                                                                            : (image?.base64
+                                                                                ? `data:${image.contentType || 'image/*'};base64,${image.base64}`
+                                                                                : (image?.filePath
+                                                                                    ? `${API_URL}/api/process-engine/files/${encodeURIComponent(image.filePath)}`
+                                                                                    : 'default-image-path'))
+                                                                    }
                                                                     alt={image.description || 'Process image'}
                                                                     style={{ width: '100%', height: '200px', objectFit: 'cover' }}
                                                                 />

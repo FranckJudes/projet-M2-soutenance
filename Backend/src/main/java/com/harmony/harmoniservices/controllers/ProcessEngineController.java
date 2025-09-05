@@ -79,6 +79,8 @@ public class ProcessEngineController {
                     new TypeReference<List<TaskConfigurationDTO>>() {}
             );
 
+            log.info("=================Parsed task configurations: {}============", taskConfigurations);
+
             // Parse process metadata (optional)
             ProcessMetadataDTO processMetadata = null;
             if (metadataJson != null && !metadataJson.trim().isEmpty()) {
@@ -89,6 +91,8 @@ public class ProcessEngineController {
                     log.warn("Failed to parse process metadata: {}", e.getMessage());
                     // Continue without metadata rather than failing the deployment
                 }
+            }else{
+                System.out.println("===================No metadata provided=============================");
             }
 
             // Get current user email from authentication
@@ -471,7 +475,9 @@ public class ProcessEngineController {
     @GetMapping("/files/{filePath:.+}")
     public ResponseEntity<Resource> serveFile(@PathVariable String filePath) {
         try {
-            Path file = Paths.get(filePath);
+            // Decode URL-encoded path to support special characters and separators
+            String decodedPath = java.net.URLDecoder.decode(filePath, java.nio.charset.StandardCharsets.UTF_8);
+            Path file = Paths.get(decodedPath);
             Resource resource = new UrlResource(file.toUri());
             
             if (resource.exists() || resource.isReadable()) {

@@ -139,9 +139,12 @@ function Parametres({ sharedData, bpmnId = null, isUpdateMode = false, onSaveSuc
       const validation = habilitationRef.current.validateData();
       
       if (!validation.isValid) {
-        // Afficher un avertissement mais ne pas bloquer la soumission
-        toast.error(t('Certains détails du point de contrôle sont manquants mais la soumission est autorisée'));
-        return true; // Permettre la soumission même avec des avertissements
+        // Bloquer avec messages détaillés
+        const msg = validation.errors && validation.errors.length > 0
+          ? validation.errors.join(' \n ')
+          : t('Erreur de validation des habilitations');
+        toast.error(msg);
+        return false;
       }
       
       return true;
@@ -1277,6 +1280,24 @@ const getResourceData = (taskId) => {
                       }
                     }
 
+                    // Validation globale: exactement une assignation (user OU group OU entity) pour chaque tâche
+                    const invalidAssignments = [];
+                    allTaskConfigurations.forEach(cfg => {
+                      const h = cfg.habilitation || {};
+                      const choices = [!!h.assignedUser, !!h.assignedGroup, !!h.assignedEntity].filter(Boolean).length;
+                      if (choices !== 1) {
+                        invalidAssignments.push({ taskId: cfg.taskId, taskName: cfg.taskName, choices });
+                      }
+                    });
+                    if (invalidAssignments.length > 0) {
+                      const list = invalidAssignments
+                        .map(item => `• ${item.taskName} (${item.taskId}) → ${item.choices === 0 ? 'aucune assignation' : 'assignations multiples'}`)
+                        .join('\n');
+                      toast.error(`Sélection d'assignation invalide pour:\n${list}\nVeuillez choisir uniquement un type d'assignation (utilisateur, entité ou groupe) pour chaque tâche.`);
+                      toast.dismiss(loadingToast);
+                      return; // Stopper avant transformation et déploiement
+                    }
+
 
                     const processData = sharedData?.processData || {};
 
@@ -1324,7 +1345,7 @@ const getResourceData = (taskId) => {
                         console.log('🔍 PARAMETRES - Toutes les configurations avant transformation:', allTaskConfigurations);
                         console.log('🔍 PARAMETRES - Vérification des notifications dans les configurations:');
                         allTaskConfigurations.forEach((config, index) => {
-                          console.log(`Tâche ${index + 1} (${config.taskId}): notification =`, config.notification);
+                          console.log(`Tâche ${index + 1} (${config.taskId}): notification =`, config.habilitation);
                         });
                         
                         const camundaConfigurations = ProcessEngineService.transformTaskConfigurations(allTaskConfigurations);
@@ -1400,7 +1421,7 @@ const getResourceData = (taskId) => {
                           
                         } 
                       
-                        
+                        console.log("=============================>>>>>>Deployment process=---" , processMetadata);
                         // Déployer vers Camunda avec les métadonnées
                         deploymentResponse = await ProcessEngineService.deployProcess(
                           bpmnFile,

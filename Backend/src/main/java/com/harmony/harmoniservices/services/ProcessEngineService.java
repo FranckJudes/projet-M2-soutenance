@@ -58,6 +58,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
+import java.util.Base64;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -260,6 +263,112 @@ public class ProcessEngineService {
                 processDefinition = builder.build();
             }
 
+            // Always persist general process metadata and images if provided
+            if (processMetadata != null) {
+                try {
+                    // Set general metadata fields
+                    if (processMetadata.getProcessName() != null && !processMetadata.getProcessName().isEmpty()) {
+                        processDefinition.setProcessName(processMetadata.getProcessName());
+                        // If Camunda didn't provide a name, set the display name as well
+                        if (processDefinition.getName() == null || processDefinition.getName().isEmpty()) {
+                            processDefinition.setName(processMetadata.getProcessName());
+                        }
+                    }
+                    if (processMetadata.getProcessDescription() != null) {
+                        processDefinition.setProcessDescription(processMetadata.getProcessDescription());
+                        // Keep the legacy description field aligned
+                        processDefinition.setDescription(processMetadata.getProcessDescription());
+                    }
+
+                    if (processMetadata.getProcessTags() != null) {
+                        // Replace existing tags with the new set
+                        if (processDefinition.getProcessTags() != null) {
+                            processDefinition.getProcessTags().clear();
+                            processDefinition.getProcessTags().addAll(processMetadata.getProcessTags());
+                        }
+                    }
+
+                    // Handle images: replace existing images with the provided ones
+                    if (processMetadata.getImages() != null) {
+                        if (processDefinition.getImages() != null) {
+                            processDefinition.getImages().clear();
+                        }
+
+                        int order = 0;
+                        // Prepare base directory: images stored under <PROCESS_IMAGES_DIRECTORY>/<processKey>/
+                        Path baseDir = Paths.get(PROCESS_IMAGES_DIRECTORY, processKey);
+                        try {
+                            Files.createDirectories(baseDir);
+                        } catch (IOException ioEx) {
+                            log.warn("Could not create image directory {}: {}", baseDir, ioEx.getMessage());
+                        }
+
+                        for (ProcessImageDTO imgDto : processMetadata.getImages()) {
+                            try {
+                                if (imgDto == null) continue;
+
+                                String fileName = (imgDto.getFileName() != null && !imgDto.getFileName().isEmpty())
+                                        ? imgDto.getFileName()
+                                        : (processKey + "_image_" + (order + 1));
+
+                                String contentType = (imgDto.getContentType() != null && !imgDto.getContentType().isEmpty())
+                                        ? imgDto.getContentType()
+                                        : "image/png";
+
+                                // Ensure extension based on contentType if missing
+                                if (!fileName.contains(".")) {
+                                    String ext = "png";
+                                    if (contentType.contains("jpeg") || contentType.contains("jpg")) ext = "jpg";
+                                    else if (contentType.contains("gif")) ext = "gif";
+                                    else if (contentType.contains("webp")) ext = "webp";
+                                    else if (contentType.contains("svg")) ext = "svg";
+                                    fileName = fileName + "." + ext;
+                                }
+
+                                // Save image bytes to filesystem when imageData provided
+                                String filePath = null;
+                                if (imgDto.getImageData() != null && !imgDto.getImageData().isEmpty()) {
+                                    try {
+                                        // Remove possible base64 prefix
+                                        String base64 = imgDto.getImageData();
+                                        int commaIdx = base64.indexOf(',');
+                                        if (commaIdx > 0) {
+                                            base64 = base64.substring(commaIdx + 1);
+                                        }
+                                        byte[] bytes = Base64.getDecoder().decode(base64);
+
+                                        Path target = baseDir.resolve(UUID.randomUUID().toString() + "_" + fileName);
+                                        Files.write(target, bytes);
+                                        filePath = target.toString();
+                                    } catch (Exception io) {
+                                        log.warn("Failed to write process image {}: {}", fileName, io.getMessage());
+                                    }
+                                }
+
+                                ProcessImage img = ProcessImage.builder()
+                                        .processDefinition(processDefinition)
+                                        .fileName(fileName)
+                                        .originalFileName(imgDto.getOriginalFileName() != null ? imgDto.getOriginalFileName() : fileName)
+                                        .contentType(contentType)
+                                        .fileSize(imgDto.getFileSize() != null ? imgDto.getFileSize() : 0L)
+                                        .filePath(filePath)
+                                        .imageData(null) // Using filesystem storage; keep DB column null
+                                        .description(imgDto.getDescription())
+                                        .displayOrder(imgDto.getDisplayOrder() != null ? imgDto.getDisplayOrder() : order)
+                                        .build();
+
+                                processDefinition.getImages().add(img);
+                                order++;
+                            } catch (Exception imgEx) {
+                                log.warn("Skipping image due to error: {}", imgEx.getMessage());
+                            }
+                        }
+                    }
+                } catch (Exception metaEx) {
+                    log.warn("Failed to persist process metadata/images: {}", metaEx.getMessage());
+                }
+            }
+
             processDefinition = processDefinitionRepository.save(processDefinition);
 
             // Save configurations with proper assignment values
@@ -360,94 +469,47 @@ public class ProcessEngineService {
             return new ArrayList<>();
         }
         
-        System.out.println("==================> >>>>>>>" + camundaUserId);
+        log.info("Fetching only ASSIGNED tasks for user {} (Camunda ID: {})", userId, camundaUserId);
         
-        // Get tasks assigned directly to the user's Camunda ID
+        // 1) Only tasks assigned directly to the user's Camunda ID
         List<Task> assignedTasks = taskService.createTaskQuery()
                 .taskAssignee(camundaUserId)
                 .active()
                 .list();
         
-        if (!assignedTasks.isEmpty()) {
-            log.info("Found {} tasks assigned directly to user {}", assignedTasks.size(), userId);
-            for (Task task : assignedTasks) {
-                log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
-                        task.getId(), task.getName(), task.getProcessDefinitionId());
-            }
-        }
+        log.info("Found {} assigned tasks for user {}", assignedTasks.size(), userId);
         
-        // Get tasks where the user is a candidate
-        List<Task> candidateTasks = taskService.createTaskQuery()
-                .taskCandidateUser(camundaUserId)
-                .active()
-                .list();
+        // 2) Map to DTOs
+        List<TaskDTO> dtos = TaskMapper.toDTOList(assignedTasks);
         
-        log.info("Found {} tasks where user ID {} is candidate", candidateTasks.size(), userId);
-        if (!candidateTasks.isEmpty()) {
-            for (Task task : candidateTasks) {
-                log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
-                        task.getId(), task.getName(), task.getProcessDefinitionId());
-            }
-        }
-        
-        // Récupérer les groupes dont l'utilisateur est membre
-        List<String> userGroups = new ArrayList<>();
-        List<org.camunda.bpm.engine.identity.Group> camundaGroups = camundaIdentityService.getIdentityService().createGroupQuery()
-                .groupMember(camundaUserId)
-                .list();
-        
-        log.info("User ID {} (Camunda ID: {}) is member of {} groups", userId, camundaUserId, camundaGroups.size());
-        
-        for (org.camunda.bpm.engine.identity.Group group : camundaGroups) {
-            userGroups.add(group.getId());
-            log.info("  - Group: {} ({})", group.getId(), group.getName());
-        }
-        
-        // Get tasks assigned to user's groups
-        List<Task> groupTasks = new ArrayList<>();
-        if (!userGroups.isEmpty()) {
-            groupTasks = taskService.createTaskQuery()
-                    .taskCandidateGroupIn(userGroups)
-                    .active()
-                    .list();
-            
-            log.info("Found {} tasks assigned to user's groups", groupTasks.size());
-            if (!groupTasks.isEmpty()) {
-                for (Task task : groupTasks) {
-                    log.info("  - Task [id={}, name={}, processDefinitionId={}]", 
-                            task.getId(), task.getName(), task.getProcessDefinitionId());
+        // 3) Enrich each DTO with its TaskConfiguration
+        for (TaskDTO dto : dtos) {
+            try {
+                // Initialize with empty configuration by default
+                dto.setTaskConfiguration(new TaskConfigurationDTO());
+                // Resolve processDefinitionKey from processDefinitionId
+                org.camunda.bpm.engine.repository.ProcessDefinition def = repositoryService
+                        .createProcessDefinitionQuery()
+                        .processDefinitionId(dto.getProcessDefinitionId())
+                        .singleResult();
+                if (def == null) {
+                    continue;
                 }
+                String processDefinitionKey = def.getKey();
+                String taskDefinitionKey = dto.getTaskDefinitionKey();
+                Optional<TaskConfiguration> cfgOpt = taskConfigurationRepository
+                        .findByProcessDefinitionKeyAndTaskId(processDefinitionKey, taskDefinitionKey);
+                if (cfgOpt.isPresent()) {
+                    TaskConfigurationDTO cfgDto = modelMapper.map(cfgOpt.get(), TaskConfigurationDTO.class);
+                    dto.setTaskConfiguration(cfgDto);
+                }
+            } catch (Exception e) {
+                log.warn("Failed enriching TaskDTO {} with configuration: {}", dto.getId(), e.getMessage());
             }
         }
         
-        // Combine all lists (avoiding duplicates)
-        Set<String> taskIds = new HashSet<>();
-        List<Task> allTasks = new ArrayList<>();
-        
-        for (Task task : assignedTasks) {
-            taskIds.add(task.getId());
-            allTasks.add(task);
-        }
-        
-        for (Task task : candidateTasks) {
-            if (!taskIds.contains(task.getId())) {
-                taskIds.add(task.getId());
-                allTasks.add(task);
-            }
-        }
-        
-        for (Task task : groupTasks) {
-            if (!taskIds.contains(task.getId())) {
-                taskIds.add(task.getId());
-                allTasks.add(task);
-            }
-        }
-        
-        log.info("Total unique tasks for user {}: {}", userId, allTasks.size());
-        log.info("=== FIN getTasksForUser pour userId: {} ===", userId);
-        
-        // Convertir les tâches Camunda en DTOs pour éviter les problèmes de sérialisation
-        return TaskMapper.toDTOList(allTasks);
+        log.info("Returning {} assigned tasks (enriched) for user {}", dtos.size(), userId);
+        return dtos;
     }
 
     /**
@@ -1497,6 +1559,46 @@ public class ProcessEngineService {
                 processInfo.put("deployedAt", processDef.getDeployedAt());
                 processInfo.put("version", processDef.getVersion());
                 processInfo.put("isActive", processDef.getActive());
+
+                // Include general metadata if present
+                processInfo.put("processName", processDef.getProcessName());
+                processInfo.put("processDescription", processDef.getProcessDescription());
+                processInfo.put("processTags", processDef.getProcessTags());
+
+                // Build image descriptors with frontend-consumable URLs
+                if (processDef.getImages() != null && !processDef.getImages().isEmpty()) {
+                    List<Map<String, Object>> images = new ArrayList<>();
+                    for (ProcessImage img : processDef.getImages()) {
+                        Map<String, Object> imgMap = new HashMap<>();
+                        imgMap.put("fileName", img.getFileName());
+                        imgMap.put("originalFileName", img.getOriginalFileName());
+                        imgMap.put("contentType", img.getContentType());
+                        imgMap.put("fileSize", img.getFileSize());
+                        imgMap.put("description", img.getDescription());
+                        imgMap.put("displayOrder", img.getDisplayOrder());
+                        imgMap.put("filePath", img.getFilePath());
+
+                        // Construct a URL to serve the image via controller
+                        if (img.getFilePath() != null) {
+                            String encodedPath = URLEncoder.encode(img.getFilePath(), StandardCharsets.UTF_8);
+                            String url = "/api/process-engine/files/" + encodedPath;
+                            imgMap.put("url", url);
+                        } else if (img.getImageData() != null) {
+                            // Fallback for legacy imageData stored in DB (base64)
+                            imgMap.put("base64", img.getImageDataAsBase64());
+                        }
+                        images.add(imgMap);
+                    }
+                    // Sort by display order
+                    images.sort((a, b) -> {
+                        Integer da = (Integer) a.getOrDefault("displayOrder", 0);
+                        Integer db = (Integer) b.getOrDefault("displayOrder", 0);
+                        return Integer.compare(da, db);
+                    });
+                    processInfo.put("images", images);
+                } else {
+                    processInfo.put("images", new ArrayList<>());
+                }
             }
             
             // Get additional info from Camunda

@@ -87,7 +87,7 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
       };
     },
     
-    // Valider les données (VALIDATION OPTIONNELLE)
+    // Valider les données (validation stricte)
     validateData: () => {
       const data = {
         assignedEntity: taskConfig?.entity && taskConfig?.selectedEntity ? taskConfig.selectedEntity : null,
@@ -101,17 +101,18 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
 
       // Déterminer le type d'assigné
       if (data.assignedUser) data.assigneeType = 'user';
-      else if (data.assignedEntity) data.assigneeType = 'entity';
       else if (data.assignedGroup) data.assigneeType = 'group';
+      else if (data.assignedEntity) data.assigneeType = 'entity';
       
       const errors = [];
-      
-      // Tous les champs sont optionnels, aucune validation obligatoire n'est nécessaire
-      // Seule validation conditionnelle: si la case à cocher est activée, il faut sélectionner un utilisateur responsable
-      if (taskConfig?.isChecked && !data.responsibleUser) {
-        errors.push('Un utilisateur responsable doit être sélectionné quand la case est cochée');
+      // Validation stricte: exactement une assignation principale parmi user/entity/group
+      const choices = [!!data.assignedUser, !!data.assignedEntity, !!data.assignedGroup].filter(Boolean).length;
+      if (choices === 0) {
+        errors.push('Veuillez sélectionner un assigné: utilisateur OU entité OU groupe');
+      } else if (choices > 1) {
+        errors.push('Sélection invalide: choisissez uniquement un type d\'assignation (utilisateur, entité ou groupe)');
       }
-      
+
       return {
         isValid: errors.length === 0,
         errors,
@@ -250,10 +251,72 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
   // Fonction pour gérer les changements dans les champs
   const handleConfigChange = (field, value) => {
     if (taskConfig) {
-      const updatedConfig = {
+      let updatedConfig = {
         ...taskConfig,
         [field]: value
       };
+
+      // Enforcer l'exclusivité entre user / entity / group
+      if (field === 'entity') {
+        if (value) {
+          // Si on active entité, désactiver user et group et nettoyer leurs valeurs
+          updatedConfig = {
+            ...updatedConfig,
+            isChecked: false,
+            groupUser: false,
+            selectedUser: null,
+            selectedGroup: null
+          };
+        }
+      } else if (field === 'groupUser') {
+        if (value) {
+          // Si on active groupe, désactiver user et entité et nettoyer leurs valeurs
+          updatedConfig = {
+            ...updatedConfig,
+            isChecked: false,
+            entity: false,
+            selectedUser: null,
+            selectedEntity: null
+          };
+        }
+      } else if (field === 'selectedUser') {
+        if (value) {
+          // Si on choisit un user, forcer isChecked et désactiver entité/groupe
+          updatedConfig = {
+            ...updatedConfig,
+            isChecked: true,
+            entity: false,
+            groupUser: false,
+            selectedEntity: null,
+            selectedGroup: null
+          };
+        }
+      } else if (field === 'selectedEntity') {
+        if (value) {
+          // Si on choisit une entité, forcer entity et désactiver user/groupe
+          updatedConfig = {
+            ...updatedConfig,
+            entity: true,
+            isChecked: false,
+            groupUser: false,
+            selectedUser: null,
+            selectedGroup: null
+          };
+        }
+      } else if (field === 'selectedGroup') {
+        if (value) {
+          // Si on choisit un groupe, forcer groupUser et désactiver user/entité
+          updatedConfig = {
+            ...updatedConfig,
+            groupUser: true,
+            isChecked: false,
+            entity: false,
+            selectedUser: null,
+            selectedEntity: null
+          };
+        }
+      }
+
       setTaskConfig(updatedConfig);
       saveTaskConfig(updatedConfig);
     }
@@ -264,10 +327,26 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
     setIsChecked(newValue);
     
     if (taskConfig) {
-      const updatedConfig = {
+      let updatedConfig = {
         ...taskConfig,
         isChecked: newValue
       };
+      if (newValue) {
+        // Si on active user, désactiver entité et groupe et nettoyer leurs sélections
+        updatedConfig = {
+          ...updatedConfig,
+          entity: false,
+          groupUser: false,
+          selectedEntity: null,
+          selectedGroup: null
+        };
+      } else {
+        // Si on désactive, nettoyer l'utilisateur sélectionné
+        updatedConfig = {
+          ...updatedConfig,
+          selectedUser: null
+        };
+      }
       setTaskConfig(updatedConfig);
       saveTaskConfig(updatedConfig);
     }
@@ -326,42 +405,42 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
               
               <div className="d-flex align-items-center mb-2" style={{ width: "100%" }}>
                 <div className="custom-control custom-checkbox mr-3">
-                  <input 
-                    type="checkbox" 
-                    className="custom-control-input" 
-                    id="customCheck2" 
-                    checked={taskConfig && taskConfig.entity || false}
-                    onChange={(e) => handleConfigChange('entity', e.target.checked)}
-                    disabled={!selectedTask}
+                <input 
+                  type="checkbox" 
+                  className="custom-control-input" 
+                  id="customCheck2" 
+                  checked={taskConfig && taskConfig.entity || false}
+                  onChange={(e) => handleConfigChange('entity', e.target.checked)}
+                  disabled={!selectedTask || loading || isChecked || (taskConfig && taskConfig.groupUser)}
+                />
+                <label className="custom-control-label" htmlFor="customCheck2">{t('__entity__')}</label>
+              </div>
+              {taskConfig && taskConfig.entity && (
+                <div style={{ width: "1000%" }}>
+                  <Select 
+                    options={entities} 
+                    value={taskConfig.selectedEntity ? 
+                        entities.find(opt => opt.value === taskConfig.selectedEntity) : 
+                        null}
+                    onChange={(option) => handleConfigChange('selectedEntity', option ? option.value : null)}
+                    isDisabled={!selectedTask || loading}
+                    placeholder="Une entité"
+                    isLoading={loading}
                   />
-                  <label className="custom-control-label" htmlFor="customCheck2">{t('__entity__')}</label>
                 </div>
-                {taskConfig && taskConfig.entity && (
-                  <div style={{ width: "1000%" }}>
-                    <Select 
-                      options={entities} 
-                      value={taskConfig.selectedEntity ? 
-                          entities.find(opt => opt.value === taskConfig.selectedEntity) : 
-                          null}
-                      onChange={(option) => handleConfigChange('selectedEntity', option ? option.value : null)}
-                      isDisabled={!selectedTask || loading}
-                      placeholder="Une entité"
-                      isLoading={loading}
-                    />
-                  </div>
-                )}
+              )}
               </div>
               
               <div className="custom-control custom-checkbox">
                 <input 
-                  type="checkbox" 
-                  className="custom-control-input" 
-                  id="customCheck3" 
-                  checked={taskConfig && taskConfig.groupUser || false}
-                  onChange={(e) => handleConfigChange('groupUser', e.target.checked)}
-                  disabled={!selectedTask}
-                />
-                <label className="custom-control-label" htmlFor="customCheck3">{t('__group_user_')}</label>
+                type="checkbox" 
+                className="custom-control-input" 
+                id="customCheck3" 
+                checked={taskConfig && taskConfig.groupUser || false}
+                onChange={(e) => handleConfigChange('groupUser', e.target.checked)}
+                disabled={!selectedTask || loading || isChecked || (taskConfig && taskConfig.entity)}
+              />
+              <label className="custom-control-label" htmlFor="customCheck3">{t('__group_user_')}</label>
               </div>
               {taskConfig && taskConfig.groupUser && (
                 <div className="ml-4 mt-2" style={{ width: "100%" }}>
@@ -389,13 +468,13 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
             <div className="form-group d-flex align-items-center mb-1" style={{ gap: "50px" }}>
               <div className="custom-control custom-checkbox">
                 <input
-                  type="checkbox"
-                  className="custom-control-input"
-                  id="customCheck10"
-                  onChange={handleCheckboxChange}
-                  checked={isChecked}
-                  disabled={!selectedTask}
-                />
+                type="checkbox"
+                className="custom-control-input"
+                id="customCheck10"
+                onChange={handleCheckboxChange}
+                checked={isChecked}
+                disabled={!selectedTask || (taskConfig && (taskConfig.entity || taskConfig.groupUser))}
+              />
                 <label
                   className="custom-control-label"
                   htmlFor="customCheck10"
@@ -406,10 +485,10 @@ const Habilitation = forwardRef(({ selectedTask }, ref) => {
                 <div style={{ width: "100%" }}>
                   <Select 
                     options={users} 
-                    value={taskConfig && taskConfig.checkPointDetails ? 
-                        users.find(opt => opt.value === taskConfig.checkPointDetails) : 
+                    value={taskConfig && taskConfig.selectedUser ? 
+                        users.find(opt => opt.value === taskConfig.selectedUser) : 
                         null}
-                    onChange={(option) => handleConfigChange('checkPointDetails', option ? option.value : null)}
+                    onChange={(option) => handleConfigChange('selectedUser', option ? option.value : null)}
                     isDisabled={!selectedTask || loading}
                     placeholder="Sélectionner un utilisateur responsable"
                     isLoading={loading}
