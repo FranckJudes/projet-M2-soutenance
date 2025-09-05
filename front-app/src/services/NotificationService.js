@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = 'http://localhost:8200/api';
+import API_URL from '../config/urls.jsx';
 
 class NotificationService {
   getHeaders() {
@@ -13,7 +12,7 @@ class NotificationService {
   async getUserNotifications() {
     try {
       // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
-      const response = await axios.get(`${API_URL}/notifications/user/current`, {
+      const response = await axios.get(`${API_URL.SERVICE_HARMONI}/notifications/user/current`, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -27,7 +26,7 @@ class NotificationService {
   async getUnreadNotifications() {
     try {
       // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
-      const response = await axios.get(`${API_URL}/notifications/user/current/unread`, {
+      const response = await axios.get(`${API_URL.SERVICE_HARMONI}/notifications/user/current/unread`, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -41,7 +40,7 @@ class NotificationService {
   async markAsRead(notificationId) {
     try {
       // Utiliser le token JWT pour l'authentification au lieu de l'ID utilisateur explicite
-      const response = await axios.post(`${API_URL}/notifications/${notificationId}/read`, {}, {
+      const response = await axios.post(`${API_URL.SERVICE_HARMONI}/notifications/${notificationId}/read`, {}, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -52,11 +51,13 @@ class NotificationService {
   }
 
   // Marquer toutes les notifications d'un utilisateur comme lues
-  async markAllAsRead(userId) {
+  async markAllAsRead() {
     try {
-      const response = await axios.post(`${API_URL}/notifications/user/${userId}/read-all`, {
-        headers: this.getHeaders(),
-      });
+      const response = await axios.post(
+        `${API_URL.SERVICE_HARMONI}/notifications/user/current/read-all`,
+        {},
+        { headers: this.getHeaders() }
+      );
       return response.data;
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -65,9 +66,9 @@ class NotificationService {
   }
 
   // Supprimer une notification
-  async deleteNotification(notificationId, userId) {
+  async deleteNotification(notificationId) {
     try {
-      const response = await axios.delete(`${API_URL}/notifications/${notificationId}?userId=${userId}`, {
+      const response = await axios.delete(`${API_URL.SERVICE_HARMONI}/notifications/${notificationId}`, {
         headers: this.getHeaders(),
       });
       return response.data;
@@ -78,9 +79,9 @@ class NotificationService {
   }
 
   // Compter le nombre de notifications non lues pour un utilisateur
-  async countUnreadNotifications(userId) {
+  async countUnreadNotifications() {
     try {
-      const response = await axios.get(`${API_URL}/notifications/user/${userId}/count`, {
+      const response = await axios.get(`${API_URL.SERVICE_HARMONI}/notifications/user/current/count`, {
         headers: this.getHeaders(),
       });
       return response.data;

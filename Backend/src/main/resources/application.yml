@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://192.168.43.228:5432/harmony_db
+    url: jdbc:postgresql://localhost:5432/harmony_db
     username: gallagher
     password: gallagher09
     driver-class-name: org.postgresql.Driver
@@ -19,7 +19,7 @@ spring:
     repair-on-migrate: true
 
   rabbitmq:
-    host: 192.168.43.228
+    host: localhost
     port: 5672
     username: gallagher
     password: gallagher09

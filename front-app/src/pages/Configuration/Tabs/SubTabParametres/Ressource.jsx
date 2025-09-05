@@ -4,6 +4,7 @@ import { Checkbox, Input, Radio } from '../../../../components/Input';
 import Select from 'react-select';
 import JsTree from '../../../../components/JsTree.jsx';
 import FormService from '../../../../services/FormService';
+import FileSchemeService from '../../../../services/FileScheme';
 
 const Ressource = forwardRef(({ selectedTask }, ref) => {
     const { t } = useTranslation();
@@ -12,6 +13,7 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
     const [isDisplayFol, setIsDisplayFol] = useState(false);
     const [taskConfig, setTaskConfig] = useState(null);
     const [formsList, setFormsList] = useState([]);
+    const [treeData, setTreeData] = useState([]);
     const initialRender = useRef(true);
     const selectedNodeRef = useRef(null);
 
@@ -228,22 +230,76 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
         const fetchForms = async () => {
             try {
                 const response = await FormService.getAllForms();
-                if (response.data && response.data.success && response.data.data) {
-                    setForms(response.data.data);
+                const data = response?.data;
+                if (data?.success && Array.isArray(data?.data)) {
+                    setFormsList(data.data);
                 } else {
-                    const errorMsg = response.data?.message || t("Error loading forms");
-                    message.error(errorMsg);
+                    // Fallback to empty list and warn in console if shape is unexpected
+                    console.warn('Unexpected forms response shape:', data);
+                    setFormsList([]);
                 }
             } catch (error) {
-                console.error("Error loading forms:", error);
-                const errorMsg = error.response?.data?.message || t("Error loading forms");
-                message.error(errorMsg);
-            } finally {
-                setLoading(false);
+                console.error('Error loading forms:', error);
+                setFormsList([]);
             }
         };
-        
+
         fetchForms();
+    }, []);
+
+    // Charger les FileSchemes pour le JsTree
+    useEffect(() => {
+        const fetchFileSchemes = async () => {
+            try {
+                // Essayer d'utiliser l'endpoint tree s'il existe
+                const treeResp = await FileSchemeService.getFileSchemeTree().catch(() => null);
+                let payload = treeResp ? treeResp.data : null;
+                let list = null;
+                if (payload && (Array.isArray(payload) || Array.isArray(payload?.data))) {
+                    list = Array.isArray(payload) ? payload : payload.data;
+                } else {
+                    // Repli: récupérer la liste plate et transformer
+                    const resp = await FileSchemeService.getAllFileSchemes();
+                    const data = resp?.data;
+                    list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+                }
+
+                // Transformer en structure attendue par JsTree.jsx
+                const nodes = (list || []).map(item => {
+                    const isFolder = (item.type === 'DOSSIER') || (item.iconSeries === 'folder') || item.isDirectory === true;
+                    const original = {
+                        ...item,
+                        text: item.label,
+                        type: isFolder ? 0 : 1,
+                        parent: item.parentId ? item.parentId : 0,
+                    };
+                    return {
+                        id: item.id,
+                        text: item.label,
+                        type: original.type, // 0 = folder, 1 = file (converti ensuite par JsTree)
+                        parent: original.parent,
+                        state: { opened: true },
+                        original,
+                    };
+                });
+
+                // Optionnel: s'assurer qu'il existe au moins une racine "Typologies" si aucune racine fournie
+                const hasRoot = nodes.some(n => n.parent === 0);
+                if (!hasRoot) {
+                    nodes.unshift({ id: 0, text: 'Typologies', parent: 0, type: 0, state: { opened: true }, original: { id: 0, text: 'Typologies', type: 0, parent: 0 } });
+                }
+
+                setTreeData(nodes);
+            } catch (error) {
+                console.error('Error loading file schemes for JsTree:', error);
+                // Fallback à un arbre par défaut minimal
+                setTreeData([
+                    { id: 0, text: 'Typologies', parent: 0, type: 0, state: { opened: true }, original: { id: 0, text: 'Typologies', type: 0, parent: 0 } }
+                ]);
+            }
+        };
+
+        fetchFileSchemes();
     }, []);
 
     const handleCheckAttachement = () => {
@@ -352,52 +408,7 @@ const Ressource = forwardRef(({ selectedTask }, ref) => {
         { value: 'low', label: t('__low_security_') },
     ];
 
-    // Arbre de données pour JsTree - avec types explicites
-    const treeData = useMemo(() => [
-        { 
-            id: 0, 
-            text: "Typologies", 
-            parent: 0, 
-            type: 0, // 0 = folder
-            state: { opened: true } 
-        },
-        { 
-            id: 1, 
-            text: "Typologie 1", 
-            parent: 0, 
-            type: 0 // 0 = folder
-        },
-        { 
-            id: 2, 
-            text: "Typologie 2", 
-            parent: 0, 
-            type: 0 // 0 = folder
-        },
-        { 
-            id: 3, 
-            text: "Document 1.1", 
-            parent: 1, 
-            type: 1 // 1 = file
-        },
-        { 
-            id: 4, 
-            text: "Document 1.2", 
-            parent: 1, 
-            type: 1 // 1 = file
-        },
-        { 
-            id: 5, 
-            text: "Document 2.1", 
-            parent: 2, 
-            type: 1 // 1 = file
-        },
-        { 
-            id: 6, 
-            text: "Document 2.2", 
-            parent: 2, 
-            type: 1 // 1 = file
-        }
-    ], []);
+    // treeData est désormais dynamique et chargé depuis le backend via FileSchemeService
 
     // Liste des formulaires (à remplacer par une API ou une source de données réelle)
     // const formsList = [

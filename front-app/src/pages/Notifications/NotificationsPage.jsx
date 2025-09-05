@@ -23,8 +23,6 @@ const NotificationsPage = () => {
 
   // Initialiser la connexion WebSocket
   useEffect(() => {
-    console.log('Tentative de connexion WebSocket avec le token JWT');
-    
     // Établir la connexion WebSocket
     webSocketService.connect()
       .then(() => {
@@ -211,34 +209,43 @@ const NotificationsPage = () => {
   // Ce useEffect est supprimé car il fait double emploi avec celui ci-dessus
 
   // Marquer une notification comme lue
-  const markAsRead = (id) => {
-    setNotifications(notifications.map(notification => {
-      if (notification.id === id && notification.status === 'UNREAD') {
-        return { ...notification, status: 'READ' };
-      }
-      return notification;
-    }));
-    
-    toast.success('Notification marquée comme lue');
-    // Dans une implémentation réelle, nous ferions un appel API ici
+  const markAsRead = async (id) => {
+    try {
+      await notificationService.markAsRead(id);
+      setNotifications(prev => prev.map(n => (
+        n.id === id ? { ...n, status: 'READ' } : n
+      )));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      toast.success('Notification marquée comme lue');
+    } catch (e) {
+      console.error('Erreur lors du marquage comme lu:', e);
+      toast.error("Impossible de marquer la notification comme lue");
+    }
   };
 
   // Marquer toutes les notifications comme lues
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(notification => {
-      return { ...notification, status: 'READ' };
-    }));
-    
-    toast.success('Toutes les notifications ont été marquées comme lues');
-    // Dans une implémentation réelle, nous ferions un appel API ici
+  const markAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, status: 'READ' })));
+      setUnreadCount(0);
+      toast.success('Toutes les notifications ont été marquées comme lues');
+    } catch (e) {
+      console.error('Erreur lors du marquage de toutes les notifications:', e);
+      toast.error("Impossible de marquer toutes les notifications comme lues");
+    }
   };
 
   // Supprimer une notification
-  const deleteNotification = (id) => {
-    setNotifications(notifications.filter(notification => notification.id !== id));
-    
-    toast.success('Notification supprimée');
-    // Dans une implémentation réelle, nous ferions un appel API ici
+  const deleteNotification = async (id) => {
+    try {
+      await notificationService.deleteNotification(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      toast.success('Notification supprimée');
+    } catch (e) {
+      console.error('Erreur lors de la suppression de la notification:', e);
+      toast.error("Impossible de supprimer la notification");
+    }
   };
 
   // Supprimer toutes les notifications lues
