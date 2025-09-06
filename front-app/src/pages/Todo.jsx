@@ -27,7 +27,6 @@ import {
   UserOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  ReloadOutlined,
   InfoCircleOutlined,
   PlayCircleOutlined,
   CommentOutlined,
@@ -63,8 +62,7 @@ const KanbanBoardAntd = () => {
   const [columns, setColumns] = useState({});
   const [tasks, setTasks] = useState({});
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState('1');
+  const [selectedUserId, setSelectedUserId] = useState(() => localStorage.getItem('userId') || 'current-user');
   const [selectedTask, setSelectedTask] = useState(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [completingTaskId, setCompletingTaskId] = useState(null);
@@ -79,13 +77,6 @@ const KanbanBoardAntd = () => {
   const [searchTerm, setSearchTerm] = useState(''); // Terme de recherche
   // Liste des processus disponibles
   const [availableProcesses, setAvailableProcesses] = useState([]);
-  // Liste des utilisateurs
-  const [users] = useState([
-    { id: '1', name: 'Jean Dupont', avatar: 'JD' },
-    { id: '2', name: 'Marie Martin', avatar: 'MM' },
-    { id: '3', name: 'Pierre Dubois', avatar: 'PD' },
-    { id: '4', name: 'Sophie Petit', avatar: 'SP' }
-  ]);
   // Configuration des colonnes
   const columnConfig = {
     'todo': {
@@ -160,8 +151,7 @@ const KanbanBoardAntd = () => {
       setTasks(convertedData.tasks);
       setAvailableProcesses(availableProcesses);
       
-      const userName = users.find(u => u.id === userId)?.name;
-      message.success(`${bpmnTasks.length} tâches chargées pour ${userName}`);
+      message.success(`${bpmnTasks.length} tâches chargées`);
       
     } catch (error) {
       console.error('❌ Erreur lors du chargement des tâches BPMN:', error);
@@ -396,78 +386,12 @@ const KanbanBoardAntd = () => {
     setSelectedTask(task);
     setDetailModalVisible(true);
   };
-  // Rafraîchir les tâches
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadUserBpmnTasks(selectedUserId);
-    setRefreshing(false);
-  };
   // Charger les tâches au montage et lors du changement d'utilisateur
   useEffect(() => {
     if (selectedUserId) {
       loadUserBpmnTasks(selectedUserId);
     }
   }, [selectedUserId]);
-  // Test des données avec échéances (pour développement)
-  const createTestDataWithDeadlines = () => {
-    console.log('🧪 Création de données de test avec échéances...');
-    // Créer des tâches de test avec différentes échéances
-    const testTasks = {
-      'task-1': {
-        id: 'task-1',
-        title: 'Tâche avec échéance proche',
-        description: 'Cette tâche doit être terminée demain',
-        assignee: { name: 'Jean Dupont', id: '1' },
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Demain
-        priority: 'high',
-        status: 'assigned',
-        labels: ['BPMN', 'Urgent'],
-        bpmnData: {
-          taskDefinitionKey: 'task-1',
-          processInstanceId: 'proc-1',
-          processDefinitionKey: 'test-process'
-        }
-      },
-      'task-2': {
-        id: 'task-2',
-        title: 'Tâche avec échéance dans 3 jours',
-        description: 'Cette tâche doit être terminée dans 3 jours',
-        assignee: { name: 'Marie Martin', id: '2' },
-        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // Dans 3 jours
-        priority: 'medium',
-        status: 'assigned',
-        labels: ['BPMN', 'Moyen terme'],
-        bpmnData: {
-          taskDefinitionKey: 'task-2',
-          processInstanceId: 'proc-2',
-          processDefinitionKey: 'test-process'
-        }
-      },
-      'task-3': {
-        id: 'task-3',
-        title: 'Tâche en retard',
-        description: 'Cette tâche était due hier',
-        assignee: { name: 'Pierre Dubois', id: '3' },
-        dueDate: new Date(Date.now() - 24 * 60 * 60 * 1000), // Hier
-        priority: 'high',
-        status: 'assigned',
-        labels: ['BPMN', 'En retard'],
-        bpmnData: {
-          taskDefinitionKey: 'task-3',
-          processInstanceId: 'proc-3',
-          processDefinitionKey: 'test-process'
-        }
-      }
-    };
-    setTasks(testTasks);
-    setColumns({
-      'todo': { ...columnConfig.todo, taskIds: [] },
-      'inprogress': { ...columnConfig.inprogress, taskIds: ['task-1', 'task-2', 'task-3'] },
-      'done': { ...columnConfig.done, taskIds: [] }
-    });
-    setAvailableProcesses(['test-process']);
-    console.log('✅ Données de test créées avec échéances');
-  };
   // NOUVEAU: Initialiser les notifications WebSocket pour les tâches Camunda
   useEffect(() => {
     const initializeWebSocket = async () => {
@@ -907,41 +831,6 @@ const KanbanBoardAntd = () => {
             <Text type="secondary">
               Gérez vos tâches de processus métier en mode Kanban
             </Text>
-          </Col>
-          <Col>
-            <Space size="middle">
-              <Select
-                value={selectedUserId}
-                onChange={setSelectedUserId}
-                style={{ width: 200 }}
-                placeholder="Sélectionner un utilisateur"
-              >
-                {users.map(user => (
-                  <Option key={user.id} value={user.id}>
-                    <Space>
-                      <Avatar size="small">{user.avatar}</Avatar>
-                      {user.name}
-                    </Space>
-                  </Option>
-                ))}
-              </Select>
-              <Button
-                type="primary"
-                icon={<ReloadOutlined />}
-                loading={refreshing}
-                onClick={handleRefresh}
-              >
-                Actualiser
-              </Button>
-              <Button
-                type="default"
-                icon={<CalendarOutlined />}
-                onClick={createTestDataWithDeadlines}
-                style={{ marginLeft: 8 }}
-              >
-                Test Échéances
-              </Button>
-            </Space>
           </Col>
         </Row>
       </Card>

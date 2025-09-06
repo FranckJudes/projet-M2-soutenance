@@ -453,9 +453,12 @@ function History() {
         const defs = (data || []).map((p, idx) => {
           const id = typeof p === 'string' ? p : (p?.id || p?.processDefinitionId || p?.key || `proc-${idx}`);
           const key = typeof p === 'object' ? (p?.key || p?.id) : (typeof p === 'string' ? p : undefined);
-          const name = typeof p === 'object' ? (p?.name || key || id) : p;
+          // Prefer processName from backend if present, fallback to name, then key/id
+          const displayName = typeof p === 'object'
+            ? (p?.processName || p?.name || key || id)
+            : p;
           const version = typeof p === 'object' ? p?.version : undefined;
-          return { id: String(id), key: key ? String(key) : undefined, name: String(name), version };
+          return { id: String(id), key: key ? String(key) : undefined, name: String(displayName), version };
         });
         setProcessDefinitions(defs);
         if (defs.length > 0) {

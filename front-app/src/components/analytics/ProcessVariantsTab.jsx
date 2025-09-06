@@ -1,5 +1,8 @@
 import React from 'react';
 import { Row, Col, Card, Table, Statistic, Image, Empty, Spin } from 'antd';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from 'recharts';
 
 const ProcessVariantsTab = ({ data, loading }) => {
   if (loading) {
@@ -16,6 +19,12 @@ const ProcessVariantsTab = ({ data, loading }) => {
   }
   
   const { variants, case_statistics } = data;
+  // Préparer des données de graphiques: Top 10 variantes par nombre de cas
+  const topVariants = Array.isArray(variants)
+    ? [...variants].sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 10)
+    : [];
+  const countChartData = topVariants.map(v => ({ name: v.variant, count: v.count || 0 }));
+  const percentChartData = topVariants.map(v => ({ name: v.variant, percentage: v.percentage || 0 }));
   
   // Colonnes pour le tableau des variantes
   const columns = [
@@ -115,6 +124,43 @@ const ProcessVariantsTab = ({ data, loading }) => {
                 ),
               }}
             />
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={12}>
+          <Card title="Top variantes par nombre de cas">
+            {countChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={countChartData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" hide />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="count" name="Nombre de cas" fill="#1890ff" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <Empty description="Données non disponibles" />
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card title="Top variantes par pourcentage">
+            {percentChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={percentChartData} margin={{ left: 8, right: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" hide />
+                  <YAxis tickFormatter={(v) => `${v.toFixed(0)}%`} />
+                  <Tooltip formatter={(v) => `${Number(v).toFixed(2)}%`} />
+                  <Legend />
+                  <Bar dataKey="percentage" name="Pourcentage" fill="#52c41a" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <Empty description="Données non disponibles" />
+            )}
           </Card>
         </Col>
       </Row>

@@ -511,4 +511,46 @@ public class ProcessEngineController {
                 return "application/octet-stream";
         }
     }
+    
+    /**
+     * Supprimer un processus par son ID
+     * @param processId ID du processus à supprimer
+     * @param authentication Informations d'authentification de l'utilisateur
+     * @return Réponse indiquant le succès ou l'échec de la suppression
+     */
+    @DeleteMapping("/process/{processId}")
+    public ResponseEntity<ApiResponse<String>> deleteProcess(
+            @PathVariable String processId,
+            Authentication authentication) {
+        
+        try {
+            if (authentication == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.fail("Authentication required"));
+            }
+            
+            // Récupérer l'utilisateur actuel
+            String userEmail = authentication.getName();
+            Optional<UserEntity> user = userRepository.findByEmail(userEmail);
+            
+            if (!user.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found with email: " + userEmail);
+            }
+            
+            String userId = user.get().getId().toString();
+            
+            // Appeler le service pour supprimer le processus
+            processEngineService.deleteProcess(processId, userId);
+            
+            log.info("Process {} deleted by user {} (ID: {})", processId, userEmail, userId);
+            
+            return ResponseEntity.ok(ApiResponse.success(
+                    "Process deleted successfully", "Process " + processId + " has been deleted"));
+            
+        } catch (Exception e) {
+            log.error("Error deleting process: {}", processId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.fail("Failed to delete process: " + e.getMessage()));
+        }
+    }
 }

@@ -231,7 +231,8 @@ const AdvancedAnalytics = () => {
     for (const pd of defs) {
       const id = String(pd.id || pd.definitionId || pd.processDefinitionId || pd.key || '');
       const key = String(pd.key || pd.processDefinitionKey || pd.definitionKey || id);
-      const name = pd.name || pd.processDefinitionName || key;
+      // Prefer processName if provided by backend, fall back to name -> key
+      const name = pd.processName || pd.name || pd.processDefinitionName || key;
       if (!seen.has(key)) {
         seen.add(key);
         result.push({ id, key, name, label: name });

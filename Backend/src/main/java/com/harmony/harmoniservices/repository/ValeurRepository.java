@@ -2,6 +2,8 @@ package com.harmony.harmoniservices.repository;
 
 import com.harmony.harmoniservices.models.Valeur;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -58,5 +60,6 @@ public interface ValeurRepository extends JpaRepository<Valeur, Long> {
      * @param domaineValeurId The domaine valeur id
      * @return The maximum ordre value, or null if no valeurs exist
      */
-    Integer findMaxOrdreByDomaineValeurId(Long domaineValeurId);
+    @Query("SELECT MAX(v.ordre) FROM Valeur v WHERE v.domaineValeur.id = :domaineValeurId")
+    Integer findMaxOrdreByDomaineValeurId(@Param("domaineValeurId") Long domaineValeurId);
 }

@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from 'react-i18next';
 import Main from "../../layout/Main";
-import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer, Carousel } from 'antd';
-import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Spin, Tabs, message, Alert, Breadcrumb, theme, Input, Select, Space, Drawer, Carousel, Modal } from 'antd';
+import { PlusOutlined, EditOutlined, PlayCircleOutlined, ReloadOutlined, HomeOutlined, SettingOutlined, CheckCircleOutlined, CloseCircleOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import Acteur from "./Tabs/Acteur";
 import General from "./Tabs/General";
 import Parametres from "./Tabs/Parametres";
@@ -27,6 +27,7 @@ const Configuration = () => {
     const [selectedBpmnId, setSelectedBpmnId] = useState(null);
     const [isUpdateMode, setIsUpdateMode] = useState(false);
     const [startingProcess, setStartingProcess] = useState(null);
+    const [deletingProcess, setDeletingProcess] = useState(null);
     const [activeTabIndex, setActiveTabIndex] = useState(0);
     const [sharedData, setSharedData] = useState({
         processData: {
@@ -43,6 +44,7 @@ const Configuration = () => {
     // États pour le drawer (sidebar)
     const [drawerVisible, setDrawerVisible] = useState(false);
     const [selectedProcess, setSelectedProcess] = useState(null);
+    const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
     
     // États pour le filtrage et la recherche
     const [processSearchText, setProcessSearchText] = useState('');
@@ -153,16 +155,44 @@ const Configuration = () => {
         fetchMyProcessInstances();
     }, []);
     
-    const startProcessInstance = async (processKey) => {
-        setStartingProcess(processKey);
+    const startProcessInstance = async (processDefinitionKey) => {
         try {
-            await ProcessEngineService.startProcess(processKey);
-            message.success(`Instance de processus démarrée`);
-        } catch (err) {
-            message.error("Erreur lors du démarrage du processus: " + (err.response?.data || err.message));
+            setStartingProcess(processDefinitionKey);
+            const response = await ProcessEngineService.startProcess(processDefinitionKey);
+            message.success(`Instance du processus ${processDefinitionKey} démarrée avec succès`);
+            fetchMyProcessInstances();
+        } catch (error) {
+            message.error(`Erreur lors du démarrage: ${error.response?.data?.message || error.message}`);
         } finally {
             setStartingProcess(null);
         }
+    };
+
+    // Fonction pour supprimer un processus
+    const deleteProcess = async (processId) => {
+        if (!processId) return;
+        
+        try {
+            setDeletingProcess(processId);
+            // Appel à l'API pour supprimer le processus
+            await ProcessEngineService.deleteProcess(processId);
+            message.success('Processus supprimé avec succès');
+            
+            // Fermer le drawer et recharger la liste des processus
+            setDrawerVisible(false);
+            setSelectedProcess(null);
+            fetchDeployedProcesses();
+        } catch (error) {
+            message.error(`Erreur lors de la suppression: ${error.response?.data?.message || error.message}`);
+        } finally {
+            setDeletingProcess(null);
+            setDeleteConfirmVisible(false);
+        }
+    };
+
+    // Afficher la confirmation de suppression
+    const showDeleteConfirm = () => {
+        setDeleteConfirmVisible(true);
     };
 
     // Fonctions pour la sidebar
@@ -548,51 +578,89 @@ const Configuration = () => {
                                 
                                 {/* Drawer pour afficher les détails du processus sélectionné */}
                                 <Drawer
-                                    title={selectedProcess ? `Détails du processus: ${selectedProcess.processName || selectedProcess.processDefinitionKey}` : "Détails du processus"}
+                                    title={
+                                        <Space>
+                                            <SettingOutlined />
+                                            {selectedProcess ? 
+                                                <span style={{ fontWeight: 500 }}>{selectedProcess.processName || selectedProcess.processDefinitionKey}</span> : 
+                                                "Détails du processus"
+                                            }
+                                        </Space>
+                                    }
                                     placement="right"
                                     closable={true}
                                     onClose={closeDrawer}
                                     open={drawerVisible}
-                                    width={500}
+                                    width={520}
+                                    headerStyle={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px' }}
+                                    bodyStyle={{ padding: '24px', overflowY: 'auto' }}
+                                    footer={
+                                        selectedProcess && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
+                                                <div>
+                                                    <Button 
+                                                        type="primary" 
+                                                        icon={<PlayCircleOutlined />} 
+                                                        onClick={() => startProcessInstance(selectedProcess.processDefinitionKey)}
+                                                        loading={startingProcess === selectedProcess.processDefinitionKey}
+                                                        disabled={selectedProcess.suspended}
+                                                        size="middle"
+                                                    >
+                                                        Démarrer une instance
+                                                    </Button>
+                                                </div>
+                                                <div>
+                                                    <Button 
+                                                        icon={<EditOutlined />} 
+                                                        onClick={() => handleEditBpmn(selectedProcess.id)}
+                                                        size="middle"
+                                                        style={{ marginRight: '8px' }}
+                                                    >
+                                                        Modifier
+                                                    </Button>
+                                                    <Button 
+                                                        danger
+                                                        icon={<DeleteOutlined />} 
+                                                        onClick={showDeleteConfirm}
+                                                        loading={deletingProcess === selectedProcess.id}
+                                                        size="middle"
+                                                    >
+                                                        Supprimer
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )
+                                    }
                                 >
                                     {selectedProcess && (
                                         <div>
-                                            <h3>Informations générales</h3>
-                                            <p><strong>Nom:</strong> {selectedProcess.processName || "Non défini"}</p>
-                                            <p><strong>Description:</strong> {selectedProcess.processDescription || "Pas de description"}</p>
-                                            <p><strong>Version:</strong> {selectedProcess.version || selectedProcess.camundaVersion || "N/A"}</p>
-                                            <p><strong>Crée le:</strong> {selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</p>
-                                            <p><strong>Statut:</strong> {selectedProcess.suspended ? "Suspendu" : "Actif"}</p>
-                                            
-                                            <h3>Instances</h3>
-                                            <p><strong>Instances actives:</strong> {selectedProcess.activeInstanceCount || 0}</p>
-                                            <p><strong>Total des instances:</strong> {selectedProcess.instanceCount || 0}</p>
-                                            
-                                            {selectedProcess.tags && selectedProcess.tags.length > 0 && (
-                                                <>
-                                                    <h3>Mots-clés</h3>
-                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                        {selectedProcess.tags.map((tag, index) => (
-                                                            <span 
-                                                                key={index}
-                                                                style={{
-                                                                    background: '#f0f0f0',
-                                                                    padding: '4px 8px',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '12px'
-                                                                }}
-                                                            >
-                                                                {tag}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </>
-                                            )}
-                                            
-                                            {selectedProcess.images && selectedProcess.images.length > 0 ? (
+                                            {/* Statut du processus */}
+                                            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
-                                                    <h3>Images</h3>
-                                                    <Carousel autoplay>
+                                                    {selectedProcess.suspended ? (
+                                                        <Alert
+                                                            message="Processus suspendu"
+                                                            type="warning"
+                                                            showIcon
+                                                            icon={<CloseCircleOutlined />}
+                                                            style={{ width: '100%' }}
+                                                        />
+                                                    ) : (
+                                                        <Alert
+                                                            message="Processus actif"
+                                                            type="success"
+                                                            showIcon
+                                                            icon={<CheckCircleOutlined />}
+                                                            style={{ width: '100%' }}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Images en carousel */}
+                                            {selectedProcess.images && selectedProcess.images.length > 0 && (
+                                                <div style={{ marginBottom: '24px' }}>
+                                                    <Carousel autoplay style={{ borderRadius: '8px', overflow: 'hidden' }}>
                                                         {selectedProcess.images.map((image, index) => (
                                                             <div key={index}>
                                                                 <img
@@ -606,36 +674,133 @@ const Configuration = () => {
                                                                                     : 'default-image-path'))
                                                                     }
                                                                     alt={image.description || 'Process image'}
-                                                                    style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                                                                    style={{ width: '100%', height: '220px', objectFit: 'cover' }}
                                                                 />
                                                             </div>
                                                         ))}
                                                     </Carousel>
                                                 </div>
-                                            ) : (
-                                                <p>Aucune image disponible.</p>
+                                            )}
+
+                                            {/* Informations générales */}
+                                            <Card 
+                                                title={<Space><InfoCircleOutlined /> Informations générales</Space>}
+                                                size="small"
+                                                style={{ marginBottom: '16px' }}
+                                                bordered={false}
+                                                headStyle={{ padding: '0 0 12px 0' }}
+                                                bodyStyle={{ padding: '0' }}
+                                            >
+                                                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', rowGap: '12px' }}>
+                                                    <div style={{ color: '#8c8c8c' }}>Nom:</div>
+                                                    <div style={{ fontWeight: 500 }}>{selectedProcess.processName || "Non défini"}</div>
+                                                    
+                                                    <div style={{ color: '#8c8c8c' }}>Description:</div>
+                                                    <div style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>{selectedProcess.processDescription || "Pas de description"}</div>
+                                                    
+                                                    <div style={{ color: '#8c8c8c' }}>Version:</div>
+                                                    <div>{selectedProcess.version || selectedProcess.camundaVersion || "N/A"}</div>
+                                                    
+                                                    <div style={{ color: '#8c8c8c' }}>Créé le:</div>
+                                                    <div>{selectedProcess.deployedAt ? new Date(selectedProcess.deployedAt).toLocaleDateString('fr-FR') : "Date inconnue"}</div>
+                                                </div>
+                                            </Card>
+
+                                            {/* Statistiques */}
+                                            <Card 
+                                                title={<Space><PlayCircleOutlined /> Instances</Space>}
+                                                size="small"
+                                                style={{ marginBottom: '16px' }}
+                                                bordered={false}
+                                                headStyle={{ padding: '0 0 12px 0' }}
+                                                bodyStyle={{ padding: '0' }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, padding: '12px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+                                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff' }}>
+                                                            {selectedProcess.activeInstanceCount || 0}
+                                                        </div>
+                                                        <div style={{ color: '#8c8c8c', fontSize: '12px' }}>Instances actives</div>
+                                                    </div>
+                                                    <div style={{ width: '16px' }}></div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, padding: '12px', backgroundColor: '#f9f9f9', borderRadius: '8px' }}>
+                                                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
+                                                            {selectedProcess.instanceCount || 0}
+                                                        </div>
+                                                        <div style={{ color: '#8c8c8c', fontSize: '12px' }}>Total des instances</div>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                            
+                                            {/* Mots-clés */}
+                                            {selectedProcess.tags && selectedProcess.tags.length > 0 && (
+                                                <Card 
+                                                    title="Mots-clés"
+                                                    size="small"
+                                                    style={{ marginBottom: '16px' }}
+                                                    bordered={false}
+                                                    headStyle={{ padding: '0 0 12px 0' }}
+                                                    bodyStyle={{ padding: '0' }}
+                                                >
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        {selectedProcess.tags.map((tag, index) => (
+                                                            <span 
+                                                                key={index}
+                                                                style={{
+                                                                    background: token.colorPrimaryBg,
+                                                                    color: token.colorPrimary,
+                                                                    padding: '4px 10px',
+                                                                    borderRadius: '16px',
+                                                                    fontSize: '12px'
+                                                                }}
+                                                            >
+                                                                {tag}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </Card>
                                             )}
                                             
-                                            <div style={{ marginTop: '24px', display: 'flex', gap: '12px' }}>
-                                                <Button 
-                                                    type="primary" 
-                                                    icon={<PlayCircleOutlined />} 
-                                                    onClick={() => startProcessInstance(selectedProcess.processDefinitionKey)}
-                                                    loading={startingProcess === selectedProcess.processDefinitionKey}
-                                                    disabled={selectedProcess.suspended}
-                                                >
-                                                    Démarrer une instance
-                                                </Button>
-                                                <Button 
-                                                    icon={<EditOutlined />} 
-                                                    onClick={() => handleEditBpmn(selectedProcess.id)}
-                                                >
-                                                    Modifier
-                                                </Button>
-                                            </div>
+                                            {/* Message si pas d'images */}
+                                            {(!selectedProcess.images || selectedProcess.images.length === 0) && (
+                                                <Alert
+                                                    message="Information"
+                                                    description="Aucune image disponible pour ce processus."
+                                                    type="info"
+                                                    showIcon
+                                                    style={{ marginTop: '16px' }}
+                                                />
+                                            )}
                                         </div>
                                     )}
                                 </Drawer>
+                                
+                                {/* Modal de confirmation de suppression */}
+                                <Modal
+                                    title="Confirmer la suppression"
+                                    open={deleteConfirmVisible}
+                                    onOk={() => deleteProcess(selectedProcess?.id)}
+                                    onCancel={() => setDeleteConfirmVisible(false)}
+                                    okText="Supprimer"
+                                    cancelText="Annuler"
+                                    okButtonProps={{ danger: true, loading: deletingProcess === selectedProcess?.id }}
+                                >
+                                    <p>Êtes-vous sûr de vouloir supprimer ce processus ?</p>
+                                    {selectedProcess && (
+                                        <p>
+                                            <strong>Nom:</strong> {selectedProcess.processName || selectedProcess.processDefinitionKey}
+                                            <br />
+                                            <strong>Version:</strong> {selectedProcess.version || selectedProcess.camundaVersion || "N/A"}
+                                        </p>
+                                    )}
+                                    <Alert
+                                        message="Attention"
+                                        description="Cette action est irréversible. Toutes les données associées à ce processus seront supprimées."
+                                        type="warning"
+                                        showIcon
+                                        style={{ marginTop: '16px' }}
+                                    />
+                                </Modal>
                             </>
                         ) : (
                             <Card

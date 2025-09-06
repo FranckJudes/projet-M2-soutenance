@@ -103,7 +103,7 @@ public class NotificationService {
                                     .processDefinitionId(task.getProcessDefinitionId())
                                     .singleResult();
                             if (pd != null && pd.getName() != null && !pd.getName().isEmpty()) {
-                                processName = pd.getName();
+                                processName = pd.getProcessName();
                             }
                         } catch (Exception exProc) {
                             log.warn("Unable to fetch process name for active task {}: {}", task.getId(), exProc.getMessage());
@@ -129,46 +129,47 @@ public class NotificationService {
                         String recipientName = appUserId;
                         String recipientEmail = appUserId;
                         try {
-                            java.util.Optional<UserEntity> userOpt;
-                            if (appUserId != null && appUserId.contains("@")) {
-                                // appUserId looks like an email
-                                recipientEmail = appUserId;
-                                userOpt = userRepository.findByEmail(appUserId);
-                            } else {
-                                // try by username first
-                                userOpt = userRepository.findByUsername(appUserId);
-                                if (!userOpt.isPresent()) {
-                                    // fallback: some systems store email as id
+                            java.util.Optional<UserEntity> userOpt = java.util.Optional.empty();
+                            if (appUserId != null && !appUserId.isEmpty()) {
+                                if (appUserId.contains("@")) {
+                                    // appUserId looks like an email
+                                    recipientEmail = appUserId;
                                     userOpt = userRepository.findByEmail(appUserId);
+                                } else {
+                                    // try by username first
+                                    userOpt = userRepository.findByUsername(appUserId);
                                 }
-                            }
 
-                            if (userOpt.isPresent()) {
-                                UserEntity u = userOpt.get();
-                                recipientEmail = u.getEmail();
-                                String fn = u.getFirstName();
-                                String ln = u.getLastName();
-                                if (fn != null && !fn.isEmpty()) {
-                                    recipientName = (ln != null && !ln.isEmpty()) ? fn + " " + ln : fn;
+                                if (userOpt.isPresent()) {
+                                    UserEntity u = userOpt.get();
+                                    if (u.getEmail() != null && !u.getEmail().isEmpty()) {
+                                        recipientEmail = u.getEmail();
+                                    }
+                                    String fn = u.getFirstName();
+                                    String ln = u.getLastName();
+                                    if (fn != null && !fn.isEmpty()) {
+                                        recipientName = (ln != null && !ln.isEmpty()) ? fn + " " + ln : fn;
+                                    }
+                                } else if (!appUserId.contains("@")) {
+                                    // Fallback: conserver l'ancien comportement si appUserId n'est pas un email
+                                    recipientEmail = appUserId + "@company.com"; // TODO: externaliser domaine via application.yml
                                 }
-                            } else if (!appUserId.contains("@")) {
-                                // Fallback: conserver l'ancien comportement si appUserId n'est pas un email
-                                recipientEmail = appUserId + "@company.com"; // TODO: externaliser domaine via application.yml
                             }
                         } catch (Exception ex) {
                             log.warn("Could not resolve real email for assignee {}: {}", appUserId, ex.getMessage());
-                            if (!appUserId.contains("@")) {
+                            if (appUserId != null && !appUserId.contains("@")) {
                                 recipientEmail = appUserId + "@company.com";
                             }
                         }
 
+                        Optional<UserEntity> userOpt = userRepository.findById(Long.valueOf(appUserId));
                         // Générer le contenu HTML de l'email avec un nom affichable
                         String htmlContent = EmailTemplateUtil.createAssignmentEmailTemplate(
-                                recipientName, // Nom du destinataire
+                                userOpt.get().getFirstName() + " " + userOpt.get().getLastName(), // Nom du destinataire
                                 task.getName(), // Nom de la tâche
                                 task.getId(), // ID de la tâche
                                 processName, // Nom du processus
-                                appUserId, // Personne assignée (ID applicatif)
+                                userOpt.get().getEmail(), // Personne assignée (ID applicatif)
                                 formattedDueDate, // Date d'échéance formatée
                                 criticality, // Criticité
                                 workInstructions, // Instructions de travail
@@ -176,28 +177,9 @@ public class NotificationService {
                         );
 
                         // Envoyer l'email HTML au vrai destinataire
-                        sendHtmlEmailNotification(recipientEmail, emailSubject, htmlContent);
+                        sendHtmlEmailNotification(userOpt.get().getEmail(), emailSubject, htmlContent);
                         
-                        // Garder aussi l'email texte comme fallback si besoin
-                        StringBuilder emailContent = new StringBuilder();
-                        emailContent.append("Une nouvelle tâche vous a été assignée dans le système Harmony.\n\n");
-                        emailContent.append("Détails de la tâche :\n");
-                        emailContent.append("- Nom : ").append(task.getName()).append("\n");
-                        emailContent.append("- ID : ").append(task.getId()).append("\n");
-                        emailContent.append("- Processus : ").append(processName).append("\n");
                         
-                        if (formattedDueDate != null) {
-                            emailContent.append("- Date d'échéance : ").append(formattedDueDate).append("\n");
-                        }
-                        
-                        if (workInstructions != null) {
-                            emailContent.append("\nInstructions de travail :\n").append(workInstructions).append("\n");
-                        }
-                        
-                        emailContent.append("\nVeuillez vous connecter au système pour traiter cette tâche.");
-                        
-                        // Commenter cette ligne pour n'envoyer que l'email HTML
-                        // sendEmailNotification(task.getAssignee(), emailSubject, emailContent.toString());
                     }
                 }
                 
@@ -374,30 +356,7 @@ public class NotificationService {
                         // Envoyer l'email HTML
                         sendHtmlEmailNotification(task.getAssignee(), emailSubject, htmlContent);
                         
-                        // Version texte comme fallback (commentée)
-                        StringBuilder emailContent = new StringBuilder();
-                        emailContent.append("Rappel important concernant une tâche qui approche de son échéance.\n\n");
-                        emailContent.append("Détails de la tâche en retard :\n");
-                        emailContent.append("- Nom : ").append(task.getName()).append("\n");
-                        emailContent.append("- ID : ").append(task.getId()).append("\n");
-                        emailContent.append("- Processus : ").append(processName).append("\n");
-                        
-                        if (formattedDueDate != null) {
-                            emailContent.append("- Date d'échéance : ").append(formattedDueDate).append("\n");
-                        }
-                        
-                        if (criticality != null) {
-                            emailContent.append("- Criticité : ").append(criticality).append("\n");
-                        }
-                        
-                        if (workInstructions != null) {
-                            emailContent.append("\nInstructions de travail :\n").append(workInstructions).append("\n");
-                        }
-                        
-                        emailContent.append("\nVeuillez traiter cette tâche dès que possible pour éviter tout retard dans le processus.");
-                        
-                        // Commenter cette ligne pour n'envoyer que l'email HTML
-                        // sendEmailNotification(task.getAssignee(), emailSubject, emailContent.toString());
+                       
                     }
                 }
                 

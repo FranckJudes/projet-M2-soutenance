@@ -27,7 +27,7 @@ import ValeurService from "../../services/ValeurService";
 const { TextArea } = Input;
 const { Title } = Typography;
 
-export default function Domaine () {
+function Domaine () {
   const { t } = useTranslation();
   const [form] = Form.useForm();
   
@@ -167,10 +167,14 @@ export default function Domaine () {
   const handleValeurSubmit = async (values) => {
     try {
       const payload = {
-        libele: values.libele,
-        description: values.description,
-        domaineValeurId: selectedDomaine.id
+        libele: (values.libele || '').trim(),
+        description: typeof values.description === 'string' ? values.description.trim() : null,
+        // Coerce to number to match backend Long type and avoid serialization issues
+        domaineValeurId: selectedDomaine ? Number(selectedDomaine.id) : undefined,
+        // Laisser code et ordre non définis pour permettre l'auto-génération côté backend
       };
+      // Sécurité: supprimer les clés undefined
+      Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
       
       let response;
       if (editingValeur) {
@@ -215,6 +219,24 @@ export default function Domaine () {
 
   const handleDelete = async (id) => {
     try {
+      // 1) Récupérer toutes les valeurs du domaine et tenter de les supprimer
+      const listRes = await ValeurService.getValeursByDomaineValeurId(id);
+      const valeursToDelete = (listRes.data && listRes.data.success && Array.isArray(listRes.data.data))
+        ? listRes.data.data
+        : [];
+
+      if (valeursToDelete.length > 0) {
+        // Supprimer toutes les valeurs avant de supprimer le domaine
+        const deletionResults = await Promise.allSettled(
+          valeursToDelete.map(v => ValeurService.deleteValeur(v.id))
+        );
+        const failed = deletionResults.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          message.warning(t('Some values could not be deleted; retrying domain deletion'));
+        }
+      }
+
+      // 2) Supprimer le domaine
       const response = await DomaineValeurService.deleteDomaineValeur(id);
       if (response.data && response.data.success) {
         message.success(response.data.message || t("Domain value successfully deleted"));
@@ -224,8 +246,31 @@ export default function Domaine () {
         message.error(errorMsg);
       }
     } catch (error) {
-      console.error("Error deleting domain value:", error);
-      const errorMsg = error.response?.data?.message || t("Error deleting domain value");
+      // Si la suppression directe échoue (contrainte FK), tenter un fallback: supprimer valeurs puis re-essayer
+      const isConstraint = Boolean(error?.response?.data) || String(error?.message || '').toLowerCase().includes('constraint');
+      if (!isConstraint) {
+        console.error('Error deleting domain value:', error);
+      }
+      try {
+        const listRes = await ValeurService.getValeursByDomaineValeurId(id);
+        const valeursToDelete = (listRes.data && listRes.data.success && Array.isArray(listRes.data.data))
+          ? listRes.data.data
+          : [];
+
+        if (valeursToDelete.length > 0) {
+          await Promise.allSettled(valeursToDelete.map(v => ValeurService.deleteValeur(v.id)));
+        }
+
+        const retry = await DomaineValeurService.deleteDomaineValeur(id);
+        if (retry.data && retry.data.success) {
+          message.success(retry.data.message || t('Domain value successfully deleted'));
+          fetchDomaines();
+          return;
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback deletion failed:', fallbackErr);
+      }
+      const errorMsg = error.response?.data?.message || t('Error deleting domain value');
       message.error(errorMsg);
     }
   };
@@ -500,3 +545,5 @@ export default function Domaine () {
     </Main>
   );
 };
+
+export default Domaine;

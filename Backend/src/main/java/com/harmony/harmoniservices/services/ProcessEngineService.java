@@ -513,6 +513,79 @@ public class ProcessEngineService {
     }
 
     /**
+         * Delete a process definition and related data
+     * @param processId database ID or processDefinitionKey
+     * @param userId requester (for logging/audit)
+     */
+    @Transactional
+    public void deleteProcess(String processId, String userId) {
+        try {
+            // Resolve process definition either by numeric ID or by key
+            Optional<ProcessDefinition> pdOpt = Optional.empty();
+            try {
+                Long id = Long.parseLong(processId);
+                pdOpt = processDefinitionRepository.findById(id);
+            } catch (NumberFormatException ignore) {
+                // Not a numeric ID, fall back to processDefinitionKey
+            }
+            if (!pdOpt.isPresent()) {
+                pdOpt = processDefinitionRepository.findByProcessDefinitionKey(processId);
+            }
+            if (!pdOpt.isPresent()) {
+                throw new RuntimeException("Process not found with id or key: " + processId);
+            }
+            ProcessDefinition pd = pdOpt.get();
+
+            String processKey = pd.getProcessDefinitionKey();
+
+            // Delete Camunda deployment if any (cascade = true to remove definitions)
+            if (pd.getDeploymentId() != null && !pd.getDeploymentId().isEmpty()) {
+                try {
+                    log.info("Deleting Camunda deployment {} for process {} by user {}", pd.getDeploymentId(), processKey, userId);
+                    repositoryService.deleteDeployment(pd.getDeploymentId(), true);
+                } catch (Exception e) {
+                    log.warn("Failed to delete Camunda deployment {}: {}", pd.getDeploymentId(), e.getMessage());
+                }
+            }
+
+            // Delete image files from filesystem if present
+            if (pd.getImages() != null) {
+                for (ProcessImage img : new ArrayList<>(pd.getImages())) {
+                    try {
+                        String path = img.getFilePath();
+                        if (path != null && !path.isEmpty()) {
+                            Path p = Paths.get(path);
+                            if (Files.exists(p)) {
+                                Files.delete(p);
+                            }
+                        }
+                    } catch (Exception io) {
+                        log.warn("Failed to delete process image file: {}", io.getMessage());
+                    }
+                }
+            }
+
+            // Delete task configurations linked to this process key
+            try {
+                List<TaskConfiguration> configs = taskConfigurationRepository.findByProcessDefinitionKey(processKey);
+                if (configs != null && !configs.isEmpty()) {
+                    taskConfigurationRepository.deleteAll(configs);
+                }
+            } catch (Exception e) {
+                log.warn("Failed deleting task configurations for process {}: {}", processKey, e.getMessage());
+            }
+
+            // Finally delete process definition entity
+            processDefinitionRepository.delete(pd);
+            log.info("Process {} deleted successfully by user {}", processKey, userId);
+
+        } catch (Exception e) {
+            log.error("Error deleting process {}: {}", processId, e.getMessage(), e);
+            throw new RuntimeException("Failed to delete process: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Get tasks for a user's groups
      */
     public List<TaskDTO> getTasksForUserGroups(List<String> groupIds) {

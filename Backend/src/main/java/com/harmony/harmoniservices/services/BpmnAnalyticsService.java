@@ -29,6 +29,7 @@ public class BpmnAnalyticsService {
 
     private final RestTemplate restTemplate;
     private final HistoryService historyService;
+    private final com.harmony.harmoniservices.repository.ProcessDefinitionRepository processDefinitionRepository;
 
     /**
      * Appel au service de découverte de processus
@@ -301,6 +302,19 @@ public class BpmnAnalyticsService {
                     definition.put("id", instance.getProcessDefinitionId());
                     definition.put("key", key);
                     definition.put("name", instance.getProcessDefinitionName());
+                    // Enrichir avec processName depuis la base si disponible
+                    try {
+                        processDefinitionRepository.findLatestActiveByProcessDefinitionKey(key)
+                                .ifPresent(pd -> {
+                                    if (pd.getProcessName() != null && !pd.getProcessName().isEmpty()) {
+                                        definition.put("processName", pd.getProcessName());
+                                        // Si le nom Camunda est vide, utiliser processName comme name
+                                        if (definition.get("name") == null || String.valueOf(definition.get("name")).isEmpty()) {
+                                            definition.put("name", pd.getProcessName());
+                                        }
+                                    }
+                                });
+                    } catch (Exception ignore) { }
                     definition.put("version", instance.getProcessDefinitionVersion());
                     definitionsMap.put(key, definition);
                     log.info("Added process definition: {} ({})", key, instance.getProcessDefinitionName());

@@ -1,5 +1,8 @@
 import React from 'react';
 import { Row, Col, Card, Statistic, Image, Empty, Spin } from 'antd';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+} from 'recharts';
 
 const ProcessDiscoveryTab = ({ data, loading }) => {
   if (loading) {
@@ -16,6 +19,15 @@ const ProcessDiscoveryTab = ({ data, loading }) => {
   }
   
   const { petri_net_image, metrics } = data;
+  const chartData = [
+    {
+      name: 'Fitness',
+      value: metrics?.fitness?.average_trace_fitness ?? 0
+    },
+    { name: 'Precision', value: metrics?.precision ?? 0 },
+    { name: 'Generalization', value: metrics?.generalization ?? 0 },
+    { name: 'Simplicity', value: metrics?.simplicity ?? 0 },
+  ];
   
   return (
     <div className="analysis-content">
@@ -70,6 +82,18 @@ const ProcessDiscoveryTab = ({ data, loading }) => {
                 />
               </Col>
             </Row>
+            <div style={{ marginTop: 16 }}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[0, 1]} tickFormatter={(v) => v.toFixed(1)} />
+                  <Tooltip formatter={(v) => v.toFixed(3)} />
+                  <Legend />
+                  <Bar dataKey="value" name="Score" fill="#1890ff" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
         </Col>
       </Row>

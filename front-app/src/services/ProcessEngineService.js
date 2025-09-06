@@ -189,9 +189,30 @@ class ProcessEngineService {
       throw error;
     }
   }
+  
+  /**
+   * Supprimer un processus par son ID
+   * @param {string} processId - L'ID du processus à supprimer
+   * @returns {Promise} - Réponse de suppression du processus
+   */
+  async deleteProcess(processId) {
+    try {
+      console.log('Deleting process:', processId);
+      
+      const response = await axios.delete(
+        `${API_URL}/api/process-engine/process/${processId}`,
+        { headers: this.getHeaders() }
+      );
+      
+      console.log('Process deleted successfully:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error deleting process:', error);
+      throw error;
+    }
+  }
   transformTaskConfigurations(frontendConfigurations) {
     // Log la structure complète des configurations pour débogage
-    console.log('Structure complète des configurations:', JSON.stringify(frontendConfigurations, null, 2));
 
     
 
