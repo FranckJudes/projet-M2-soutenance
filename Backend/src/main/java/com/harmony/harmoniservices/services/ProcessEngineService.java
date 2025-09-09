@@ -28,6 +28,8 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -93,6 +95,7 @@ public class ProcessEngineService {
      * @return Les informations sur le processus déployé
      */
     @Transactional
+    @CacheEvict(cacheNames = {"processDefinition:byKey", "processDefinition:all", "processDefinition:active"}, allEntries = true)
     public ProcessDefinitionDTO deployProcess(String bpmnXml, List<TaskConfigurationDTO> taskConfigurations,
                                            ProcessMetadataDTO processMetadata, String deployedBy, boolean deployToEngine, boolean forceCreate) {
         try {
@@ -455,6 +458,7 @@ public class ProcessEngineService {
     /**
      * Get tasks assigned to a user
      */
+    @Cacheable(cacheNames = "tasks:byUser", key = "#userId")
     public List<TaskDTO> getTasksForUser(String userId) {
         if (userId == null || userId.isEmpty()) {
             log.warn("getTasksForUser called with null or empty userId");
@@ -518,6 +522,7 @@ public class ProcessEngineService {
      * @param userId requester (for logging/audit)
      */
     @Transactional
+    @CacheEvict(cacheNames = {"processDefinition:byKey", "processDefinition:all", "processDefinition:active"}, allEntries = true)
     public void deleteProcess(String processId, String userId) {
         try {
             // Resolve process definition either by numeric ID or by key
@@ -588,6 +593,7 @@ public class ProcessEngineService {
     /**
      * Get tasks for a user's groups
      */
+    @Cacheable(cacheNames = "tasks:byGroups", key = "#groupIds")
     public List<TaskDTO> getTasksForUserGroups(List<String> groupIds) {
         if (groupIds == null || groupIds.isEmpty()) {
             return new ArrayList<>();
@@ -631,6 +637,7 @@ public class ProcessEngineService {
     /**
      * Get active process instances
      */
+    @Cacheable(cacheNames = "processInstance:active")
     public List<ProcessInstanceDTO> getActiveProcesses() {
         List<ProcessInstance> activeProcesses = processInstanceRepository.findActiveProcesses();
         List<ProcessInstanceDTO> dtos = new ArrayList<>();
@@ -645,6 +652,7 @@ public class ProcessEngineService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW) // Use a new transaction
+    @CacheEvict(cacheNames = {"tasks:byUser", "tasks:byGroups"}, allEntries = true)
     public void completeTask(String taskId, Map<String, Object> variables, String userId) {
         try {
             // Get task and validate
@@ -696,6 +704,7 @@ public class ProcessEngineService {
     /**
      * Get task configuration for a specific task
      */
+    @Cacheable(cacheNames = "taskConfiguration:byProcessAndTask", key = "#processDefinitionKey + ':' + #taskId")
     public TaskConfiguration getTaskConfiguration(String processDefinitionKey, String taskId) {
         return taskConfigurationRepository
                 .findByProcessDefinitionKeyAndTaskId(processDefinitionKey, taskId)

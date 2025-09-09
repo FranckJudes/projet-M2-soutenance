@@ -9,6 +9,8 @@ import com.harmony.harmoniservices.repository.DomaineValeurRepository;
 import com.harmony.harmoniservices.repository.ValeurRepository;
 import com.harmony.harmoniservices.requests.ValeurRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class ValeurService {
      * @param domaineValeurId the domaine valeur id
      * @return list of ValeurDto
      */
+    @Cacheable(cacheNames = "valeur:byDomaine", key = "#domaineValeurId")
     public List<ValeurDto> getValeursByDomaineValeurId(Long domaineValeurId) {
         if (!domaineValeurRepository.existsById(domaineValeurId)) {
             throw new ResourceNotFoundException("DomaineValeur", "id", domaineValeurId);
@@ -47,6 +50,7 @@ public class ValeurService {
      * @param domaineValeurId the domaine valeur id
      * @return list of active ValeurDto
      */
+    @Cacheable(cacheNames = "valeur:activeByDomaine", key = "#domaineValeurId")
     public List<ValeurDto> getActiveValeursByDomaineValeurId(Long domaineValeurId) {
         if (!domaineValeurRepository.existsById(domaineValeurId)) {
             throw new ResourceNotFoundException("DomaineValeur", "id", domaineValeurId);
@@ -64,6 +68,7 @@ public class ValeurService {
      * @return the ValeurDto
      * @throws ResourceNotFoundException if the valeur is not found
      */
+    @Cacheable(cacheNames = "valeur:byId", key = "#id")
     public ValeurDto getValeurById(Long id) {
         Valeur valeur = valeurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Valeur", "id", id));
@@ -77,6 +82,7 @@ public class ValeurService {
      * @throws ResourceNotFoundException if the domaine valeur is not found
      * @throws RuntimeException if the code already exists
      */
+    @CacheEvict(cacheNames = {"valeur:byDomaine", "valeur:activeByDomaine", "valeur:byId"}, allEntries = true)
     public ValeurDto createValeur(ValeurRequest request) {
         // Check if domaineValeur exists
         DomaineValeur domaineValeur = domaineValeurRepository.findById(request.getDomaineValeurId())
@@ -111,6 +117,7 @@ public class ValeurService {
      * @throws ResourceNotFoundException if the valeur is not found
      * @throws RuntimeException if the code already exists for another valeur
      */
+    @CacheEvict(cacheNames = {"valeur:byDomaine", "valeur:activeByDomaine", "valeur:byId"}, allEntries = true)
     public ValeurDto updateValeur(Long id, ValeurRequest request) {
         Valeur valeur = valeurRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Valeur", "id", id));
@@ -130,6 +137,7 @@ public class ValeurService {
      * @param id the id of the valeur to delete
      * @throws ResourceNotFoundException if the valeur is not found
      */
+    @CacheEvict(cacheNames = {"valeur:byDomaine", "valeur:activeByDomaine", "valeur:byId"}, allEntries = true)
     public void deleteValeur(Long id) {
         if (!valeurRepository.existsById(id)) {
             throw new ResourceNotFoundException("Valeur", "id", id);
@@ -141,6 +149,7 @@ public class ValeurService {
      * Delete all valeurs by domaine valeur id
      * @param domaineValeurId the domaine valeur id
      */
+    @CacheEvict(cacheNames = {"valeur:byDomaine", "valeur:activeByDomaine", "valeur:byId"}, allEntries = true)
     public void deleteAllValeursByDomaineValeurId(Long domaineValeurId) {
         valeurRepository.deleteByDomaineValeurId(domaineValeurId);
     }

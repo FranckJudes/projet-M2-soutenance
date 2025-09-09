@@ -103,7 +103,7 @@ public class NotificationService {
                                     .processDefinitionId(task.getProcessDefinitionId())
                                     .singleResult();
                             if (pd != null && pd.getName() != null && !pd.getName().isEmpty()) {
-                                processName = pd.getProcessName();
+                                processName = pd.getName();
                             }
                         } catch (Exception exProc) {
                             log.warn("Unable to fetch process name for active task {}: {}", task.getId(), exProc.getMessage());

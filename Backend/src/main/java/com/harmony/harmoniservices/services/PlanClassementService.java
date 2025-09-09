@@ -5,6 +5,8 @@ import com.harmony.harmoniservices.dto.PlanClassementDto;
 import com.harmony.harmoniservices.repository.PlanClassementRepository;
 import com.harmony.harmoniservices.mappers.PlanClassementMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +24,7 @@ public class PlanClassementService {
         this.mapper = mapper;
     }
 
+    @Cacheable(cacheNames = "planClassement:tree")
     public List<PlanClassementDto> getAllPlanClassement() {
         List<PlanClassement> allEntities = repository.findAll();
         
@@ -51,12 +54,14 @@ public class PlanClassementService {
                 .collect(Collectors.toList());
     }
 
+    @CacheEvict(cacheNames = {"planClassement:tree", "planClassement:childrenByParent"}, allEntries = true)
     public PlanClassementDto createPlanClassement(PlanClassementDto dto) {
         PlanClassement entity = mapper.toEntity(dto);
         PlanClassement savedEntity = repository.save(entity);
         return mapper.toDto(savedEntity);
     }
 
+    @CacheEvict(cacheNames = {"planClassement:tree", "planClassement:childrenByParent"}, allEntries = true)
     public Optional<PlanClassementDto> updatePlanClassement(Long id, PlanClassementDto dto) {
         return repository.findById(id).map(existing -> {
             existing.setCodePlanClassement(dto.getCodePlanClassement());
@@ -69,10 +74,12 @@ public class PlanClassementService {
         });
     }
 
+    @CacheEvict(cacheNames = {"planClassement:tree", "planClassement:childrenByParent"}, allEntries = true)
     public void deletePlanClassement(Long id) {
         repository.deleteById(id);
     }
 
+    @Cacheable(cacheNames = "planClassement:childrenByParent", key = "#parentId")
     public List<PlanClassementDto> getChildrenByParentId(Long parentId) {
         return repository.findByParentId(parentId)
                 .stream()

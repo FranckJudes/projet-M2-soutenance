@@ -6,6 +6,8 @@ import com.harmony.harmoniservices.mappers.TypeEntiteMapper;
 import com.harmony.harmoniservices.models.TypeEntite;
 import com.harmony.harmoniservices.repository.TypeEntiteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,7 @@ public class TypeEntiteService {
      * @return list of all type entities as DTOs
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "typeEntite:all")
     public List<TypeEntiteDto> getAllTypeEntites() {
         List<TypeEntite> typeEntites = typeEntiteRepository.findAll();
         return TypeEntiteMapper.toDtoList(typeEntites);
@@ -43,6 +46,7 @@ public class TypeEntiteService {
      * @throws ResourceNotFoundException if the type entity is not found
      */
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "typeEntite:byId", key = "#id")
     public TypeEntiteDto getTypeEntiteById(Long id) {
         TypeEntite typeEntite = typeEntiteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TypeEntite not found with id: " + id));
@@ -56,6 +60,7 @@ public class TypeEntiteService {
      * @return the created type entity as a DTO
      */
     @Transactional
+    @CacheEvict(cacheNames = {"typeEntite:all", "typeEntite:byId"}, allEntries = true)
     public TypeEntiteDto createTypeEntite(TypeEntiteDto typeEntiteDto) {
         TypeEntite typeEntite = TypeEntiteMapper.toEntity(typeEntiteDto);
         typeEntite = typeEntiteRepository.save(typeEntite);
@@ -71,6 +76,7 @@ public class TypeEntiteService {
      * @throws ResourceNotFoundException if the type entity is not found
      */
     @Transactional
+    @CacheEvict(cacheNames = {"typeEntite:all", "typeEntite:byId"}, allEntries = true)
     public TypeEntiteDto updateTypeEntite(Long id, TypeEntiteDto typeEntiteDto) {
         TypeEntite typeEntite = typeEntiteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TypeEntite not found with id: " + id));
@@ -87,6 +93,7 @@ public class TypeEntiteService {
      * @throws ResourceNotFoundException if the type entity is not found
      */
     @Transactional
+    @CacheEvict(cacheNames = {"typeEntite:all", "typeEntite:byId"}, allEntries = true)
     public void deleteTypeEntite(Long id) {
         if (!typeEntiteRepository.existsById(id)) {
             throw new ResourceNotFoundException("TypeEntite not found with id: " + id);

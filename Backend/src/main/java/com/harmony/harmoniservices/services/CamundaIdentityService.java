@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.camunda.bpm.engine.IdentityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.List;
 import java.util.Map;
@@ -209,6 +210,7 @@ public class CamundaIdentityService {
      * @return L'ID Camunda correspondant, ou null si aucun mapping n'existe et createIfMissing est false
      */
     @Transactional
+    @Cacheable(cacheNames = "camundaIdMapping:byOriginalId", key = "#originalId")
     public String getCamundaId(String originalId, boolean createIfMissing) {
         if (originalId == null || originalId.isEmpty()) {
             System.out.println("getCamundaId called with null or empty originalId");

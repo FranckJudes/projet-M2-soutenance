@@ -7,6 +7,8 @@ import com.harmony.harmoniservices.models.Metadata;
 import com.harmony.harmoniservices.repository.MetadataRepository;
 import com.harmony.harmoniservices.requests.MetadataRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ public class MetadataService {
      * Get all Metadata entities
      * @return list of MetadataDto
      */
+    @Cacheable(cacheNames = "metadata:all")
     public List<MetadataDto> getAllMetadata() {
         return metadataRepository.findAll().stream()
                 .map(MetadataMapper::toDto)
@@ -38,6 +41,7 @@ public class MetadataService {
      * @return the MetadataDto
      * @throws ResourceNotFoundException if the Metadata is not found
      */
+    @Cacheable(cacheNames = "metadata:byId", key = "#id")
     public MetadataDto getMetadataById(Long id) {
         Metadata metadata = metadataRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Metadata", "id", id));
@@ -50,6 +54,7 @@ public class MetadataService {
      * @return the created MetadataDto
      */
     @Transactional
+    @CacheEvict(cacheNames = {"metadata:all", "metadata:byId"}, allEntries = true)
     public MetadataDto createMetadata(MetadataRequest request) {
         Metadata metadata = MetadataMapper.toEntity(request);
         Metadata savedMetadata = metadataRepository.save(metadata);
@@ -64,6 +69,7 @@ public class MetadataService {
      * @throws ResourceNotFoundException if the Metadata is not found
      */
     @Transactional
+    @CacheEvict(cacheNames = {"metadata:all", "metadata:byId"}, allEntries = true)
     public MetadataDto updateMetadata(Long id, MetadataRequest request) {
         Metadata metadata = metadataRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Metadata", "id", id));
@@ -79,6 +85,7 @@ public class MetadataService {
      * @throws ResourceNotFoundException if the Metadata is not found
      */
     @Transactional
+    @CacheEvict(cacheNames = {"metadata:all", "metadata:byId"}, allEntries = true)
     public void deleteMetadata(Long id) {
         if (!metadataRepository.existsById(id)) {
             throw new ResourceNotFoundException("Metadata", "id", id);

@@ -7,6 +7,8 @@ import com.harmony.harmoniservices.repository.DocumentTypeRepository;
 import com.harmony.harmoniservices.requests.DocumentTypeRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class DocumentTypeService {
      * Obtenir tous les types de documents actifs
      * @return liste des types de documents actifs
      */
+    @Cacheable(cacheNames = "documentTypes:active")
     public List<DocumentTypeDto> getAllActiveDocumentTypes() {
         log.info("Récupération de tous les types de documents actifs");
         List<DocumentType> documentTypes = documentTypeRepository.findAllActiveOrderBySortOrder();
@@ -37,6 +40,7 @@ public class DocumentTypeService {
      * Obtenir tous les types de documents (actifs et inactifs)
      * @return liste de tous les types de documents
      */
+    @Cacheable(cacheNames = "documentTypes:all")
     public List<DocumentTypeDto> getAllDocumentTypes() {
         log.info("Récupération de tous les types de documents");
         List<DocumentType> documentTypes = documentTypeRepository.findAllOrderBySortOrder();
@@ -49,6 +53,7 @@ public class DocumentTypeService {
      * @return le type de document trouvé
      * @throws RuntimeException si le type de document n'est pas trouvé
      */
+    @Cacheable(cacheNames = "documentType:byId", key = "#id")
     public DocumentTypeDto getDocumentTypeById(Long id) {
         log.info("Récupération du type de document avec l'ID : {}", id);
         DocumentType documentType = documentTypeRepository.findById(id)
@@ -62,6 +67,7 @@ public class DocumentTypeService {
      * @return le type de document trouvé
      * @throws RuntimeException si le type de document n'est pas trouvé
      */
+    @Cacheable(cacheNames = "documentType:byCode", key = "#code")
     public DocumentTypeDto getDocumentTypeByCode(String code) {
         log.info("Récupération du type de document avec le code : {}", code);
         DocumentType documentType = documentTypeRepository.findByCode(code.toUpperCase())
@@ -76,6 +82,7 @@ public class DocumentTypeService {
      * @throws RuntimeException si le code ou le nom existe déjà
      */
     @Transactional
+    @CacheEvict(cacheNames = {"documentTypes:active", "documentTypes:all", "documentType:byId", "documentType:byCode"}, allEntries = true)
     public DocumentTypeDto createDocumentType(DocumentTypeRequest request) {
         log.info("Création d'un nouveau type de document : {}", request.getName());
 
@@ -111,6 +118,7 @@ public class DocumentTypeService {
      * @throws RuntimeException si le type de document n'est pas trouvé ou si le code/nom existe déjà
      */
     @Transactional
+    @CacheEvict(cacheNames = {"documentTypes:active", "documentTypes:all", "documentType:byId", "documentType:byCode"}, allEntries = true)
     public DocumentTypeDto updateDocumentType(Long id, DocumentTypeRequest request) {
         log.info("Mise à jour du type de document avec l'ID : {}", id);
 
@@ -141,6 +149,7 @@ public class DocumentTypeService {
      * @throws RuntimeException si le type de document n'est pas trouvé
      */
     @Transactional
+    @CacheEvict(cacheNames = {"documentTypes:active", "documentTypes:all", "documentType:byId", "documentType:byCode"}, allEntries = true)
     public void deleteDocumentType(Long id) {
         log.info("Suppression du type de document avec l'ID : {}", id);
 
@@ -159,6 +168,7 @@ public class DocumentTypeService {
      * @return le type de document mis à jour
      */
     @Transactional
+    @CacheEvict(cacheNames = {"documentTypes:active", "documentTypes:all", "documentType:byId", "documentType:byCode"}, allEntries = true)
     public DocumentTypeDto toggleDocumentTypeStatus(Long id, Boolean isActive) {
         log.info("Changement du statut du type de document avec l'ID : {} vers {}", id, isActive);
 
@@ -177,6 +187,7 @@ public class DocumentTypeService {
      * @param searchTerm le terme de recherche
      * @return liste des types de documents correspondants
      */
+    @Cacheable(cacheNames = "documentTypes:search", key = "#searchTerm")
     public List<DocumentTypeDto> searchDocumentTypes(String searchTerm) {
         log.info("Recherche de types de documents avec le terme : {}", searchTerm);
         List<DocumentType> documentTypes = documentTypeRepository.searchByNameOrDescription(searchTerm);
@@ -188,6 +199,7 @@ public class DocumentTypeService {
      * @param extension l'extension de fichier
      * @return liste des types de documents correspondants
      */
+    @Cacheable(cacheNames = "documentTypes:byExtension", key = "#extension")
     public List<DocumentTypeDto> getDocumentTypesByFileExtension(String extension) {
         log.info("Récupération des types de documents pour l'extension : {}", extension);
         List<DocumentType> documentTypes = documentTypeRepository.findByFileExtension(extension);
@@ -198,6 +210,7 @@ public class DocumentTypeService {
      * Obtenir des types de documents simplifiés pour les sélections
      * @return liste des types de documents simplifiés
      */
+    @Cacheable(cacheNames = "documentTypes:simple")
     public List<DocumentTypeDto> getSimpleDocumentTypes() {
         log.info("Récupération des types de documents simplifiés pour sélection");
         List<DocumentType> documentTypes = documentTypeRepository.findAllActiveOrderBySortOrder();
@@ -208,6 +221,7 @@ public class DocumentTypeService {
      * Initialiser les types de documents par défaut si aucun n'existe
      */
     @Transactional
+    @CacheEvict(cacheNames = {"documentTypes:active", "documentTypes:all", "documentTypes:simple", "documentTypes:search", "documentTypes:byExtension", "documentType:byId", "documentType:byCode"}, allEntries = true)
     public void initializeDefaultDocumentTypes() {
         if (documentTypeRepository.count() == 0) {
             log.info("Initialisation des types de documents par défaut");
